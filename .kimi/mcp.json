@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "RedInk": {
+      "type": "sse",
+      "url": "http://localhost:3011/sse"
+    },
+    "FeishuFileSender": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["/Users/suntom/work/test/larkbot/mcp_feishu_file_server.py"],
+      "env": []
+    }
+  }
+}

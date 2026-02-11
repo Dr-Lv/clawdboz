@@ -1,0 +1,38 @@
+# 日志文件
+*.log
+bot_*.log
+feishu_api.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# 虚拟环境
+venv/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# 临时文件
+*.tmp
+*.bak
+
+# 运行时数据
+WORKPLACE/user_images/
+WORKPLACE/user_files/
+WORKPLACE/mcp_context.json
+
+# Skills 生成的临时文件
+.kimi/skills/*/assets/post_*/
+.kimi/skills/*/storage_state.json

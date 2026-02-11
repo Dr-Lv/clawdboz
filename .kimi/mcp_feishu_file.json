@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "FeishuFileSender": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["/Users/suntom/work/test/larkbot/mcp_feishu_file_server.py"],
+      "env": {
+        "FEISHU_APP_ID": "cli_a90ded6b63f89cd6",
+        "FEISHU_APP_SECRET": "3WDKvIVUHPYVXbEVYjRgRg2wORBDb5z3"
+      }
+    }
+  }
+}
