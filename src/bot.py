@@ -41,10 +41,10 @@ class LarkBot:
         self._pending_file = {}  # 待处理的文件 {chat_id: file_path}
         # Bot 的 user_id（用于精确检测 @）
         self._bot_user_id = None
-        # 日志文件路径
-        self.log_file = os.path.join(os.path.dirname(__file__), 'bot_debug.log')
+        # 日志文件路径（使用 PROJECT_ROOT）
+        self.log_file = get_absolute_path(CONFIG.get('logs', {}).get('debug_log', 'logs/bot_debug.log'))
         # 飞书 API 调用日志
-        self.feishu_log_file = os.path.join(os.path.dirname(__file__), 'feishu_api.log')
+        self.feishu_log_file = get_absolute_path(CONFIG.get('logs', {}).get('feishu_api_log', 'logs/feishu_api.log'))
         # 清空旧日志
         with open(self.log_file, 'w') as f:
             f.write(f"=== Bot started at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
@@ -89,40 +89,140 @@ class LarkBot:
             f.flush()
 
     def _get_chat_history(self, chat_id: str, limit: int = 30) -> list:
-        """获取最近聊天记录"""
+        """获取最近聊天记录（最近7天内）"""
         try:
             from lark_oapi.api.im.v1 import ListMessageRequest
             
-            request = ListMessageRequest.builder() \
-                .container_id_type("chat") \
-                .container_id(chat_id) \
-                .page_size(limit) \
-                .build()
+            self._log(f"[DEBUG] 开始获取聊天记录: chat_id={chat_id}, limit={limit}")
             
-            response = self.client.im.v1.message.list(request)
+            # 计算7天前的时间戳（毫秒）用于过滤
+            import time
+            days_ago = int((time.time() - 7 * 24 * 60 * 60) * 1000)
             
-            if response.success():
+            # 请求消息列表 - 需要分页获取最新消息
+            # 注意：飞书 API 的 page_size 最大值为 50
+            # API 返回的消息是从旧到新，需要获取最后一页才能得到最新消息
+            all_items = []
+            page_token = None
+            max_pages = 10  # 最多获取10页，确保拿到最新消息
+            
+            for page in range(max_pages):
+                builder = ListMessageRequest.builder() \
+                    .container_id_type("chat") \
+                    .container_id(chat_id) \
+                    .page_size(50)
+                
+                if page_token:
+                    builder = builder.page_token(page_token)
+                
+                request = builder.build()
+                self._log(f"[DEBUG] 发送 ListMessageRequest (page {page + 1})...")
+                response = self.client.im.v1.message.list(request)
+                
+                if not response.success():
+                    self._log(f"[ERROR] 获取聊天记录失败: {response.code} - {response.msg}")
+                    break
+                
                 items = response.data.items if response.data else []
-                history = []
-                for item in reversed(items):  # 按时间顺序排列
-                    try:
-                        sender = item.sender.sender_id.user_id if item.sender and item.sender.sender_id else "unknown"
-                        content = json.loads(item.body.content) if item.body else {}
-                        text = content.get('text', '')
+                self._log(f"[DEBUG] API 返回 {len(items)} 条消息 (page {page + 1})")
+                
+                all_items.extend(items)
+                
+                # 检查是否有更多页
+                has_more = response.data.has_more if hasattr(response.data, 'has_more') else False
+                page_token = response.data.page_token if hasattr(response.data, 'page_token') else None
+                
+                if not has_more or not page_token:
+                    break
+            
+            self._log(f"[DEBUG] 总共获取 {len(all_items)} 条消息")
+            
+            items = all_items
+            
+            # 按时间戳降序排序（最新的在前）
+            items = sorted(items, key=lambda x: int(getattr(x, 'create_time', 0) or 0), reverse=True)
+            
+            # 过滤最近7天内的消息
+            recent_items = []
+            for item in items:
+                create_time = int(getattr(item, 'create_time', 0) or 0)
+                if create_time >= days_ago:
+                    recent_items.append(item)
+            
+            self._log(f"[DEBUG] 最近7天内的消息: {len(recent_items)} 条")
+            
+            # 获取足够多的消息来解析出有效的 limit 条
+            # 因为前面可能有 @标记/空消息，需要多取一些
+            fetch_limit = min(limit * 3, len(recent_items))
+            recent_items = recent_items[:fetch_limit]
+            
+            self._log(f"[DEBUG] 取最新 {len(recent_items)} 条消息进行解析")
+            
+            history = []
+            for idx, item in enumerate(recent_items):
+                try:
+                    # 获取 sender（使用 id 属性）
+                    sender = item.sender.id if item.sender and hasattr(item.sender, 'id') else "unknown"
+                    content = json.loads(item.body.content) if item.body else {}
+                    text = content.get('text', '')
+                    msg_type = getattr(item, 'msg_type', 'unknown')
+                    
+                    # 如果是卡片消息（interactive），尝试提取文本内容
+                    if not text and msg_type == 'interactive':
+                        elements = content.get('elements', [])
+                        texts = []
+                        has_image = False
+                        for element_list in elements:
+                            if isinstance(element_list, list):
+                                for elem in element_list:
+                                    if isinstance(elem, dict):
+                                        if elem.get('tag') == 'text':
+                                            texts.append(elem.get('text', ''))
+                                        elif elem.get('tag') == 'img':
+                                            has_image = True
+                        text = ''.join(texts)
+                        
+                        # 如果是图片卡片且只有占位文本，标记为[图片回复]
+                        if has_image and ('请升级至最新版本' in text or '查看内容' in text):
+                            text = "[图片/卡片回复]"
+                        
                         if text:
-                            history.append(f"{sender}: {text}")
-                    except:
+                            self._log(f"[DEBUG] 消息 {idx} 是卡片，提取文本: {text[:50]}...")
+                    
+                    # 跳过空文本
+                    if not text:
+                        self._log(f"[DEBUG] 消息 {idx} 文本为空，跳过 (type={msg_type})")
                         continue
-                return history
-            else:
-                self._log(f"[ERROR] 获取聊天记录失败: {response.code} - {response.msg}")
-                return []
+                    
+                    # 跳过纯 @ 标记（如 @_user_1）
+                    if text.strip() == '@_user_1' or text.strip().startswith('@_user_1'):
+                        self._log(f"[DEBUG] 消息 {idx} 是纯 @ 标记，跳过: {text}")
+                        continue
+                    
+                    # 如果消息太长（超过100字），截取最后100字
+                    if len(text) > 100:
+                        text = "..." + text[-100:]
+                    history.append(f"{sender}: {text}")
+                except Exception as e:
+                    self._log(f"[DEBUG] 处理消息 {idx} 出错: {e}")
+                    continue
+            
+            # 限制返回数量，并按时间正序排列（旧的在前面，方便上下文理解）
+            history = history[:limit]
+            history.reverse()
+            
+            self._log(f"[DEBUG] 成功解析 {len(history)} 条聊天记录（最近7天内最新的 {limit} 条）")
+            return history
         except Exception as e:
             self._log(f"[ERROR] 获取聊天记录异常: {e}")
+            import traceback
+            self._log(f"[ERROR] 异常详情: {traceback.format_exc()}")
             return []
 
     def on_message(self, data: lark.im.v1.P2ImMessageReceiveV1):
         """处理收到的消息（支持文本、图片、文件）"""
+        # 最开始的日志，确保任何消息进入都能被记录
+        print(f"[ON_MESSAGE] 收到消息事件")
         try:
             msg_content = data.event.message.content
             chat_id = data.event.message.chat_id
@@ -135,7 +235,9 @@ class LarkBot:
             
             # 基于 chat_id 格式辅助判断：oc_ 开头的通常是群聊
             # 注意：这不是 100% 可靠，但可以作为参考
+            # 飞书群聊 chat_id 可能以 'oc_' 或其他格式开头
             chat_id_looks_like_group = chat_id.startswith('oc_') if chat_id else False
+            self._log(f"[DEBUG] chat_id 格式检查: chat_id={chat_id}, 以'oc_'开头={chat_id.startswith('oc_') if chat_id else False}")
             
             # 如果没有 chat_type，尝试从消息结构判断
             if chat_type is None:
@@ -152,7 +254,7 @@ class LarkBot:
                 chat_type = 'group'
             
             self._log(f"[DEBUG] 收到消息, type: {msg_type}, chat_type={chat_type!r}({type(chat_type).__name__}), chat_id={chat_id}, message_id={message_id}")
-            self._log(f"[DEBUG] chat_id_looks_like_group={chat_id_looks_like_group}")
+            self._log(f"[DEBUG] chat_id_looks_like_group={chat_id_looks_like_group}, chat_id 前3字符='{chat_id[:3] if chat_id else 'N/A'}'")
             
             # 打印完整的消息内容用于调试
             try:
@@ -261,14 +363,14 @@ class LarkBot:
             
             self._log(f"[DEBUG] ✅ 需要回复消息 (is_group={is_group}, is_mentioned={is_mentioned}, chat_type={chat_type})")
 
-            # 更新 MCP 上下文文件，让 MCP Server 知道当前聊天的 chat_id
+            # 更新 MCP 上下文文件，让 MCP Server 知道当前聊天的 chat_id 和 chat_type
             try:
-                context_dir = os.path.join(os.path.dirname(__file__), 'WORKPLACE')
+                context_dir = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
                 os.makedirs(context_dir, exist_ok=True)
                 context_file = os.path.join(context_dir, 'mcp_context.json')
                 with open(context_file, 'w') as f:
-                    json.dump({'chat_id': chat_id, 'timestamp': time.time()}, f)
-                self._log(f"[DEBUG] 更新 MCP 上下文: chat_id={chat_id}")
+                    json.dump({'chat_id': chat_id, 'chat_type': chat_type, 'timestamp': time.time()}, f)
+                self._log(f"[DEBUG] 更新 MCP 上下文: chat_id={chat_id}, chat_type={chat_type}")
             except Exception as e:
                 self._log(f"[ERROR] 更新 MCP 上下文失败: {e}")
 
@@ -291,12 +393,28 @@ class LarkBot:
                 # 构建最终提示词
                 final_prompt = context_prompt + f"用户当前消息：{text}\n\n请基于上下文回复用户的消息。"
                 
+                # 日志打印发送给 ACP 的完整信息（群聊时）
+                self._log(f"[DEBUG] 检查日志打印条件: is_group={is_group}, chat_type={chat_type!r}")
+                if is_group:
+                    self._log(f"[DEBUG] ===== 发送给 ACP 的完整信息 =====")
+                    self._log(f"[DEBUG] 上下文长度: {len(context_prompt)} 字符")
+                    self._log(f"[DEBUG] 完整提示词:\n{final_prompt[:500]}{'...' if len(final_prompt) > 500 else ''}")
+                    self._log(f"[DEBUG] ===== 结束 =====")
+                else:
+                    self._log(f"[DEBUG] 不是群聊，跳过日志打印")
+                
                 # 检查是否有待处理的图片或文件
                 if chat_id in self._pending_image:
                     image_path = self._pending_image[chat_id]
                     if os.path.exists(image_path):
                         combined_prompt = f"{context_prompt}用户发送了一张图片，路径为: {image_path}\n\n用户对该图片的指令: {text}\n\n请根据用户的指令分析处理这张图片。"
                         self._log(f"[DEBUG] 将图片和消息一起发送给 Kimi: {image_path}, 消息: {text[:50]}...")
+                        # 日志打印发送给 ACP 的完整信息（群聊时）
+                        if is_group:
+                            self._log(f"[DEBUG] ===== 发送给 ACP 的完整信息（图片） =====")
+                            self._log(f"[DEBUG] 上下文长度: {len(context_prompt)} 字符")
+                            self._log(f"[DEBUG] 完整提示词:\n{combined_prompt[:500]}{'...' if len(combined_prompt) > 500 else ''}")
+                            self._log(f"[DEBUG] ===== 结束 =====")
                         self.executor.submit(self.run_msg_script_streaming, chat_id, combined_prompt)
                         del self._pending_image[chat_id]
                     else:
@@ -307,6 +425,12 @@ class LarkBot:
                     if os.path.exists(file_path):
                         combined_prompt = f"{context_prompt}用户发送了一个文件，路径为: {file_path}\n\n用户对该文件的指令: {text}\n\n请根据用户的指令分析处理这个文件。"
                         self._log(f"[DEBUG] 将文件和消息一起发送给 Kimi: {file_path}, 消息: {text[:50]}...")
+                        # 日志打印发送给 ACP 的完整信息（群聊时）
+                        if is_group:
+                            self._log(f"[DEBUG] ===== 发送给 ACP 的完整信息（文件） =====")
+                            self._log(f"[DEBUG] 上下文长度: {len(context_prompt)} 字符")
+                            self._log(f"[DEBUG] 完整提示词:\n{combined_prompt[:500]}{'...' if len(combined_prompt) > 500 else ''}")
+                            self._log(f"[DEBUG] ===== 结束 =====")
                         self.executor.submit(self.run_msg_script_streaming, chat_id, combined_prompt)
                         del self._pending_file[chat_id]
                     else:
@@ -346,6 +470,8 @@ class LarkBot:
                 self.acp_client = ACPClient(bot_ref=self)
 
             self._log(f"[DEBUG] 调用 ACP: {text[:50]}...")
+            self._log(f"[DEBUG] 传入 ACP 的完整提示词长度: {len(text)} 字符")
+            self._log(f"[DEBUG] 传入 ACP 的完整提示词前 1000 字:\n{text[:1000]}{'...' if len(text) > 1000 else ''}")
 
             # 先发送占位消息（卡片格式）
             initial_message_id = self.reply_text(chat_id, "⏳ 正在思考...", streaming=True)
@@ -360,11 +486,11 @@ class LarkBot:
             is_completed = [False]  # 是否已完成
             
             # 等待动画符号列表
-            waiting_symbols = ["◐", "◓", "◑", "◒"]
+            waiting_symbols = ["◐", "○", "◑", "●"]
             symbol_index = [0]
             
-            # 立即更新一次占位符，让用户知道已经开始处理
-            self.executor.submit(self.update_card, initial_message_id, "⏳ 正在思考...")
+            # 动画定时器
+            animation_timer = [None]
             
             def get_waiting_symbol():
                 """获取当前等待符号并更新索引"""
@@ -372,43 +498,47 @@ class LarkBot:
                 symbol_index[0] += 1
                 return symbol
             
-            def on_chunk(current_text):
-                """收到新的文本块时的回调 - 更新到飞书卡片"""
+            def update_animation():
+                """独立更新动画符号，每0.3秒执行一次"""
                 if is_completed[0]:
                     return
-                    
-                current_time = time.time()
                 
-                # 第一次更新立即执行，后续每 0.3 秒最多更新一次
-                if first_update[0]:
-                    first_update[0] = False
-                    time_elapsed = True
-                else:
-                    time_elapsed = current_time - last_update_time[0] >= 0.3
+                # 无条件更新动画符号（定时器本身就是每0.3秒触发）
+                current_text = last_content[0] if last_content[0] else "⏳ 正在思考..."
+                display_text = current_text + f"\n\n{get_waiting_symbol()} **生成中...**"
+                self.executor.submit(self.update_card, initial_message_id, display_text)
                 
-                content_changed = current_text != last_content[0]
+                # 安排下一次更新
+                if not is_completed[0]:
+                    animation_timer[0] = threading.Timer(0.3, update_animation)
+                    animation_timer[0].start()
+            
+            # 立即显示第一帧动画（不要等待定时器）
+            update_animation()
+            
+            def on_chunk(current_text):
+                """收到新的文本块时的回调 - 仅更新内容"""
+                if is_completed[0]:
+                    return
                 
-                if content_changed and time_elapsed:
-                    # 在内容末尾添加等待符号表示还在生成中
-                    display_text = current_text + f"\n\n{get_waiting_symbol()} **生成中...**"
-                    # 异步更新卡片，避免阻塞 ACP 接收
-                    self.executor.submit(self.update_card, initial_message_id, display_text)
+                # 仅更新内容（动画定时器会负责每0.3秒更新一次卡片）
+                if current_text != last_content[0]:
                     last_content[0] = current_text
-                    last_update_time[0] = current_time
             
             def on_chunk_final(final_text):
-                """最终回调 - 不带生成中字样"""
+                """最终回调 - 立即去掉动画"""
                 # 标记已完成，阻止 on_chunk 继续更新
                 is_completed[0] = True
                 
-                # 检查是否有工具刚完成，给用户3秒时间看到完成状态
-                has_completed_tools = "✅" in final_text and "🔧 **工具调用**" in final_text
-                if has_completed_tools:
-                    self._log(f"[DEBUG] 工具已完成，等待3秒让用户看到完成状态...")
-                    # 先更新一次显示工具完成状态（带生成中）
-                    display_text = final_text + f"\n\n{get_waiting_symbol()} **生成中...**"
-                    self._do_update_card_now(initial_message_id, display_text)
-                    time.sleep(3)  # 给用户3秒看到工具完成状态
+                # 停止动画定时器
+                if animation_timer[0]:
+                    try:
+                        animation_timer[0].cancel()
+                    except:
+                        pass
+                
+                # 等待一小段时间，确保线程池中的动画更新完成
+                time.sleep(0.1)
                 
                 # 标记消息为已完成（用于 _do_update_card 过滤）
                 with self._update_lock:
@@ -420,15 +550,12 @@ class LarkBot:
                         except:
                             pass
                         del self._update_timers[initial_message_id]
-                    # 清空待更新内容，防止旧更新覆盖
+                    # 清空待更新内容
                     self._pending_updates[initial_message_id] = ""
                 
-                # 等待一小段时间，确保正在执行的更新完成
-                time.sleep(0.3)
-                # 直接更新卡片，不添加生成中字样
-                self._do_update_card_now(initial_message_id, final_text)
-                # 再更新一次确保生效
+                # 等待一小段时间，确保已提交的动画更新完成
                 time.sleep(0.2)
+                # 立即更新卡片，去掉生成中字样
                 self._do_update_card_now(initial_message_id, final_text)
 
             # 调用 ACP（流式，超时 5 分钟）
@@ -447,30 +574,44 @@ class LarkBot:
             self._log(f"[ERROR] {error_msg}")
             self.reply_text(chat_id, error_msg, streaming=False)
 
-    def reply_text(self, chat_id, text, streaming=False):
-        """发送消息卡片（支持 Markdown 格式）"""
+    def reply_text(self, chat_id, text, streaming=False, use_card=True):
+        """发送消息（支持纯文本或卡片格式）
+        
+        Args:
+            chat_id: 聊天 ID
+            text: 消息内容
+            streaming: 是否是流式消息
+            use_card: 是否使用卡片格式（False 则发送纯文本）
+        """
         text_length = len(text)
 
-        # 构建新版消息卡片内容 (V2)
-        card_content = self._build_v2_card_content(text)
-        
         # 记录发送给飞书的消息
         self._log_feishu("SEND", {
             "type": "CREATE_MESSAGE",
             "chat_id": chat_id,
             "text_length": text_length,
             "text_preview": text[:200] if len(text) > 200 else text
-        }, f"streaming={streaming}")
+        }, f"streaming={streaming}, use_card={use_card}")
+        
+        if use_card:
+            # 构建新版消息卡片内容 (V2)
+            card_content = self._build_v2_card_content(text)
+            msg_type_str = "interactive"
+            content_str = json.dumps(card_content)
+        else:
+            # 发送纯文本
+            msg_type_str = "text"
+            content_str = json.dumps({"text": text})
         
         request = CreateMessageRequest.builder() \
             .receive_id_type("chat_id") \
             .request_body(CreateMessageRequestBody.builder()
                 .receive_id(chat_id)
-                .msg_type("interactive")
-                .content(json.dumps(card_content))
+                .msg_type(msg_type_str)
+                .content(content_str)
                 .build()) \
             .build()
-        msg_type = "card"
+        msg_type = "card" if use_card else "text"
 
         start_time = time.time()
         response = self.client.im.v1.message.create(request)
@@ -629,8 +770,8 @@ class LarkBot:
             if message_id in self._update_timers and self._update_timers[message_id].is_alive():
                 return
             
-            # 创建定时器，1秒后执行实际更新
-            timer = threading.Timer(1.0, self._do_update_card, args=[message_id])
+            # 创建定时器，0.3秒后执行实际更新（匹配动画频率）
+            timer = threading.Timer(0.3, self._do_update_card, args=[message_id])
             self._update_timers[message_id] = timer
             timer.start()
     
@@ -868,32 +1009,54 @@ class LarkBot:
             last_content = [""]
             first_update = [True]
             is_completed = [False]
-            waiting_symbols = ["◐", "◓", "◑", "◒"]
+            waiting_symbols = ["◐", "○", "◑", "●"]
             symbol_index = [0]
+            animation_timer = [None]
             
             def get_waiting_symbol():
                 symbol = waiting_symbols[symbol_index[0] % len(waiting_symbols)]
                 symbol_index[0] += 1
                 return symbol
             
+            def update_animation():
+                """独立更新动画符号，每0.3秒执行一次"""
+                if is_completed[0]:
+                    return
+                
+                # 无条件更新动画符号（定时器本身就是每0.3秒触发）
+                current_text = last_content[0] if last_content[0] else "⏳ 正在思考..."
+                display_text = current_text + f"\n\n{get_waiting_symbol()} **生成中...**"
+                self.executor.submit(self.update_card, initial_message_id, display_text)
+                
+                if not is_completed[0]:
+                    animation_timer[0] = threading.Timer(0.3, update_animation)
+                    animation_timer[0].start()
+            
+            # 立即显示第一帧动画（不要等待定时器）
+            update_animation()
+            
             def on_chunk(current_text):
                 if is_completed[0]:
                     return
-                current_time = time.time()
-                if first_update[0]:
-                    first_update[0] = False
-                    time_elapsed = True
-                else:
-                    time_elapsed = current_time - last_update_time[0] >= 0.3
                 
-                if current_text != last_content[0] and time_elapsed:
-                    display_text = current_text + f"\n\n{get_waiting_symbol()} **生成中...**"
-                    self.executor.submit(self.update_card, initial_message_id, display_text)
+                # 仅更新内容（动画定时器会负责每0.3秒更新一次卡片）
+                if current_text != last_content[0]:
                     last_content[0] = current_text
-                    last_update_time[0] = current_time
             
             def on_chunk_final(final_text):
+                """最终回调 - 立即去掉动画"""
                 is_completed[0] = True
+                
+                # 停止动画定时器
+                if animation_timer[0]:
+                    try:
+                        animation_timer[0].cancel()
+                    except:
+                        pass
+                
+                # 等待一小段时间，确保线程池中的动画更新完成
+                time.sleep(0.1)
+                
                 with self._update_lock:
                     self._completed_messages.add(initial_message_id)
                     if initial_message_id in self._update_timers:
@@ -903,9 +1066,10 @@ class LarkBot:
                             pass
                         del self._update_timers[initial_message_id]
                     self._pending_updates[initial_message_id] = ""
-                time.sleep(0.3)
-                self._do_update_card_now(initial_message_id, final_text)
+                
+                # 等待一小段时间，确保已提交的动画更新完成
                 time.sleep(0.2)
+                # 立即更新卡片，去掉生成中字样
                 self._do_update_card_now(initial_message_id, final_text)
 
             response = self.acp_client.chat(prompt, on_chunk=on_chunk, timeout=300)

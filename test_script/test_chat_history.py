@@ -1,143 +1,78 @@
 #!/usr/bin/env python3
 """测试群聊历史记录获取功能"""
+
 import sys
-sys.path.insert(0, '/project/larkbot')
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import lark_oapi as lark
-from lark_oapi.api.im.v1 import ListMessageRequest
-import json
+from src.config import CONFIG, get_absolute_path
+from src.bot import LarkBot
 
-# Bot 配置
-APP_ID = 'cli_a907c9018f7a9cc5'
-APP_SECRET = '5VDY7pUnBmQpT1MOiVjQEgRYXjhjdCA7'
-# 测试群聊 ID
-CHAT_ID = 'oc_61431bd420df419e4282bce9e84bfeb2'
-
-def test_get_chat_history():
+def test_chat_history():
     """测试获取群聊历史记录"""
+    app_id = CONFIG.get('feishu', {}).get('app_id')
+    app_secret = CONFIG.get('feishu', {}).get('app_secret')
     
-    # 创建客户端
-    client = lark.Client.builder() \
-        .app_id(APP_ID) \
-        .app_secret(APP_SECRET) \
-        .log_level(lark.LogLevel.INFO) \
+    if not app_id or not app_secret:
+        print("❌ 错误: 未配置飞书 app_id 或 app_secret")
+        return
+    
+    print(f"✓ 飞书配置: app_id={app_id[:8]}...")
+    
+    # 创建 Bot 实例
+    print("\n正在初始化 Bot...")
+    bot = LarkBot(app_id, app_secret)
+    print("✓ Bot 初始化成功")
+    
+    # 测试用的群聊 ID (从日志中获取的)
+    test_chat_id = "oc_61431bd420df419e4282bce9e84bfeb2"
+    
+    print(f"\n测试获取群聊历史记录（最近7天，最近5条）...")
+    print(f"Chat ID: {test_chat_id}")
+    
+    # 调用获取历史记录的方法（limit=5）
+    history = bot._get_chat_history(test_chat_id, limit=5)
+    
+    # 也测试直接获取原始消息
+    print(f"\n--- 测试直接获取原始消息（不过滤时间）---")
+    from lark_oapi.api.im.v1 import ListMessageRequest
+    request = ListMessageRequest.builder() \
+        .container_id_type("chat") \
+        .container_id(test_chat_id) \
+        .page_size(50) \
         .build()
+    response = bot.client.im.v1.message.list(request)
+    if response.success() and response.data and response.data.items:
+        items = response.data.items
+        print(f"API 返回 {len(items)} 条原始消息")
+        print("\n最近10条消息:")
+        print("-" * 60)
+        for i, item in enumerate(items[:10], 1):
+            try:
+                import json
+                content = json.loads(item.body.content) if item.body else {}
+                text = content.get('text', '')[:50]
+                create_time = int(getattr(item, 'create_time', 0) or 0)
+                from datetime import datetime
+                dt = datetime.fromtimestamp(create_time / 1000)
+                print(f"{i}. [{dt}] {text}...")
+            except:
+                print(f"{i}. [无法解析]")
     
-    print(f"=== 测试获取群聊历史记录 ===")
-    print(f"群聊 ID: {CHAT_ID}")
-    print()
+    print(f"\n✓ 获取到 {len(history)} 条聊天记录:")
+    print("-" * 60)
+    for i, msg in enumerate(history[-5:], 1):  # 只显示最后5条
+        print(f"{i}. {msg[:80]}..." if len(msg) > 80 else f"{i}. {msg}")
     
-    try:
-        # 构建请求
-        request = ListMessageRequest.builder() \
-            .container_id_type("chat") \
-            .container_id(CHAT_ID) \
-            .page_size(50) \
-            .build()
-        
-        print("发送 API 请求...")
-        response = client.im.v1.message.list(request)
-        
-        if response.success():
-            items = response.data.items if response.data else []
-            print(f"✅ API 调用成功，返回 {len(items)} 条消息\n")
-            
-            print("=" * 60)
-            print("原始消息列表（按 API 返回顺序，最新的在前）：")
-            print("=" * 60)
-            
-            for i, item in enumerate(items):
-                print(f"\n--- 消息 {i+1} ---")
-                print(f"  message_id: {getattr(item, 'message_id', 'N/A')}")
-                print(f"  msg_type: {getattr(item, 'msg_type', 'N/A')}")
-                print(f"  create_time: {getattr(item, 'create_time', 'N/A')}")
-                print(f"  update_time: {getattr(item, 'update_time', 'N/A')}")
-                
-                # 获取 sender 信息
-                sender_info = "unknown"
-                if hasattr(item, 'sender') and item.sender:
-                    sender = item.sender
-                    print(f"  sender 类型: {type(sender)}")
-                    print(f"  sender 属性: {dir(sender)}")
-                    
-                    # 尝试获取 sender_id
-                    sender_id_obj = getattr(sender, 'sender_id', None) or getattr(sender, 'id', None)
-                    if sender_id_obj:
-                        print(f"  sender_id 类型: {type(sender_id_obj)}")
-                        print(f"  sender_id 属性: {dir(sender_id_obj)}")
-                        
-                        # 尝试获取 user_id 或 open_id
-                        user_id = getattr(sender_id_obj, 'user_id', None)
-                        open_id = getattr(sender_id_obj, 'open_id', None)
-                        sender_info = user_id or open_id or str(sender_id_obj)
-                
-                print(f"  sender: {sender_info}")
-                
-                # 获取消息内容
-                if hasattr(item, 'body') and item.body:
-                    body_content = getattr(item.body, 'content', None)
-                    print(f"  body.content: {body_content}")
-                    
-                    # 尝试解析 JSON
-                    try:
-                        content_dict = json.loads(body_content) if body_content else {}
-                        text = content_dict.get('text', '')
-                        print(f"  解析后的 text: {text[:100] if text else '(empty)'}")
-                    except Exception as e:
-                        print(f"  解析 JSON 失败: {e}")
-                else:
-                    print(f"  body: None")
-            
-            print("\n" + "=" * 60)
-            print("处理后的聊天记录（最新的 10 条，按时间顺序）：")
-            print("=" * 60)
-            
-            history = []
-            skipped = 0
-            recent_items = items[:10]  # 最新的 10 条
-            
-            for item in reversed(recent_items):  # 反转回时间顺序
-                try:
-                    # 获取 sender
-                    sender = "unknown"
-                    if hasattr(item, 'sender') and item.sender:
-                        sender_id_obj = getattr(item.sender, 'sender_id', None) or getattr(item.sender, 'id', None)
-                        if sender_id_obj:
-                            user_id = getattr(sender_id_obj, 'user_id', None)
-                            open_id = getattr(sender_id_obj, 'open_id', None)
-                            sender = user_id or open_id or str(sender_id_obj)[:20]
-                    
-                    # 获取内容
-                    if not item.body:
-                        skipped += 1
-                        continue
-                    
-                    body_content = getattr(item.body, 'content', '{}')
-                    content_dict = json.loads(body_content)
-                    text = content_dict.get('text', '')
-                    
-                    if text:
-                        history.append(f"{sender}: {text[:100]}")
-                    else:
-                        skipped += 1
-                        
-                except Exception as e:
-                    skipped += 1
-                    continue
-            
-            for msg in history:
-                print(f"  {msg}")
-            
-            print(f"\n统计: 成功={len(history)}, 跳过={skipped}")
-            
-        else:
-            print(f"❌ API 调用失败: {response.code} - {response.msg}")
-            print(f"响应详情: {response}")
-            
-    except Exception as e:
-        print(f"❌ 异常: {e}")
-        import traceback
-        traceback.print_exc()
+    if len(history) > 5:
+        print(f"... 还有 {len(history) - 5} 条消息")
+    
+    print("-" * 60)
+    
+    if history:
+        print("\n✅ 测试成功！群聊记录获取正常")
+    else:
+        print("\n⚠️  获取到 0 条记录，请检查 Bot 是否在群聊中以及是否有发送权限")
 
 if __name__ == "__main__":
-    test_get_chat_history()
+    test_chat_history()

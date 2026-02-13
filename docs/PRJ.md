@@ -282,3 +282,43 @@ ENABLE_FEISHU_NOTIFY=false ./bot_manager.sh check
 # 使用自定义 API Key
 QVERIS_API_KEY="your-key" ./bot_manager.sh start
 ```
+
+## 更新记录
+
+### 2026-02-13 - 修复群聊记录获取问题
+
+**问题**: 每次重启 Bot 后，在群聊中 @Bot 无法获取群聊历史记录
+
+**根本原因**:
+1. `page_size` 参数最大值是 **50**，代码设置为 **100** 导致 `field validation failed` 错误
+2. 飞书 API 消息列表是分页的，`has_more: True` 表示有更多页，代码只获取了第一页（最旧的消息）
+3. API 返回的消息中混有 `@_user_1`（@Bot 的标记）和空消息（interactive 卡片）
+4. "最近1天"的时间范围太短
+
+**修复内容** (`src/bot.py`):
+1. 将 `page_size` 从 100 改为 50
+2. 添加分页逻辑，获取所有页面（最多5页）来拿到最新消息
+3. 添加过滤逻辑，跳过 `@_user_1` 和空消息
+4. 扩展时间范围为最近7天
+
+```python
+# 修复前 - 只获取第一页
+request = ListMessageRequest.builder() \
+    .container_id_type("chat") \
+    .container_id(chat_id) \
+    .page_size(50) \
+    .build()
+
+# 修复后 - 分页获取所有消息
+all_items = []
+page_token = None
+for page in range(5):
+    builder = ListMessageRequest.builder() \
+        .container_id_type("chat") \
+        .container_id(chat_id) \
+        .page_size(50)
+    if page_token:
+        builder = builder.page_token(page_token)
+    request = builder.build()
+    # ... 处理分页
+```
