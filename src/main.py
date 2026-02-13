@@ -2,8 +2,23 @@
 """Bot 入口模块 - 启动飞书 Bot"""
 import sys
 import time
+import ssl
+
+# 禁用 SSL 证书验证（解决自签名证书问题）
+ssl._create_default_https_context = ssl._create_unverified_context
 
 import lark_oapi as lark
+
+# Monkey-patch websockets.connect 来禁用 SSL 验证
+import websockets
+_original_connect = websockets.connect
+
+async def _patched_connect(uri, **kwargs):
+    # 禁用 SSL 验证
+    kwargs['ssl'] = ssl._create_unverified_context()
+    return await _original_connect(uri, **kwargs)
+
+websockets.connect = _patched_connect
 
 from .config import CONFIG
 from .bot import LarkBot
@@ -40,7 +55,11 @@ def main():
         sys.exit(0)
 
     # 创建事件处理器
-    event_handler = lark.EventDispatcherHandler.builder("", "") \
+    # 从配置文件读取验证 Token 和 Encrypt Key（如果配置了的话）
+    verification_token = CONFIG.get('feishu', {}).get('verification_token', '')
+    encrypt_key = CONFIG.get('feishu', {}).get('encrypt_key', '')
+    
+    event_handler = lark.EventDispatcherHandler.builder(verification_token, encrypt_key) \
         .register_p2_im_message_receive_v1(bot.on_message) \
         .register_p2_card_action_trigger(do_card_action_trigger) \
         .register_p2_url_preview_get(do_url_preview_get) \
