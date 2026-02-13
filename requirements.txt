@@ -1,0 +1,11 @@
+# 飞书 Bot SDK
+lark-oapi>=1.5.0
+
+# HTTP 请求
+requests>=2.28.0
+
+# 以下为 lark-oapi 的依赖（会自动安装）：
+# httpx
+# pycryptodome
+# requests-toolbelt
+# websockets

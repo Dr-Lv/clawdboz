@@ -29,9 +29,7 @@ venv/
 *.bak
 
 # 运行时数据
-WORKPLACE/user_images/
-WORKPLACE/user_files/
-WORKPLACE/mcp_context.json
+WORKPLACE/*
 
 # Skills 生成的临时文件
 .kimi/skills/*/assets/post_*/
