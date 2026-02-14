@@ -54,15 +54,16 @@ class ACPClient:
         # 加载项目目录下的 skills
         skills = self._load_skills()
         
-        # 创建新会话
+        # 创建新会话，使用 WORKPLACE 作为工作目录
+        workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
         session_params = {
-            'cwd': PROJECT_ROOT,
+            'cwd': workplace_path,
             'mcpServers': mcp_servers
         }
         if skills:
             session_params['skills'] = skills
             
-        self._log(f"[ACP] 创建会话，cwd: {PROJECT_ROOT}, MCP服务器: {[s.get('name') for s in mcp_servers]}, Skills: {len(skills)}")
+        self._log(f"[ACP] 创建会话，cwd: {workplace_path}, MCP服务器: {[s.get('name') for s in mcp_servers]}, Skills: {len(skills)}")
         result, error = self.call_method('session/new', session_params)
         if error:
             raise Exception(f"创建会话失败: {error}")
@@ -106,6 +107,13 @@ class ACPClient:
                     server_info['headers'] = headers_list
                 elif 'headers' not in server_info:
                     server_info['headers'] = []
+                
+                # 确保 env 是列表 (用于 stdio 类型)
+                if 'env' in server_info and isinstance(server_info['env'], dict):
+                    env_list = []
+                    for key, value in server_info['env'].items():
+                        env_list.append({'name': key, 'value': value})
+                    server_info['env'] = env_list
                 mcp_servers.append(server_info)
             self._log(f"[ACP] 加载 MCP 配置成功，服务器数量: {len(mcp_servers)}")
             return mcp_servers

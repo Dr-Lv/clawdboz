@@ -13,8 +13,10 @@ import requests
 from typing import Optional, Tuple
 
 # 导入 src 中的配置模块
-import sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 添加项目根目录到路径
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)  # feishu_tools/ 的父目录是项目根目录
+sys.path.insert(0, project_root)
 from src.config import PROJECT_ROOT, CONFIG, get_absolute_path
 
 # 上下文文件路径，存储当前聊天的 chat_id
