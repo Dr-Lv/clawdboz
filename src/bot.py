@@ -486,7 +486,7 @@ class LarkBot:
             is_completed = [False]  # 是否已完成
             
             # 等待动画符号列表
-            waiting_symbols = ["◐", "○", "◑", "●"]
+            waiting_symbols = ["◐", "◯", "◑", "●"]
             symbol_index = [0]
             
             # 动画定时器
