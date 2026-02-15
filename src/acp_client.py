@@ -194,34 +194,40 @@ class ACPClient:
                             content = update.get('content', {})
                             if content.get('type') == 'text':
                                 text = content.get('text', '')
-                                self._log(f"[ACP RAW] 消息 chunk: {repr(text)}")
-                                print(f"[ACP] 消息: {text[:100]}...")
+                                # 流式输出日志已禁用（减少日志噪声）
+                                # self._log(f"[ACP RAW] 消息 chunk: {repr(text)}")
+                                # print(f"[ACP] 消息: {text[:100]}...")
 
                         elif update_type == 'thinking' or update_type == 'agent_thought_chunk':
                             # 思考内容
                             content = update.get('content', {})
                             if content.get('type') == 'text':
                                 text = content.get('text', '')
-                                self._log(f"[ACP RAW] 思考 chunk: {repr(text)}")
-                                print(f"[ACP] 思考: {text[:100]}...")
+                                # 流式输出日志已禁用（减少日志噪声）
+                                # self._log(f"[ACP RAW] 思考 chunk: {repr(text)}")
+                                # print(f"[ACP] 思考: {text[:100]}...")
 
                         elif update_type == 'tool_call':
                             # 工具调用开始
                             tool_call_id = update.get('toolCallId', '')
                             title = update.get('title', 'Unknown Tool')
-                            print(f"[ACP] 工具调用: {title} ({tool_call_id})")
+                            # 流式输出日志已禁用（减少日志噪声）
+                            # print(f"[ACP] 工具调用: {title} ({tool_call_id})")
 
                         elif update_type == 'tool_call_update':
                             # 工具调用状态更新
                             tool_call_id = update.get('toolCallId', '')
                             status = update.get('status', '')
-                            print(f"[ACP] 工具状态: {tool_call_id} -> {status}")
+                            # 流式输出日志已禁用（减少日志噪声）
+                            # print(f"[ACP] 工具状态: {tool_call_id} -> {status}")
 
                             # 如果工具完成，提取结果内容
                             if status == 'completed' or status == 'failed':
                                 content = update.get('content', [])
                                 if content:
-                                    print(f"[ACP] 工具结果: {content[:200] if len(str(content)) > 200 else content}...")
+                                    # 流式输出日志已禁用（减少日志噪声）
+                                    # print(f"[ACP] 工具结果: {content[:200] if len(str(content)) > 200 else content}...")
+                                    pass
 
                     continue
 
@@ -299,7 +305,8 @@ class ACPClient:
         try:
             self.process.stdin.write(json.dumps(request) + '\n')
             self.process.stdin.flush()
-            self._log(f"[CHAT] 发送 prompt: {msg_id[:8]}...")
+            # 流式日志已禁用
+            # self._log(f"[CHAT] 发送 prompt: {msg_id[:8]}...")
         except Exception as e:
             return f"发送请求失败: {str(e)}"
 
@@ -318,10 +325,12 @@ class ACPClient:
                 if result is None and msg_id in self.response_map:
                     result = self.response_map.pop(msg_id)
                     if 'error' in result:
+                        # 错误日志保留
                         self._log(f"[CHAT] 收到错误响应: {result['error']}")
                         return f"错误: {result['error']}"
                     result = result.get('result')
-                    self._log(f"[CHAT] 收到 prompt 响应")
+                    # 流式日志已禁用
+                    # self._log(f"[CHAT] 收到 prompt 响应")
                 
                 # 只获取未处理的通知
                 current_count = len(self.notifications)
@@ -331,8 +340,9 @@ class ACPClient:
                         new_notifications.append(self.notifications[idx])
                         processed_notifications.add(idx)
             
-            if unprocessed_count > 0:
-                self._log(f"[CHAT] 获取 {unprocessed_count} 个新通知")
+            # 流式日志已禁用
+            # if unprocessed_count > 0:
+            #     self._log(f"[CHAT] 获取 {unprocessed_count} 个新通知")
             
             # 在锁外处理通知（不阻塞 _read_responses）
             # 分批处理，每批最多10个通知，每批处理后回调
@@ -365,7 +375,8 @@ class ACPClient:
                             'start_time': time.time()  # 记录工具开始时间
                         }
                         last_chunk_time = time.time()
-                        self._log(f"[CHAT] 工具调用开始: {title} ({tool_call_id[:8]}...)")
+                        # 流式日志已禁用
+                        # self._log(f"[CHAT] 工具调用开始: {title} ({tool_call_id[:8]}...)")
 
                     elif update_type == 'tool_call_update':
                         tool_call_id = update.get('toolCallId', '')
@@ -381,7 +392,9 @@ class ACPClient:
                                 collected_tools[tool_call_id]['complete_time'] = time.time()
                             # 只在状态变化时记录
                             if old_status != status:
-                                self._log(f"[CHAT] 工具状态变化: {tool_call_id[:8]}... {old_status} -> {status}")
+                                # 流式日志已禁用
+                                # self._log(f"[CHAT] 工具状态变化: {tool_call_id[:8]}... {old_status} -> {status}")
+                                pass
                         last_chunk_time = time.time()
 
                     elif update_type == 'agent_message_chunk':
@@ -427,7 +440,8 @@ class ACPClient:
                     
                     # 只有内容变化时才回调
                     if callback_data != last_callback_text:
-                        self._log(f"[CHAT] 触发 on_chunk, 内容长度: {len(callback_data)}")
+                        # 流式日志已禁用
+                        # self._log(f"[CHAT] 触发 on_chunk, 内容长度: {len(callback_data)}")
                         on_chunk(callback_data)
                         last_callback_text = callback_data
 
@@ -444,10 +458,13 @@ class ACPClient:
                 if stop_reason:
                     # 如果还有工具在运行，继续等待，不要退出
                     if has_in_progress_tool:
-                        self._log(f"[CHAT] 收到 stopReason: {stop_reason}，但工具仍在运行，继续等待...")
+                        # 流式日志已禁用
+                        # self._log(f"[CHAT] 收到 stopReason: {stop_reason}，但工具仍在运行，继续等待...")
+                        pass
                     # 如果收到了 stopReason 且没有工具在运行，等待3秒确保收集完所有通知
                     elif time.time() - last_chunk_time > 3:  # 3秒
-                        self._log(f"[CHAT] 收到 stopReason: {stop_reason}，且工具已完成，退出")
+                        # 流式日志已禁用
+                        # self._log(f"[CHAT] 收到 stopReason: {stop_reason}，且工具已完成，退出")
                         break
             
             # 计算工具运行时间，以及最后一个工具完成的时间
@@ -471,7 +488,8 @@ class ACPClient:
             ):
                 if not hasattr(self, '_all_tools_completed_time'):
                     self._all_tools_completed_time = time.time()
-                    self._log(f"[CHAT] 所有工具已完成，开始缓冲期...")
+                    # 流式日志已禁用
+                    # self._log(f"[CHAT] 所有工具已完成，开始缓冲期...")
             else:
                 # 重置标记
                 if hasattr(self, '_all_tools_completed_time'):
@@ -490,7 +508,8 @@ class ACPClient:
             if (idle_time > TIMEOUT_5_MIN and not has_in_progress_tool and 
                 tools_completed_buffer > TIMEOUT_5_MIN and  # 所有工具完成后至少等5分钟
                 (collected_thinking or collected_tools or collected_messages)):
-                self._log(f"[CHAT] 5分钟无新内容，工具已完成{tools_completed_buffer:.1f}秒，准备退出...")
+                # 流式日志已禁用
+                # self._log(f"[CHAT] 5分钟无新内容，工具已完成{tools_completed_buffer:.1f}秒，准备退出...")
                 # 退出前等待一小段时间，确保所有通知都被处理
                 exit_wait_start = time.time()
                 while time.time() - exit_wait_start < 10:  # 最后确认等待10秒
@@ -501,24 +520,28 @@ class ACPClient:
                         unprocessed = current_count - len(processed_notifications)
                         if unprocessed > 0:
                             # 有新通知，重置等待时间
-                            self._log(f"[CHAT] 退出前发现 {unprocessed} 个新通知，继续处理")
+                            # 流式日志已禁用
+                            # self._log(f"[CHAT] 退出前发现 {unprocessed} 个新通知，继续处理")
                             break
                 else:
                     # 10秒内没有新通知，可以安全退出
-                    self._log(f"[CHAT] 确认无新内容，退出")
+                    # 流式日志已禁用
+                    # self._log(f"[CHAT] 确认无新内容，退出")
                     # 清理标记
                     if hasattr(self, '_all_tools_completed_time'):
                         delattr(self, '_all_tools_completed_time')
                     break
             elif has_in_progress_tool and tool_running_time > TIMEOUT_5_MIN:
                 # 有工具运行超过5分钟，提示超时
-                self._log(f"[CHAT] 工具运行超过5分钟，提示超时")
+                # 流式日志已禁用
+                # self._log(f"[CHAT] 工具运行超过5分钟，提示超时")
                 timeout_warning = "\n\n⚠️ **提示**：部分工具调用耗时过长（超过5分钟），可能已超时。如未收到完整结果，请重试。"
                 collected_messages.append(timeout_warning)
                 break
         
         # 退出前最后处理一次所有剩余通知
-        self._log(f"[CHAT] 最后处理剩余通知...")
+        # 流式日志已禁用
+        # self._log(f"[CHAT] 最后处理剩余通知...")
         with self._lock:
             current_count = len(self.notifications)
             if current_count > len(processed_notifications):
@@ -536,7 +559,8 @@ class ACPClient:
                         content = update.get('content', {})
                         if content.get('type') == 'text':
                             collected_messages.append(content.get('text', ''))
-                self._log(f"[CHAT] 最后处理了 {current_count - len(processed_notifications)} 个通知")
+                # 流式日志已禁用
+                # self._log(f"[CHAT] 最后处理了 {current_count - len(processed_notifications)} 个通知")
         
         # 组合最终回复
         thinking_text = ''.join(collected_thinking).strip()
@@ -565,7 +589,8 @@ class ACPClient:
             combined_parts.append(message_text)
 
         reply = '\n\n'.join(combined_parts)
-        self._log(f"[CHAT] 最终回复长度: {len(reply)}")
+        # 流式日志已禁用
+        # self._log(f"[CHAT] 最终回复长度: {len(reply)}")
         return reply if reply else "处理完成，无回复"
 
     def close(self):

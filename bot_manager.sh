@@ -50,6 +50,8 @@ KIMI_DIR="/root/.local/bin/"
 # 日志路径（从配置文件读取，基于项目根目录）
 LOG_FILE="$PROJECT_ROOT/$(get_config "['logs']['main_log']" || echo 'logs/main.log')"
 DEBUG_LOG="$PROJECT_ROOT/$(get_config "['logs']['debug_log']" || echo 'logs/bot_debug.log')"
+# WebSocket 连接日志在 bot_output.log
+BOT_OUTPUT_LOG="$PROJECT_ROOT/logs/bot_output.log"
 FEISHU_API_LOG="$PROJECT_ROOT/$(get_config "['logs']['feishu_api_log']" || echo 'logs/feishu_api.log')"
 OPS_LOG="$PROJECT_ROOT/$(get_config "['logs']['ops_log']" || echo 'logs/ops_check.log')"
 
@@ -178,7 +180,11 @@ start() {
         
         # 显示启动信息
         sleep 1
-        local ws_status=$(grep "connected to wss" "$LOG_FILE" 2>/dev/null | tail -1)
+        local ws_log_file="$BOT_OUTPUT_LOG"
+        if [ ! -f "$ws_log_file" ]; then
+            ws_log_file="$LOG_FILE"
+        fi
+        local ws_status=$(grep "connected to wss" "$ws_log_file" 2>/dev/null | tail -1)
         if [ -n "$ws_status" ]; then
             success "WebSocket 连接成功"
         else
@@ -256,8 +262,12 @@ status() {
         local cpu_mem=$(ps -o %cpu,%mem -p "$pid" | tail -1)
         info "CPU/内存: $cpu_mem"
         
-        # 检查 WebSocket 连接
-        if grep -q "connected to wss" "$LOG_FILE" 2>/dev/null; then
+        # 检查 WebSocket 连接（优先检查 bot_output.log）
+        local ws_log_file="$BOT_OUTPUT_LOG"
+        if [ ! -f "$ws_log_file" ]; then
+            ws_log_file="$LOG_FILE"
+        fi
+        if grep -q "connected to wss" "$ws_log_file" 2>/dev/null; then
             success "WebSocket 状态: 已连接"
         else
             warn "WebSocket 状态: 未连接或连接中"
@@ -313,8 +323,12 @@ test_bot_func() {
     
     success "$BOT_NAME 正在运行 (PID: $pid)"
     
-    # 检查 WebSocket 连接
-    if grep -q "connected to wss" "$LOG_FILE" 2>/dev/null; then
+    # 检查 WebSocket 连接（优先检查 bot_output.log）
+    local ws_log_file="$BOT_OUTPUT_LOG"
+    if [ ! -f "$ws_log_file" ]; then
+        ws_log_file="$LOG_FILE"
+    fi
+    if grep -q "connected to wss" "$ws_log_file" 2>/dev/null; then
         success "✓ WebSocket 连接正常"
     else
         error "✗ WebSocket 未连接"
@@ -547,8 +561,14 @@ check() {
     
     # 2. 检查 WebSocket 连接
     info "检查 WebSocket 连接..."
-    if [ -f "$LOG_FILE" ]; then
-        if grep -q "connected to wss" "$LOG_FILE" 2>/dev/null; then
+    # 优先检查 bot_output.log，如果不存在则检查 main.log
+    local ws_log_file="$BOT_OUTPUT_LOG"
+    if [ ! -f "$ws_log_file" ]; then
+        ws_log_file="$LOG_FILE"
+    fi
+    
+    if [ -f "$ws_log_file" ]; then
+        if grep -q "connected to wss" "$ws_log_file" 2>/dev/null; then
             success "✓ WebSocket 已连接"
             log_ops "INFO" "WebSocket 连接正常"
             check_results="${check_results}\n[OK] WebSocket: 已连接"
@@ -561,7 +581,7 @@ check() {
         fi
         
         # 检查是否有连接错误
-        local ws_errors=$(grep "WebSocket.*error\|wss.*error\|connection.*closed" "$LOG_FILE" 2>/dev/null | wc -l)
+        local ws_errors=$(grep "WebSocket.*error\|wss.*error\|connection.*closed" "$ws_log_file" 2>/dev/null | wc -l)
         if [ "$ws_errors" -gt 0 ]; then
             warn "⚠ 发现 $ws_errors 次 WebSocket 错误"
             has_error=1

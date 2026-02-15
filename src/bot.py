@@ -88,23 +88,151 @@ class LarkBot:
             f.write("-" * 80 + "\n")
             f.flush()
 
+    def _download_chat_image(self, message_id: str, image_key: str, chat_id: str) -> str:
+        """下载群聊中的图片并返回本地路径"""
+        try:
+            # 获取 tenant_access_token
+            tenant_token = self._get_tenant_access_token()
+            if not tenant_token:
+                self._log(f"[ERROR] 获取 tenant_access_token 失败，无法下载图片")
+                return None
+            
+            import requests
+            import urllib.parse
+            
+            # 方法1: 尝试从消息资源下载（适用于消息附件图片）
+            if message_id:
+                encoded_key = urllib.parse.quote(image_key, safe='')
+                url = f"https://open.feishu.cn/open-apis/im/v1/messages/{message_id}/resources/{encoded_key}?type=image"
+                headers = {"Authorization": f"Bearer {tenant_token}"}
+                
+                self._log(f"[DEBUG] 尝试从消息资源下载图片: {image_key[:30]}...")
+                resp = requests.get(url, headers=headers, timeout=30)
+                
+                if resp.status_code == 200:
+                    image_data = resp.content
+                    if image_data:
+                        return self._save_image_data(image_data, chat_id, image_key)
+                
+                self._log(f"[DEBUG] 消息资源下载失败({resp.status_code})，尝试图片 API...")
+            
+            # 方法2: 使用图片 API 下载（适用于卡片图片）
+            url = f"https://open.feishu.cn/open-apis/image/v4/get?image_key={urllib.parse.quote(image_key)}"
+            headers = {"Authorization": f"Bearer {tenant_token}"}
+            
+            self._log(f"[DEBUG] 尝试从图片 API 下载: {image_key[:30]}...")
+            resp = requests.get(url, headers=headers, timeout=30)
+            
+            if resp.status_code == 200:
+                try:
+                    result = resp.json()
+                    # 检查飞书 API 业务码
+                    if result.get('code') == 0 and 'data' in result and 'image' in result['data']:
+                        import base64
+                        image_data = base64.b64decode(result['data']['image'])
+                        return self._save_image_data(image_data, chat_id, image_key)
+                    else:
+                        # API 返回 200 但业务失败
+                        biz_code = result.get('code', 'unknown')
+                        biz_msg = result.get('msg', 'no message')
+                        self._log(f"[WARN] 图片 API 业务失败: code={biz_code}, msg={biz_msg}")
+                except Exception as e:
+                    self._log(f"[WARN] 解析图片 API 响应失败: {e}")
+            else:
+                self._log(f"[WARN] 图片 API HTTP 失败: status={resp.status_code}")
+            
+            # 图片下载失败，但这不是致命错误，返回 None 让调用方处理
+            self._log(f"[DEBUG] 图片无法下载 (可能无权限或图片已过期): {image_key[:30]}...")
+            return None
+            
+        except Exception as e:
+            self._log(f"[ERROR] 下载图片异常: {e}")
+            return None
+    
+    def _save_image_data(self, image_data: bytes, chat_id: str, image_key: str) -> str:
+        """保存图片数据到本地"""
+        try:
+            # 检查图片大小（限制 5MB）
+            if len(image_data) > 5 * 1024 * 1024:
+                self._log(f"[WARN] 图片太大 ({len(image_data)/1024/1024:.1f}MB)，跳过")
+                return None
+            
+            # 保存图片到 WORKPLACE 目录
+            workplace_dir = get_absolute_path('WORKPLACE/user_images')
+            os.makedirs(workplace_dir, exist_ok=True)
+            
+            # 生成唯一文件名
+            image_filename = f"chat_{chat_id}_{int(time.time())}_{image_key[:16]}.png"
+            image_path = os.path.join(workplace_dir, image_filename)
+            
+            with open(image_path, 'wb') as f:
+                f.write(image_data)
+            
+            self._log(f"[DEBUG] 图片已保存: {image_path}")
+            return image_path
+            
+        except Exception as e:
+            self._log(f"[ERROR] 保存图片异常: {e}")
+            return None
+    
+    def _find_local_image_by_key(self, image_key: str, chat_id: str) -> str:
+        """
+        根据 image_key 在本地查找图片。
+        
+        注意：Bot 发送的卡片消息会被飞书服务器渲染成预览图，这个渲染图的 image_key
+        无法通过 API 下载，且本地也没有保存（渲染是在飞书服务端进行的）。
+        这个方法主要用于查找用户上传后被 Bot 下载保存的图片。
+        """
+        try:
+            workplace_dir = get_absolute_path('WORKPLACE/user_images')
+            if not os.path.exists(workplace_dir):
+                return None
+            
+            # 提取 image_key 的关键部分
+            key_part = image_key.split('_')[-1] if '_' in image_key else image_key[:20]
+            
+            # 查找文件名包含 image_key 片段的图片
+            matching_files = []
+            for filename in os.listdir(workplace_dir):
+                if not filename.endswith(('.png', '.jpg', '.jpeg')):
+                    continue
+                
+                file_path = os.path.join(workplace_dir, filename)
+                
+                # 检查文件名是否包含 image_key 的关键部分
+                if key_part[:16] in filename or image_key[:16] in filename:
+                    mtime = os.path.getmtime(file_path)
+                    matching_files.append((file_path, mtime))
+            
+            if matching_files:
+                # 按修改时间排序，返回最新的匹配
+                matching_files.sort(key=lambda x: x[1], reverse=True)
+                latest_path = matching_files[0][0]
+                self._log(f"[DEBUG] 找到匹配的图片: {latest_path}")
+                return latest_path
+            
+            # 没有找到匹配的图片
+            self._log(f"[DEBUG] 未找到匹配 image_key {image_key[:30]}... 的本地图片")
+            return None
+            
+        except Exception as e:
+            self._log(f"[DEBUG] 查找本地图片失败: {e}")
+            return None
+
     def _get_chat_history(self, chat_id: str, limit: int = 30) -> list:
-        """获取最近聊天记录（最近7天内）"""
+        """获取最近聊天记录（最近7天内），图片消息会下载并返回本地路径"""
         try:
             from lark_oapi.api.im.v1 import ListMessageRequest
             
             self._log(f"[DEBUG] 开始获取聊天记录: chat_id={chat_id}, limit={limit}")
             
             # 计算7天前的时间戳（毫秒）用于过滤
-            import time
             days_ago = int((time.time() - 7 * 24 * 60 * 60) * 1000)
             
             # 请求消息列表 - 需要分页获取最新消息
-            # 注意：飞书 API 的 page_size 最大值为 50
-            # API 返回的消息是从旧到新，需要获取最后一页才能得到最新消息
             all_items = []
             page_token = None
-            max_pages = 10  # 最多获取10页，确保拿到最新消息
+            max_pages = 10
             
             for page in range(max_pages):
                 builder = ListMessageRequest.builder() \
@@ -128,7 +256,6 @@ class LarkBot:
                 
                 all_items.extend(items)
                 
-                # 检查是否有更多页
                 has_more = response.data.has_more if hasattr(response.data, 'has_more') else False
                 page_token = response.data.page_token if hasattr(response.data, 'page_token') else None
                 
@@ -152,7 +279,6 @@ class LarkBot:
             self._log(f"[DEBUG] 最近7天内的消息: {len(recent_items)} 条")
             
             # 获取足够多的消息来解析出有效的 limit 条
-            # 因为前面可能有 @标记/空消息，需要多取一些
             fetch_limit = min(limit * 3, len(recent_items))
             recent_items = recent_items[:fetch_limit]
             
@@ -161,17 +287,63 @@ class LarkBot:
             history = []
             for idx, item in enumerate(recent_items):
                 try:
-                    # 获取 sender（使用 id 属性）
+                    # 获取 sender
                     sender = item.sender.id if item.sender and hasattr(item.sender, 'id') else "unknown"
                     content = json.loads(item.body.content) if item.body else {}
                     text = content.get('text', '')
                     msg_type = getattr(item, 'msg_type', 'unknown')
+                    message_id = getattr(item, 'message_id', '')
+                    
+                    # 处理图片消息 - 下载并返回本地路径
+                    if msg_type == 'image':
+                        image_key = content.get('image_key', '')
+                        if image_key:
+                            self._log(f"[DEBUG] 消息 {idx} 是图片，尝试下载...")
+                            local_path = self._download_chat_image(message_id, image_key, chat_id)
+                            if local_path:
+                                history.append({
+                                    'type': 'image',
+                                    'sender': sender,
+                                    'content': local_path
+                                })
+                                self._log(f"[DEBUG] 图片消息已转换: {local_path}")
+                            else:
+                                history.append({
+                                    'type': 'text',
+                                    'sender': sender,
+                                    'content': '[图片下载失败]'
+                                })
+                        continue
+                    
+                    # 处理文件消息 - 下载并返回本地路径
+                    if msg_type == 'file':
+                        file_key = content.get('file_key', '')
+                        file_name = content.get('file_name', 'unknown')
+                        if file_key:
+                            self._log(f"[DEBUG] 消息 {idx} 是文件({file_name})，尝试下载...")
+                            local_path = self._download_chat_file(message_id, file_key, file_name, chat_id)
+                            if local_path:
+                                history.append({
+                                    'type': 'file',
+                                    'sender': sender,
+                                    'content': local_path,
+                                    'file_name': file_name
+                                })
+                                self._log(f"[DEBUG] 文件消息已转换: {local_path}")
+                            else:
+                                history.append({
+                                    'type': 'text',
+                                    'sender': sender,
+                                    'content': f'[文件: {file_name} - 下载失败]'
+                                })
+                        continue
                     
                     # 如果是卡片消息（interactive），尝试提取文本内容
                     if not text and msg_type == 'interactive':
                         elements = content.get('elements', [])
                         texts = []
                         has_image = False
+                        card_image_keys = []
                         for element_list in elements:
                             if isinstance(element_list, list):
                                 for elem in element_list:
@@ -180,44 +352,134 @@ class LarkBot:
                                             texts.append(elem.get('text', ''))
                                         elif elem.get('tag') == 'img':
                                             has_image = True
+                                            # 获取图片 key
+                                            img_key = elem.get('image_key', '')
+                                            if img_key:
+                                                card_image_keys.append(img_key)
                         text = ''.join(texts)
                         
-                        # 如果是图片卡片且只有占位文本，标记为[图片回复]
                         if has_image and ('请升级至最新版本' in text or '查看内容' in text):
-                            text = "[图片/卡片回复]"
+                            # 判断是否是 Bot 自己发送的卡片
+                            is_bot_sender = sender.startswith('cli_') or sender == self._bot_user_id
+                            
+                            if is_bot_sender:
+                                # Bot 自己发送的卡片，不尝试下载（预览图权限受限）
+                                text = "[图片/卡片回复] (Bot 发送的卡片)"
+                                self._log(f"[DEBUG] 消息 {idx} 是 Bot 发送的卡片，跳过下载")
+                            elif card_image_keys:
+                                # 用户或其他发送者发送的卡片，尝试获取图片
+                                self._log(f"[DEBUG] 卡片包含 {len(card_image_keys)} 个图片，尝试获取...")
+                                local_images = []
+                                
+                                for img_key in card_image_keys:
+                                    local_path = None
+                                    
+                                    # 方法1: 尝试下载（适用于用户上传的图片）
+                                    if message_id:
+                                        local_path = self._download_chat_image(message_id, img_key, chat_id)
+                                    
+                                    # 方法2: 在本地查找（适用于之前下载过的图片）
+                                    if not local_path:
+                                        local_path = self._find_local_image_by_key(img_key, chat_id)
+                                    
+                                    if local_path:
+                                        local_images.append(local_path)
+                                
+                                if local_images:
+                                    text = f"[图片/卡片回复] {' '.join(local_images)}"
+                                else:
+                                    text = f"[图片/卡片回复] (无法获取图片)"
+                            else:
+                                text = "[图片/卡片回复]"
                         
                         if text:
-                            self._log(f"[DEBUG] 消息 {idx} 是卡片，提取文本: {text[:50]}...")
+                            self._log(f"[DEBUG] 消息 {idx} 是卡片，提取文本: {text[:100]}...")
                     
                     # 跳过空文本
                     if not text:
                         self._log(f"[DEBUG] 消息 {idx} 文本为空，跳过 (type={msg_type})")
                         continue
                     
-                    # 跳过纯 @ 标记（如 @_user_1）
+                    # 跳过纯 @ 标记
                     if text.strip() == '@_user_1' or text.strip().startswith('@_user_1'):
                         self._log(f"[DEBUG] 消息 {idx} 是纯 @ 标记，跳过: {text}")
                         continue
                     
-                    # 如果消息太长（超过100字），截取最后100字
+                    # 如果消息太长，截取最后100字
                     if len(text) > 100:
                         text = "..." + text[-100:]
-                    history.append(f"{sender}: {text}")
+                    
+                    history.append({
+                        'type': 'text',
+                        'sender': sender,
+                        'content': text
+                    })
                 except Exception as e:
                     self._log(f"[DEBUG] 处理消息 {idx} 出错: {e}")
                     continue
             
-            # 限制返回数量，并按时间正序排列（旧的在前面，方便上下文理解）
+            # 限制返回数量，并按时间正序排列
             history = history[:limit]
             history.reverse()
             
-            self._log(f"[DEBUG] 成功解析 {len(history)} 条聊天记录（最近7天内最新的 {limit} 条）")
+            self._log(f"[DEBUG] 成功解析 {len(history)} 条聊天记录（含图片/文件）")
             return history
         except Exception as e:
             self._log(f"[ERROR] 获取聊天记录异常: {e}")
             import traceback
             self._log(f"[ERROR] 异常详情: {traceback.format_exc()}")
             return []
+
+    def _download_chat_file(self, message_id: str, file_key: str, file_name: str, chat_id: str) -> str:
+        """下载群聊中的文件并返回本地路径"""
+        try:
+            # 获取 tenant_access_token
+            tenant_token = self._get_tenant_access_token()
+            if not tenant_token:
+                self._log(f"[ERROR] 获取 tenant_access_token 失败，无法下载文件")
+                return None
+            
+            import requests
+            import urllib.parse
+            
+            encoded_key = urllib.parse.quote(file_key, safe='')
+            url = f"https://open.feishu.cn/open-apis/im/v1/messages/{message_id}/resources/{encoded_key}?type=file"
+            headers = {"Authorization": f"Bearer {tenant_token}"}
+            
+            self._log(f"[DEBUG] 下载群聊文件: {file_name}")
+            resp = requests.get(url, headers=headers, timeout=60)
+            
+            if resp.status_code != 200:
+                self._log(f"[ERROR] 下载文件失败: {resp.status_code}")
+                return None
+            
+            file_data = resp.content
+            if not file_data:
+                self._log(f"[ERROR] 文件内容为空")
+                return None
+            
+            # 检查文件大小（限制 20MB）
+            if len(file_data) > 20 * 1024 * 1024:
+                self._log(f"[WARN] 文件太大 ({len(file_data)/1024/1024:.1f}MB)，跳过")
+                return None
+            
+            # 保存文件到 WORKPLACE 目录
+            files_dir = get_absolute_path('WORKPLACE/user_files')
+            os.makedirs(files_dir, exist_ok=True)
+            
+            # 生成安全文件名
+            safe_name = f"chat_{chat_id}_{int(time.time())}_{file_name}"
+            file_path = os.path.join(files_dir, safe_name)
+            
+            with open(file_path, 'wb') as f:
+                f.write(file_data)
+            
+            self._log(f"[DEBUG] 文件已保存: {file_path}")
+            return file_path
+            
+        except Exception as e:
+            self._log(f"[ERROR] 下载文件异常: {e}")
+            return None
 
     def on_message(self, data: lark.im.v1.P2ImMessageReceiveV1):
         """处理收到的消息（支持文本、图片、文件）"""
@@ -381,10 +643,31 @@ class LarkBot:
                 chat_history = self._get_chat_history(chat_id, limit=30)
                 self._log(f"[DEBUG] 获取到 {len(chat_history)} 条聊天记录")
             
-            # 构建上下文提示
+            # 构建上下文提示（支持图片和文件）
             context_prompt = ""
             if chat_history:
-                context_prompt = "以下是最近聊天记录上下文：\n\n" + "\n".join(chat_history[-30:]) + "\n\n"
+                context_parts = ["以下是最近聊天记录上下文：\n"]
+                for msg in chat_history[-30:]:
+                    if isinstance(msg, dict):
+                        sender = msg.get('sender', 'unknown')
+                        msg_type = msg.get('type', 'text')
+                        content = msg.get('content', '')
+                        
+                        if msg_type == 'image':
+                            # 图片消息：发送本地路径，Kimi 可以读取图片
+                            context_parts.append(f"{sender}: [图片] {content}")
+                        elif msg_type == 'file':
+                            # 文件消息：发送本地路径
+                            file_name = msg.get('file_name', 'unknown')
+                            context_parts.append(f"{sender}: [文件: {file_name}] {content}")
+                        else:
+                            # 文本消息
+                            context_parts.append(f"{sender}: {content}")
+                    else:
+                        # 兼容旧格式（字符串）
+                        context_parts.append(msg)
+                
+                context_prompt = "\n".join(context_parts) + "\n\n"
 
             # 根据消息类型处理
             if msg_type == 'text':
@@ -393,15 +676,12 @@ class LarkBot:
                 # 构建最终提示词
                 final_prompt = context_prompt + f"用户当前消息：{text}\n\n请基于上下文回复用户的消息。"
                 
-                # 日志打印发送给 ACP 的完整信息（群聊时）
-                self._log(f"[DEBUG] 检查日志打印条件: is_group={is_group}, chat_type={chat_type!r}")
-                if is_group:
-                    self._log(f"[DEBUG] ===== 发送给 ACP 的完整信息 =====")
-                    self._log(f"[DEBUG] 上下文长度: {len(context_prompt)} 字符")
-                    self._log(f"[DEBUG] 完整提示词:\n{final_prompt[:500]}{'...' if len(final_prompt) > 500 else ''}")
-                    self._log(f"[DEBUG] ===== 结束 =====")
-                else:
-                    self._log(f"[DEBUG] 不是群聊，跳过日志打印")
+                # 日志打印发送给 ACP 的完整 prompt
+                self._log(f"[DEBUG] ===== 发送给 ACP 的 Prompt =====")
+                self._log(f"[DEBUG] Chat ID: {chat_id}, Chat Type: {chat_type}")
+                self._log(f"[DEBUG] Prompt 长度: {len(final_prompt)} 字符")
+                self._log(f"[DEBUG] 完整 Prompt:\n{final_prompt}")
+                self._log(f"[DEBUG] ===== Prompt 结束 =====")
                 
                 # 检查是否有待处理的图片或文件
                 if chat_id in self._pending_image:
@@ -409,12 +689,12 @@ class LarkBot:
                     if os.path.exists(image_path):
                         combined_prompt = f"{context_prompt}用户发送了一张图片，路径为: {image_path}\n\n用户对该图片的指令: {text}\n\n请根据用户的指令分析处理这张图片。"
                         self._log(f"[DEBUG] 将图片和消息一起发送给 Kimi: {image_path}, 消息: {text[:50]}...")
-                        # 日志打印发送给 ACP 的完整信息（群聊时）
-                        if is_group:
-                            self._log(f"[DEBUG] ===== 发送给 ACP 的完整信息（图片） =====")
-                            self._log(f"[DEBUG] 上下文长度: {len(context_prompt)} 字符")
-                            self._log(f"[DEBUG] 完整提示词:\n{combined_prompt[:500]}{'...' if len(combined_prompt) > 500 else ''}")
-                            self._log(f"[DEBUG] ===== 结束 =====")
+                        # 日志打印发送给 ACP 的完整 prompt
+                        self._log(f"[DEBUG] ===== 发送给 ACP 的 Prompt (带图片) =====")
+                        self._log(f"[DEBUG] Chat ID: {chat_id}, Chat Type: {chat_type}")
+                        self._log(f"[DEBUG] Prompt 长度: {len(combined_prompt)} 字符")
+                        self._log(f"[DEBUG] 完整 Prompt:\n{combined_prompt}")
+                        self._log(f"[DEBUG] ===== Prompt 结束 =====")
                         self.executor.submit(self.run_msg_script_streaming, chat_id, combined_prompt)
                         del self._pending_image[chat_id]
                     else:
@@ -425,12 +705,12 @@ class LarkBot:
                     if os.path.exists(file_path):
                         combined_prompt = f"{context_prompt}用户发送了一个文件，路径为: {file_path}\n\n用户对该文件的指令: {text}\n\n请根据用户的指令分析处理这个文件。"
                         self._log(f"[DEBUG] 将文件和消息一起发送给 Kimi: {file_path}, 消息: {text[:50]}...")
-                        # 日志打印发送给 ACP 的完整信息（群聊时）
-                        if is_group:
-                            self._log(f"[DEBUG] ===== 发送给 ACP 的完整信息（文件） =====")
-                            self._log(f"[DEBUG] 上下文长度: {len(context_prompt)} 字符")
-                            self._log(f"[DEBUG] 完整提示词:\n{combined_prompt[:500]}{'...' if len(combined_prompt) > 500 else ''}")
-                            self._log(f"[DEBUG] ===== 结束 =====")
+                        # 日志打印发送给 ACP 的完整 prompt
+                        self._log(f"[DEBUG] ===== 发送给 ACP 的 Prompt (带文件) =====")
+                        self._log(f"[DEBUG] Chat ID: {chat_id}, Chat Type: {chat_type}")
+                        self._log(f"[DEBUG] Prompt 长度: {len(combined_prompt)} 字符")
+                        self._log(f"[DEBUG] 完整 Prompt:\n{combined_prompt}")
+                        self._log(f"[DEBUG] ===== Prompt 结束 =====")
                         self.executor.submit(self.run_msg_script_streaming, chat_id, combined_prompt)
                         del self._pending_file[chat_id]
                     else:
@@ -469,9 +749,8 @@ class LarkBot:
                 self._log("[DEBUG] 初始化 ACP 客户端...")
                 self.acp_client = ACPClient(bot_ref=self)
 
-            self._log(f"[DEBUG] 调用 ACP: {text[:50]}...")
-            self._log(f"[DEBUG] 传入 ACP 的完整提示词长度: {len(text)} 字符")
-            self._log(f"[DEBUG] 传入 ACP 的完整提示词前 1000 字:\n{text[:1000]}{'...' if len(text) > 1000 else ''}")
+            # Prompt 日志已在 on_message 中打印，这里不再重复
+            # self._log(f"[DEBUG] 调用 ACP: {text[:50]}...")
 
             # 先发送占位消息（卡片格式）
             initial_message_id = self.reply_text(chat_id, "⏳ 正在思考...", streaming=True)
@@ -919,7 +1198,7 @@ class LarkBot:
                 return
             
             # 保存图片到 WORKPLACE 目录
-            workplace_dir = os.path.join(os.path.dirname(__file__), 'WORKPLACE', 'user_images')
+            workplace_dir = get_absolute_path('WORKPLACE/user_images')
             os.makedirs(workplace_dir, exist_ok=True)
             image_filename = f"{chat_id}_{int(time.time())}.png"
             image_path = os.path.join(workplace_dir, image_filename)
@@ -979,7 +1258,7 @@ class LarkBot:
                 return
             
             # 保存文件到 WORKPLACE/user_files 目录
-            files_dir = os.path.join(os.path.dirname(__file__), 'WORKPLACE', 'user_files')
+            files_dir = get_absolute_path('WORKPLACE/user_files')
             os.makedirs(files_dir, exist_ok=True)
             # 使用原始文件名，但添加时间戳避免冲突
             safe_filename = f"{int(time.time())}_{file_name}"
