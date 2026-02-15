@@ -61,8 +61,8 @@ class FeishuFileMCP:
                 chat_type = context.get('chat_type', 'group')  # 默认为群聊
                 timestamp = context.get('timestamp', 0)
                 
-                # 检查上下文时效性（24小时内有效）
-                if time.time() - timestamp > 86400:
+                # 检查上下文时效性（30天内有效）
+                if time.time() - timestamp > 2592000:
                     self._log(f"上下文已过期，chat_id: {chat_id}, chat_type: {chat_type}")
                     return None, None, "会话已过期。请重新 @Bot 发送消息以激活当前聊天。"
                 
