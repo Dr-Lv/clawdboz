@@ -1,11 +1,13 @@
 {
   "project_root": "/project/larkbot",
   "feishu": {
-    "app_id": "cli_a907c9018f7a9cc5",
-    "app_secret": "5VDY7pUnBmQpT1MOiVjQEgRYXjhjdCA7"
+    "app_id": "${FEISHU_APP_ID}",
+    "app_secret": "${FEISHU_APP_SECRET}",
+    "_comment": "飞书应用凭证，请从 .env 文件或环境变量设置"
   },
   "qveris": {
-    "api_key": "sk-WAQC1d9gdVi01D-hXo4vTpkvFUHx2bBjpB8EMG4qjKw"
+    "api_key": "${QVERIS_API_KEY}",
+    "_comment": "QVeris API Key，请从 .env 文件或环境变量设置（可选）"
   },
   "logs": {
     "main_log": "logs/main.log",
