@@ -39,3 +39,18 @@ WORKPLACE/*
 # Skills 生成的临时文件
 .kimi/skills/*/assets/post_*/
 .kimi/skills/*/storage_state.json
+
+# 日志目录
+logs/
+
+# 测试脚本（临时）
+test_script/
+
+# Skills 浏览器数据（包含敏感 cookie）
+.agents/skills/web-auth-session/browser_data/
+.kimi/skills/web-auth-session/browser_data/
+.claude/skills/web-auth-session/browser_data/
+.cursor/skills/web-auth-session/browser_data/
+.trae/skills/web-auth-session/browser_data/
+.qoder/skills/web-auth-session/browser_data/
+.agent/skills/web-auth-session/browser_data/

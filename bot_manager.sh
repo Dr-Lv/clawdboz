@@ -109,8 +109,13 @@ error() {
 
 # 检查是否在运行
 check_running() {
-    # 尝试通过进程名查找
-    local pid_list=$(pgrep -f "python.*(clawdboz|src/main|src\.main)" 2>/dev/null)
+    # 尝试通过进程名查找，排除 kimi-cli 进程
+    local pid_list=$(pgrep -f "python.*(clawdboz|src/main|src\.main)" 2>/dev/null | while read pid; do
+        # 检查该进程的命令行是否包含 kimi，如果包含则跳过
+        if ! cat /proc/$pid/cmdline 2>/dev/null | tr '\0' ' ' | grep -q "kimi"; then
+            echo "$pid"
+        fi
+    done)
     if [ -n "$pid_list" ]; then
         local pid=$(echo "$pid_list" | head -1)
         echo "$pid" > "$PID_FILE"

@@ -1,14 +1,12 @@
 {
   "mcpServers": {
-    "RedInk": {
-      "type": "sse",
-      "url": "http://localhost:3011/sse"
-    },
     "FeishuFileSender": {
       "type": "stdio",
-      "command": "python3",
-      "args": ["/Users/suntom/work/test/larkbot/mcp_feishu_file_server.py"],
-      "env": []
+      "command": "/project/larkbot/.venv/bin/python3",
+      "args": ["/project/larkbot/feishu_tools/mcp_feishu_file_server.py"],
+      "env": {
+        "PYTHONPATH": "/project/larkbot"
+      }
     }
   }
 }
