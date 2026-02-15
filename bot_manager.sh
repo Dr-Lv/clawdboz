@@ -871,18 +871,71 @@ init() {
             python3 << PYEOF
 import json
 import os
+import re
 
 config_path = "$CONFIG_FILE"
+detected_root = "$detected_root"
+
 try:
+    # 更新 config.json
     with open(config_path, 'r', encoding='utf-8') as f:
         config = json.load(f)
     
-    config['project_root'] = "$detected_root"
+    config['project_root'] = detected_root
     
     with open(config_path, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
     
-    print("✓ 已更新 project_root: $detected_root")
+    print("✓ 已更新 project_root: {}".format(detected_root))
+    
+    # 更新 .kimi/mcp.json 中的路径
+    mcp_config_path = os.path.join(detected_root, '.kimi', 'mcp.json')
+    if os.path.exists(mcp_config_path):
+        with open(mcp_config_path, 'r', encoding='utf-8') as f:
+            mcp_config = json.load(f)
+        
+        # 获取旧的项目根目录（从 mcp.json 中的路径推断）
+        old_root = None
+        mcp_servers = mcp_config.get('mcpServers', {})
+        for server_name, server_config in mcp_servers.items():
+            if 'command' in server_config:
+                cmd = server_config['command']
+                # 匹配类似 /project/larkbot/.venv/bin/python3 的路径
+                match = re.match(r'^(/[^/]+/[^/]+)/\.venv/', cmd)
+                if match:
+                    old_root = match.group(1)
+                    break
+        
+        if old_root and old_root != detected_root:
+            # 替换所有路径
+            updated = False
+            for server_name, server_config in mcp_servers.items():
+                # 更新 command
+                if 'command' in server_config and old_root in server_config['command']:
+                    server_config['command'] = server_config['command'].replace(old_root, detected_root)
+                    updated = True
+                # 更新 args
+                if 'args' in server_config:
+                    server_config['args'] = [arg.replace(old_root, detected_root) for arg in server_config['args']]
+                    updated = True
+                # 更新 env
+                if 'env' in server_config:
+                    for key in server_config['env']:
+                        if old_root in str(server_config['env'][key]):
+                            server_config['env'][key] = server_config['env'][key].replace(old_root, detected_root)
+                            updated = True
+            
+            if updated:
+                with open(mcp_config_path, 'w', encoding='utf-8') as f:
+                    json.dump(mcp_config, f, indent=2, ensure_ascii=False)
+                print("✓ 已更新 mcp.json 路径: {} -> {}".format(old_root, detected_root))
+            else:
+                print("  mcp.json 路径已正确，无需更新")
+        else:
+            print("  mcp.json 路径已正确，无需更新")
+    else:
+        print("  未找到 mcp.json，跳过")
+        
 except Exception as e:
     print(f"✗ 更新失败: {e}")
     exit(1)
@@ -921,13 +974,61 @@ PYEOF
             if [ -z "$confirm" ] || [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
                 python3 << PYEOF
 import json
+import os
+import re
+
 config_path = "$CONFIG_FILE"
+detected_root = "$detected_root"
+
 with open(config_path, 'r', encoding='utf-8') as f:
     config = json.load(f)
-config['project_root'] = "$detected_root"
+config['project_root'] = detected_root
 with open(config_path, 'w', encoding='utf-8') as f:
     json.dump(config, f, indent=2, ensure_ascii=False)
 print("✓ 已修复 project_root")
+
+# 更新 .kimi/mcp.json 中的路径
+mcp_config_path = os.path.join(detected_root, '.kimi', 'mcp.json')
+if os.path.exists(mcp_config_path):
+    with open(mcp_config_path, 'r', encoding='utf-8') as f:
+        mcp_config = json.load(f)
+    
+    # 获取旧的项目根目录（从 mcp.json 中的路径推断）
+    old_root = None
+    mcp_servers = mcp_config.get('mcpServers', {})
+    for server_name, server_config in mcp_servers.items():
+        if 'command' in server_config:
+            cmd = server_config['command']
+            match = re.match(r'^(/[^/]+/[^/]+)/\.venv/', cmd)
+            if match:
+                old_root = match.group(1)
+                break
+    
+    if old_root and old_root != detected_root:
+        updated = False
+        for server_name, server_config in mcp_servers.items():
+            if 'command' in server_config and old_root in server_config['command']:
+                server_config['command'] = server_config['command'].replace(old_root, detected_root)
+                updated = True
+            if 'args' in server_config:
+                server_config['args'] = [arg.replace(old_root, detected_root) for arg in server_config['args']]
+                updated = True
+            if 'env' in server_config:
+                for key in server_config['env']:
+                    if old_root in str(server_config['env'][key]):
+                        server_config['env'][key] = server_config['env'][key].replace(old_root, detected_root)
+                        updated = True
+        
+        if updated:
+            with open(mcp_config_path, 'w', encoding='utf-8') as f:
+                json.dump(mcp_config, f, indent=2, ensure_ascii=False)
+            print("✓ 已更新 mcp.json 路径: {} -> {}".format(old_root, detected_root))
+        else:
+            print("  mcp.json 路径已正确，无需更新")
+    else:
+        print("  mcp.json 路径已正确，无需更新")
+else:
+    print("  未找到 mcp.json，跳过")
 PYEOF
                 success "修复完成！"
             fi
