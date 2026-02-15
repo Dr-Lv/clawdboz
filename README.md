@@ -1,23 +1,25 @@
 # 嗑唠的宝子 (Clawdboz) - 飞书 Bot
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-基于 Kimi Code CLI 的智能飞书机器人，支持 MCP 工具调用、文件发送和图片处理。
+基于 Kimi Code CLI 的智能飞书机器人，支持 MCP 工具调用、文件发送、图片处理和群聊记录分析。
 
-> 📦 **当前版本**: v2.0.0 - 模块化架构重构
+> 📦 **当前版本**: v2.1.0 - 配置安全增强 & 聊天记录增强
 > 
 > 📝 [查看更新日志](CHANGELOG.md) | 🏗️ [查看架构文档](docs/ARCHITECTURE.md) | 📋 [查看项目文档](docs/PRJ.md)
 
 ## 功能特性
 
 - 🤖 **AI 对话**：基于 Kimi Code CLI 的智能对话
-- 🔧 **MCP 工具**：支持通过 MCP 协议调用外部工具
+- 💬 **群聊记录分析**：自动获取群聊历史，支持图片/文件下载
 - 📁 **文件发送**：支持发送文件到飞书聊天
-- 🖼️ **图片处理**：接收并处理用户发送的图片
+- 🖼️ **图片处理**：接收并处理用户发送的图片，自动保存到本地
+- 🔧 **MCP 工具**：支持通过 MCP 协议调用外部工具
 - 📝 **流式回复**：实时显示思考和工具调用过程
 - 🔍 **运维检查**：自动监控 Bot 状态并修复异常
+- 🔔 **连接监控**：WebSocket 连接状态监控，故障自动告警
 
 ## 项目结构
 
@@ -25,27 +27,25 @@
 .
 ├── src/                          # Python 源代码目录
 │   ├── __init__.py               # 包初始化，导出所有接口
-│   ├── config.py                 # 配置管理
+│   ├── config.py                 # 配置管理（支持 .env）
 │   ├── acp_client.py             # ACP 客户端（Kimi 通信）
 │   ├── bot.py                    # Bot 核心类
 │   ├── handlers.py               # 事件处理器
-│   └── main.py                   # 程序入口
+│   └── main.py                   # 程序入口（WebSocket 监控）
 │
 ├── clawdboz.py                   # 兼容入口（导入 src 包）
 ├── feishu_tools/                 # 飞书工具目录
 │   ├── mcp_feishu_file_server.py # MCP Server：文件发送
 │   └── notify_feishu.py          # 飞书通知工具
 ├── bot_manager.sh                # Bot 管理脚本
-├── config.json                   # 配置文件
+├── config.json                   # 一般配置文件
+├── .env                          # 敏感信息配置（不提交 Git）
 ├── requirements.txt              # Python 依赖
 ├── docs/                         # 文档目录
 │   ├── PRJ.md                    # 项目文档
 │   ├── ARCHITECTURE.md           # 架构文档
 │   └── feishu_permissions.json   # 飞书权限配置
 ├── AGENTS.md                     # Bot 系统提示词
-├── docs/                         # 文档目录
-│   ├── PRJ.md                    # 项目文档
-│   └── ARCHITECTURE.md           # 架构文档
 └── README.md                     # 项目说明
 
 其他目录：
@@ -90,38 +90,9 @@ pip install -r requirements.txt
 
 #### 4.2 配置权限
 
-项目提供了 `docs/feishu_permissions.json` 权限配置文件，可用于**一键批量导入权限配置**。
+详见 `docs/feishu_permissions.json` 权限配置文件。
 
-**使用配置文件批量导入权限：**
-
-1. 打开飞书开放平台 → 进入你的应用 →「权限管理」
-2. 点击「批量导入」（如有此功能）或参考配置文件中的权限列表
-3. 配置文件包含：
-   - **API 权限**：发送消息、更新卡片、上传文件等
-   - **事件订阅**：接收消息、消息已读等
-   - **机器人能力**：接收和发送消息
-
-**配置文件内容预览：**
-```json
-{
-  "permissions": {
-    "api_permissions": [
-      "im:message:send",      // 发送消息
-      "im:message:update",    // 更新消息卡片
-      "im:file:create",       // 上传文件
-      ...
-    ],
-    "event_subscriptions": [
-      "im.message.receive_v1",  // 接收消息
-      ...
-    ]
-  }
-}
-```
-
-> 💡 **提示**：详细权限清单和配置步骤请参考 `docs/feishu_permissions.json` 文件
-
-**手动配置步骤（如无法批量导入）：**
+**需要的权限**:
 
 | 权限类型 | 权限名称 | 用途 |
 |---------|---------|------|
@@ -132,6 +103,7 @@ pip install -r requirements.txt
 | API 权限 | `im:chat:readonly` | 获取聊天记录 |
 | API 权限 | `im:file:create` | 上传文件 |
 | API 权限 | `im:file:send` | 发送文件消息 |
+| API 权限 | `im:image:create` | 上传图片 |
 | 事件订阅 | `im.message.receive_v1` | 接收消息 |
 | 事件订阅 | `im.message.message_read_v1` | 消息已读 |
 | 机器人能力 | `receive_message` | 接收消息 |
@@ -156,7 +128,34 @@ pip install -r requirements.txt
 
 ### 5. 配置项目
 
-编辑 `config.json`，填入飞书应用凭证：
+#### 5.1 创建 .env 文件（推荐）
+
+在项目根目录创建 `.env` 文件：
+
+```bash
+cp .env.example .env  # 如果有示例文件
+# 或手动创建
+```
+
+编辑 `.env` 文件：
+
+```bash
+# 飞书应用配置（必填）
+FEISHU_APP_ID=cli_xxxxx
+FEISHU_APP_SECRET=your-secret
+
+# QVeris API Key（可选）
+QVERIS_API_KEY=sk-xxxxx
+
+# 通知配置（可选）
+ENABLE_FEISHU_NOTIFY=true
+```
+
+**注意**：`.env` 文件已添加到 `.gitignore`，不会被提交到 Git。
+
+#### 5.2 或编辑 config.json
+
+如需直接配置，编辑 `config.json`：
 
 ```json
 {
@@ -176,6 +175,8 @@ pip install -r requirements.txt
   },
   "paths": {
     "workplace": "WORKPLACE",
+    "user_images": "WORKPLACE/user_images",
+    "user_files": "WORKPLACE/user_files",
     "mcp_config": ".kimi/mcp.json"
   }
 }
@@ -233,9 +234,44 @@ python -m src.main
 
 **群聊**：在群聊中 @Bot 后发送消息
 
-**发送文件**：用户可以在 WORKPLACE 目录中放置文件，然后让 Bot 发送到飞书
+**处理文件/图片**：
+- 用户发送文件/图片 → Bot 自动下载到 `WORKPLACE/user_files/` 或 `WORKPLACE/user_images/`
+- Bot 在回复时会参考这些文件/图片的内容
 
-**处理图片**：直接发送图片给 Bot，Bot 会保存并询问如何处理
+**发送文件**：用户可以让 Bot 通过 MCP 工具发送本地文件到飞书
+
+## 配置优先级
+
+配置加载优先级（高到低）：
+
+1. **环境变量** - `export FEISHU_APP_ID=xxx`
+2. **.env 文件** - 项目根目录下的 `.env`
+3. **config.json** - 一般配置文件
+
+## 日志文件
+
+| 日志文件 | 说明 |
+|---------|------|
+| `logs/main.log` | WebSocket 连接状态日志 |
+| `logs/bot_debug.log` | Bot 调试日志 |
+| `logs/bot_output.log` | Bot 标准输出 |
+| `logs/feishu_api.log` | 飞书 API 调用日志 |
+| `logs/ops_check.log` | 运维检查日志 |
+| `logs/cron_check.log` | 定时任务日志 |
+
+## 定时任务
+
+配置每 30 分钟自动执行运维检查：
+
+```bash
+crontab -e
+```
+
+添加：
+
+```cron
+*/30 * * * * cd /project/larkbot && ./bot_manager.sh check >> /project/larkbot/logs/cron_check.log 2>&1
+```
 
 ## 开发指南
 
@@ -262,28 +298,19 @@ src/main.py ──► src/bot.py ──► src/acp_client.py ──► src/confi
         src/handlers.py
 ```
 
-## 定时任务
+## 更新记录
 
-配置每 30 分钟自动执行运维检查：
+### v2.1.0 (2026-02-15)
 
-```bash
-crontab -e
-```
+- **配置安全增强**：敏感信息迁移到 `.env` 文件，不提交 Git
+- **聊天记录增强**：支持自动下载用户发送的图片/文件
+- **WebSocket 监控**：新增连接状态监控和心跳告警
 
-添加：
+### v2.0.0 (2026-02-13)
 
-```cron
-*/30 * * * * cd /project/larkbot && ./bot_manager.sh check >> /project/larkbot/logs/cron_check.log 2>&1
-```
-
-## 日志文件
-
-| 日志文件 | 说明 |
-|---------|------|
-| `logs/main.log` | Bot 主日志 |
-| `logs/bot_debug.log` | 调试日志 |
-| `logs/feishu_api.log` | 飞书 API 调用日志 |
-| `logs/ops_check.log` | 运维检查日志 |
+- 模块化架构重构
+- 新增运维检查和自动修复功能
+- 支持 MCP 工具调用
 
 ## 许可证
 
