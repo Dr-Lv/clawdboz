@@ -4,6 +4,9 @@ lark-oapi>=1.5.0
 # HTTP 请求
 requests>=2.28.0
 
+# WebSocket SOCKS 代理支持
+python-socks>=2.0.0
+
 # 以下为 lark-oapi 的依赖（会自动安装）：
 # httpx
 # pycryptodome
