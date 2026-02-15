@@ -54,3 +54,14 @@ test_script/
 .trae/skills/web-auth-session/browser_data/
 .qoder/skills/web-auth-session/browser_data/
 .agent/skills/web-auth-session/browser_data/
+
+# 其他 IDE 配置（从 .agents 同步即可）
+.agent/
+.claude/
+.cursor/
+.qoder/
+.trae/
+.windsurf/
+
+# 根目录测试文件（临时）
+test_webhook_server.py
