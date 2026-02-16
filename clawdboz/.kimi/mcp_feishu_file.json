@@ -1,0 +1,14 @@
+{
+  "_comment": "示例配置文件，请替换为实际值",
+  "mcpServers": {
+    "FeishuFileSender": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["/path/to/mcp_feishu_file_server.py"],
+      "env": {
+        "FEISHU_APP_ID": "cli_your_app_id_here",
+        "FEISHU_APP_SECRET": "your_app_secret_here"
+      }
+    }
+  }
+}
