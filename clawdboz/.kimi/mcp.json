@@ -1,0 +1,13 @@
+{
+  "_comment": "MCP 配置文件 - 运行时会被动态覆盖，此文件仅作为示例",
+  "mcpServers": {
+    "FeishuFileSender": {
+      "type": "stdio",
+      "command": "/path/to/your/python",
+      "args": [
+        "/path/to/your/site-packages/feishu_tools/mcp_feishu_file_server.py"
+      ],
+      "env": {}
+    }
+  }
+}

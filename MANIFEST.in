@@ -1,0 +1,15 @@
+# 包含额外文件到分发包中
+include README.md
+include requirements.txt
+
+# 递归包含文档
+global-include *.md
+
+# 包含 MCP 配置文件
+recursive-include .kimi *.json *.md
+
+# 排除不需要的文件
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.so

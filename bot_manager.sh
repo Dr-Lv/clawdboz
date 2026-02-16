@@ -6,20 +6,16 @@
 
 # 基础配置
 BOT_NAME="feishu_bot"
-BOT_MODULE="src.main"
-BOT_SCRIPT="clawdboz.py"  # 兼容入口，仍用于检测进程
+BOT_MODULE="clawdboz.main"
+BOT_SCRIPT="bot0.py"  # 自定义启动脚本
 
 # 获取脚本所在目录（作为默认项目根目录）
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# 加载配置文件
+# 配置文件路径
 CONFIG_FILE="$SCRIPT_DIR/config.json"
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "[ERROR] 配置文件不存在: $CONFIG_FILE"
-    exit 1
-fi
 
-# 使用 Python 解析配置文件
+# 使用 Python 解析配置文件（如果存在）
 get_config() {
     python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
 }
@@ -42,7 +38,10 @@ PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd)"
 # 导出项目根目录环境变量（供 Python 脚本使用）
 export LARKBOT_ROOT="$PROJECT_ROOT"
 
-PID_FILE="/tmp/${BOT_NAME}.pid"
+# PID 文件路径 - 基于项目根目录生成唯一路径（支持多实例）
+# 将项目路径中的 / 替换为 _ 来生成合法的 PID 文件名
+PROJECT_ROOT_HASH=$(echo "$PROJECT_ROOT" | tr '/' '_')
+PID_FILE="/tmp/${BOT_NAME}_${PROJECT_ROOT_HASH}.pid"
 VENV_DIR="$PROJECT_ROOT/.venv"
 PYTHON_BIN="$VENV_DIR/bin/python"
 KIMI_DIR="/root/.local/bin/"
@@ -107,15 +106,59 @@ error() {
     echo -e "${RED}[$(get_time)] ERROR:${NC} $1"
 }
 
-# 检查是否在运行
+# 获取进程的当前工作目录（跨平台支持）
+get_process_cwd() {
+    local pid="$1"
+    local cwd=""
+    
+    if [ -f "/proc/$pid/cwd" ]; then
+        # Linux
+        cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null)
+    else
+        # macOS / BSD - lsof 输出格式: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+        # cwd 行的 NAME 列就是工作目录
+        cwd=$(lsof -p "$pid" 2>/dev/null | grep -E "[[:space:]]cwd[[:space:]]+DIR" | awk '{for(i=9;i<=NF;i++) printf "%s", $i; print ""}')
+    fi
+    
+    echo "$cwd"
+}
+
+# 检查是否在运行（只查找当前项目目录下的进程）
 check_running() {
-    # 尝试通过进程名查找，排除 kimi-cli 进程
-    local pid_list=$(pgrep -f "python.*(clawdboz|src/main|src\.main)" 2>/dev/null | while read pid; do
+    # 首先检查 PID 文件是否存在且进程有效
+    if [ -f "$PID_FILE" ]; then
+        local pid_from_file=$(cat "$PID_FILE" 2>/dev/null)
+        if [ -n "$pid_from_file" ] && ps -p "$pid_from_file" > /dev/null 2>&1; then
+            # 验证该进程的 cwd 是否匹配当前项目根目录
+            local proc_cwd=$(get_process_cwd "$pid_from_file")
+            if [ "$proc_cwd" = "$PROJECT_ROOT" ]; then
+                echo "$pid_from_file"
+                return 0
+            fi
+        fi
+    fi
+    
+    # 尝试通过进程名查找，并验证工作目录
+    local pid_list=$(pgrep -f "python.*clawdboz" 2>/dev/null | while read pid; do
         # 检查该进程的命令行是否包含 kimi，如果包含则跳过
-        if ! cat /proc/$pid/cmdline 2>/dev/null | tr '\0' ' ' | grep -q "kimi"; then
+        if [ -f "/proc/$pid/cmdline" ]; then
+            if cat "/proc/$pid/cmdline" 2>/dev/null | tr '\0' ' ' | grep -q "kimi"; then
+                continue
+            fi
+        else
+            # macOS: 使用 ps 检查命令行
+            if ps -p "$pid" -o command= 2>/dev/null | grep -q "kimi"; then
+                continue
+            fi
+        fi
+        
+        # 检查该进程的 cwd 是否匹配当前项目根目录
+        local proc_cwd=$(get_process_cwd "$pid")
+        if [ "$proc_cwd" = "$PROJECT_ROOT" ]; then
             echo "$pid"
         fi
     done)
+    
     if [ -n "$pid_list" ]; then
         local pid=$(echo "$pid_list" | head -1)
         echo "$pid" > "$PID_FILE"
@@ -145,10 +188,25 @@ start() {
     > "$LOG_FILE" 2>/dev/null
     > "$DEBUG_LOG" 2>/dev/null
     
-    # 检查脚本是否存在
-    # 检查 src 目录是否存在
-    if [ ! -d "$PROJECT_ROOT/src" ]; then
-        error "找不到 src 目录: $PROJECT_ROOT/src"
+    # 检查配置（config.json 或环境变量）
+    if [ ! -f "$CONFIG_FILE" ] && [ -z "$FEISHU_APP_ID" ]; then
+        warn "缺少配置: 既没有 config.json 也没有设置 FEISHU_APP_ID 环境变量"
+        info "请设置环境变量: export FEISHU_APP_ID=xxx FEISHU_APP_SECRET=xxx"
+        info "或创建 config.json 文件"
+    fi
+    
+    # 检查启动方式
+    local START_CMD=""
+    if [ -f "$PROJECT_ROOT/$BOT_SCRIPT" ]; then
+        # 优先使用自定义脚本 bot0.py
+        START_CMD="$PYTHON_BIN $PROJECT_ROOT/$BOT_SCRIPT"
+        info "使用启动脚本: $BOT_SCRIPT"
+    elif [ -d "$PROJECT_ROOT/clawdboz" ]; then
+        # 使用模块方式启动
+        START_CMD="$PYTHON_BIN -m $BOT_MODULE"
+        info "使用模块启动: $BOT_MODULE"
+    else
+        error "找不到启动方式: 既没有 $BOT_SCRIPT 也没有 clawdboz 包"
         return 1
     fi
     
@@ -170,7 +228,7 @@ start() {
         export SSL_CERT_FILE="$CERT_PATH"
         export REQUESTS_CA_BUNDLE="$CERT_PATH"
     fi
-    nohup "$PYTHON_BIN" -m "$BOT_MODULE" > "$LOG_FILE" 2>&1 &
+    nohup $START_CMD > "$LOG_FILE" 2>&1 &
     local pid=$!
     
     # 等待启动
@@ -797,7 +855,7 @@ Bot 进程状态: $(check_running && echo "运行中 (PID: $(check_running))" ||
 3. 确保 Bot 正常运行
 4. 验证修复结果
 
-Bot 主脚本: src/main.py (或兼容入口 clawdboz.py)
+Bot 主脚本: clawdboz/main.py
 MCP 配置: .kimi/mcp.json
 日志文件: logs/bot_debug.log, logs/main.log
 
