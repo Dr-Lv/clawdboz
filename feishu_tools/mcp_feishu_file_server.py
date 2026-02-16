@@ -12,15 +12,32 @@ import time
 import requests
 from typing import Optional, Tuple
 
-# 导入 src 中的配置模块
-# 添加项目根目录到路径
+# 尝试导入配置（兼容开发模式和安装模式）
+# 开发模式：从 src 导入
+# 安装模式：从 clawdboz 导入
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)  # feishu_tools/ 的父目录是项目根目录
 sys.path.insert(0, project_root)
-from src.config import PROJECT_ROOT, CONFIG, get_absolute_path
+
+try:
+    # 尝试从 src 导入（开发模式）
+    from src.config import PROJECT_ROOT, CONFIG, get_absolute_path
+except ImportError:
+    try:
+        # 尝试从 clawdboz 导入（安装模式）
+        from clawdboz.config import PROJECT_ROOT, CONFIG, get_absolute_path
+    except ImportError:
+        # 如果都失败，使用默认配置
+        PROJECT_ROOT = project_root
+        CONFIG = {}
+        def get_absolute_path(relative_path, project_root=None):
+            root = project_root or PROJECT_ROOT
+            if os.path.isabs(relative_path):
+                return relative_path
+            return os.path.join(root, relative_path)
 
 # 上下文文件路径，存储当前聊天的 chat_id
-paths_config = CONFIG.get('paths', {})
+paths_config = CONFIG.get('paths', {}) if CONFIG else {}
 CONTEXT_FILE = get_absolute_path(paths_config.get('context_file', 'WORKPLACE/mcp_context.json'))
 
 
@@ -362,12 +379,19 @@ class FeishuFileMCP:
 
 if __name__ == "__main__":
     # 从配置文件读取
-    feishu_config = CONFIG.get('feishu', {})
+    feishu_config = CONFIG.get('feishu', {}) if CONFIG else {}
     app_id = feishu_config.get('app_id')
     app_secret = feishu_config.get('app_secret')
     
+    # 如果配置文件没有，从环境变量读取
+    if not app_id:
+        app_id = os.environ.get('FEISHU_APP_ID')
+    if not app_secret:
+        app_secret = os.environ.get('FEISHU_APP_SECRET')
+    
     if not app_id or not app_secret:
         print("[ERROR] 缺少飞书应用配置 (app_id 或 app_secret)", file=sys.stderr)
+        print("       请设置 FEISHU_APP_ID 和 FEISHU_APP_SECRET 环境变量", file=sys.stderr)
         sys.exit(1)
     
     server = FeishuFileMCP(app_id, app_secret)

@@ -1,14 +1,10 @@
 # 嗑唠的宝子 (Clawdboz) - 飞书 Bot
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](CHANGELOG.md)
-[![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](#)
+[![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](#)
 
 基于 Kimi Code CLI 的智能飞书机器人，支持 MCP 工具调用、文件发送、图片处理和群聊记录分析。
-
-> 📦 **当前版本**: v2.1.0 - 配置安全增强 & 聊天记录增强
-> 
-> 📝 [查看更新日志](CHANGELOG.md) | 🏗️ [查看架构文档](docs/ARCHITECTURE.md) | 📋 [查看项目文档](docs/PRJ.md)
 
 ## 功能特性
 
@@ -17,112 +13,135 @@
 - 📁 **文件发送**：支持发送文件到飞书聊天
 - 🖼️ **图片处理**：接收并处理用户发送的图片，自动保存到本地
 - 🔧 **MCP 工具**：支持通过 MCP 协议调用外部工具
-- 📝 **流式回复**：实时显示思考和工具调用过程，消息输出效果美化，体验更好
+- 📝 **流式回复**：实时显示思考和工具调用过程，消息输出效果美化
 - 🔍 **运维检查**：自动监控 Bot 状态并修复异常
-- 🔔 **连接监控**：WebSocket 连接状态监控，故障自动告警
 
-## 为什么选择嗑唠的宝子？
+## 快速开始
 
-与 [OpenClaw](https://github.com/Class-Notes/openclaw) 相比，本项目更适合编程开发场景和飞书深度用户：
+### 1. 安装
 
-| 特性 | 嗑唠的宝子 (本项目) | OpenClaw |
-|------|-------------------|----------|
-| **核心引擎** | 🚀 通过ACP协议原生支持 Kimi Code CLI  | 虽然早期基于claude code，但是现在已经脱离编程工具，演变成了一个很重的通用agent核心 |
-| **编程开发** | ✅ 完整支持代码编辑、文件操作、终端命令 | ⚠️ 功能受限，需通过浏览器交互 |
-| **MCP 工具** | ✅ 完整支持，可动态调用外部工具 | ❌ 不支持 |
-| **消息体验** | ✅ 流式输出，实时显示思考过程，美观的卡片格式 | ⚠️ 纯文本回复，等待时间长，过程不稳定 |
-| **群聊适配** | ✅ 自动获取群聊记录，支持图片/文件分析 | ⚠️ 基础支持 |
+```bash
+pip install clawdboz
+```
 
-### 核心优势
+或从源码安装：
 
-**1. 原生 Kimi Code CLI，更适合编程开发**
+```bash
+git clone <repository-url>
+cd larkbot
+pip install -e .
+```
 
-本项目直接对接 Kimi Code CLI 的 ACP 协议，具备完整的开发能力：
-- 💻 **代码编辑**：可直接读取、修改项目代码
-- 📂 **文件操作**：支持上传、下载、分析文件
-- 🖥️ **终端命令**：可执行 shell 命令，操作服务器
-- 🧰 **MCP 工具**：支持浏览器自动化、数据库查询等扩展工具
+### 2. 启动 Bot
 
-**2. 飞书深度适配，聊天体验更佳**
+#### 方式一：三行代码（快速体验）
 
-针对飞书做了大量优化：
-- 💬 **群聊记录**：自动获取上下文，理解对话脉络
-- 🖼️ **多媒体支持**：自动下载用户发送的图片、文件并分析
-- ✨ **流式卡片**：实时显示 AI 思考过程，不是干等
-- 🎨 **美观输出**：Markdown 表格、代码块高亮、列表排版
+```python
+from clawdboz import Bot
 
-**适用场景**：软件开发团队、DevOps 运维、技术讨论群、需要频繁处理代码/文件的团队
+bot = Bot(app_id="your-app-id", app_secret="your-app-secret")
+bot.run()
+```
+
+#### 方式二：使用 bot_manager.sh（推荐生产使用）
+
+**1. 配置方式（二选一）**
+
+方式 A - 环境变量（推荐）：
+```bash
+export FEISHU_APP_ID="cli_xxxxxxxxxxxxxxxx"
+export FEISHU_APP_SECRET="xxxxxxxxxxxxxxxxxxxxxx"
+```
+
+方式 B - config.json：
+```json
+{
+  "feishu": {
+    "app_id": "cli_xxxxxxxxxxxxxxxx",
+    "app_secret": "xxxxxxxxxxxxxxxxxxxxxx"
+  }
+}
+```
+
+**2. 管理命令**
+
+```bash
+# 启动 Bot
+./bot_manager.sh start
+
+# 停止 Bot
+./bot_manager.sh stop
+
+# 重启 Bot
+./bot_manager.sh restart
+
+# 查看状态
+./bot_manager.sh status
+
+# 查看日志（最后50行）
+./bot_manager.sh log 50
+
+# 实时跟踪日志
+./bot_manager.sh follow
+
+# 运维检查
+./bot_manager.sh check
+```
+
+**3. 自定义启动脚本 bot0.py**
+
+如果需要在 `bot0.py` 中添加自定义逻辑，创建该文件：
+
+```python
+#!/usr/bin/env python3
+import os
+from clawdboz import Bot
+
+# 从环境变量或 config.json 读取配置
+app_id = os.environ.get('FEISHU_APP_ID', 'your-app-id')
+app_secret = os.environ.get('FEISHU_APP_SECRET', 'your-app-secret')
+
+bot = Bot(app_id=app_id, app_secret=app_secret)
+bot.run()
+```
+
+管理脚本会优先使用 `bot0.py`，如果不存在则使用内置模块启动。
 
 ## 项目结构
 
 ```
 .
-├── src/                          # Python 源代码目录
-│   ├── __init__.py               # 包初始化，导出所有接口
-│   ├── config.py                 # 配置管理（支持 .env）
-│   ├── acp_client.py             # ACP 客户端（Kimi 通信）
-│   ├── bot.py                    # Bot 核心类
-│   ├── handlers.py               # 事件处理器
-│   └── main.py                   # 程序入口（WebSocket 监控）
+├── clawdboz/                   # 主包
+│   ├── __init__.py             # 包入口
+│   ├── simple_bot.py           # 简化版 Bot API
+│   ├── bot.py                  # Bot 核心类
+│   ├── acp_client.py           # ACP 客户端
+│   ├── config.py               # 配置管理
+│   ├── handlers.py             # 事件处理器
+│   ├── main.py                 # 程序入口
+│   ├── cli.py                  # 命令行工具
+│   └── .kimi/                  # MCP 配置
 │
-├── clawdboz.py                   # 兼容入口（导入 src 包）
-├── feishu_tools/                 # 飞书工具目录
-│   ├── mcp_feishu_file_server.py # MCP Server：文件发送
-│   └── notify_feishu.py          # 飞书通知工具
-├── bot_manager.sh                # Bot 管理脚本
-├── config.json                   # 一般配置文件
-├── .env                          # 敏感信息配置（不提交 Git）
-├── requirements.txt              # Python 依赖
-├── docs/                         # 文档目录
-│   ├── PRJ.md                    # 项目文档
-│   ├── ARCHITECTURE.md           # 架构文档
-│   └── feishu_permissions.json   # 飞书权限配置
-├── AGENTS.md                     # Bot 系统提示词
-└── README.md                     # 项目说明
-
-其他目录：
-├── WORKPLACE/                    # 工作目录（临时文件、用户上传）
-├── logs/                         # 日志目录
-├── test_script/                  # 测试脚本
-└── .kimi/                        # MCP 配置
+├── feishu_tools/               # 飞书 MCP 工具
+│   ├── mcp_feishu_file_server.py
+│   └── notify_feishu.py
+│
+├── bot_manager.sh              # 管理脚本
+├── pyproject.toml              # 打包配置
+├── MANIFEST.in                 # 打包文件清单
+└── README.md                   # 项目说明
 ```
 
-## 安装步骤
+## 飞书应用配置
 
-### 1. 克隆项目
-
-```bash
-git clone <repository-url>
-cd larkbot
-```
-
-### 2. 创建虚拟环境
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# 或
-.venv\Scripts\activate     # Windows
-```
-
-### 3. 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. 配置飞书应用
-
-#### 4.1 创建应用
+### 1. 创建应用
 
 1. 前往 [飞书开放平台](https://open.feishu.cn/) 登录开发者账号
 2. 点击「开发者后台」→「创建企业自建应用」
 3. 填写应用名称和描述，点击「创建」
 4. 进入应用详情页，获取 **App ID** 和 **App Secret**
 
-#### 4.2 配置权限
-
-详见 `docs/feishu_permissions.json` 权限配置文件。
+### 2. 配置权限
 
 **需要的权限**:
 
@@ -137,213 +156,46 @@ pip install -r requirements.txt
 | API 权限 | `im:file:send` | 发送文件消息 |
 | API 权限 | `im:image:create` | 上传图片 |
 | 事件订阅 | `im.message.receive_v1` | 接收消息 |
-| 事件订阅 | `im.message.message_read_v1` | 消息已读 |
 | 机器人能力 | `receive_message` | 接收消息 |
 | 机器人能力 | `send_message` | 发送消息 |
 
 1. 在应用详情页，点击「权限管理」→ 申请上述 API 权限
-2. 点击「事件订阅」→ 添加订阅上述事件
+    备注：可通过feishu_permissions.json批量配置权限
+2. 点击「事件与回调」→ 选择长连接方式，勾选所有事件和回调选项
+    备注：初次配置长连接，需要先启动bot进行连接，才能在飞书后台配置成功
 3. 点击「机器人」→ 开启「接收消息」和「发送消息」能力
 
-#### 4.3 发布应用
+### 3. 发布应用
 
 1. 点击「版本管理与发布」→「创建版本」
 2. 填写版本号（如 1.0.0）
 3. 选择「可用性状态」为「所有员工」
 4. 点击「保存」并「申请发布」
 
-#### 4.4 添加机器人到聊天
+### 4. 添加机器人到聊天
 
-**单聊**：搜索机器人名称，进入对话
+- **单聊**：搜索机器人名称，进入对话
+- **群聊**：群设置 →「群机器人」→ 添加机器人 → 在群聊中 @机器人
 
-**群聊**：群设置 →「群机器人」→ 添加机器人 → 在群聊中 @机器人
+## 与 Bot 交互
 
-### 5. 配置项目
+- **单聊**：直接发送消息给 Bot
+- **群聊**：在群聊中 @Bot 后发送消息
+- **文件/图片**：Bot 自动下载到工作目录并分析
+- **发送文件**：使用 MCP 工具发送本地文件到飞书
 
-#### 5.1 创建 .env 文件（推荐）
-
-在项目根目录创建 `.env` 文件：
-
-```bash
-cp .env.example .env  # 如果有示例文件
-# 或手动创建
-```
-
-编辑 `.env` 文件：
+## 打包发布
 
 ```bash
-# 飞书应用配置（必填）
-FEISHU_APP_ID=cli_xxxxx
-FEISHU_APP_SECRET=your-secret
+# 清理并重新打包
+rm -rf build/ dist/ *.egg-info
+python3 -m build
 
-# QVeris API Key（可选）
-QVERIS_API_KEY=sk-xxxxx
-
-# 通知配置（可选）
-ENABLE_FEISHU_NOTIFY=true
+# 生成的文件
+# dist/clawdboz-2.2.0-py3-none-any.whl
+# dist/clawdboz-2.2.0.tar.gz
 ```
-
-**注意**：`.env` 文件已添加到 `.gitignore`，不会被提交到 Git。
-
-#### 5.2 或编辑 config.json
-
-如需直接配置，编辑 `config.json`：
-
-```json
-{
-  "project_root": ".",
-  "feishu": {
-    "app_id": "your-app-id",
-    "app_secret": "your-app-secret"
-  },
-  "qveris": {
-    "api_key": "your-qveris-api-key"
-  },
-  "logs": {
-    "main_log": "logs/main.log",
-    "debug_log": "logs/bot_debug.log",
-    "feishu_api_log": "logs/feishu_api.log",
-    "ops_log": "logs/ops_check.log"
-  },
-  "paths": {
-    "workplace": "WORKPLACE",
-    "user_images": "WORKPLACE/user_images",
-    "user_files": "WORKPLACE/user_files",
-    "mcp_config": ".kimi/mcp.json"
-  }
-}
-```
-
-### 6. 初始化项目
-
-```bash
-./bot_manager.sh init --auto
-```
-
-### 7. 启动 Bot
-
-```bash
-# 推荐方式
-python -m src.main
-
-# 或使用管理脚本
-./bot_manager.sh start
-```
-
-## 使用说明
-
-### Bot 管理命令
-
-```bash
-# 初始化配置
-./bot_manager.sh init
-
-# 启动 Bot
-./bot_manager.sh start
-
-# 停止 Bot
-./bot_manager.sh stop
-
-# 重启 Bot
-./bot_manager.sh restart
-
-# 查看状态
-./bot_manager.sh status
-
-# 检查并自动修复异常
-./bot_manager.sh check
-
-# 查看日志
-./bot_manager.sh log 50
-
-# 实时跟踪日志
-./bot_manager.sh follow
-```
-
-### 与 Bot 交互
-
-**单聊**：直接发送消息给 Bot
-
-**群聊**：在群聊中 @Bot 后发送消息
-
-**处理文件/图片**：
-- 用户发送文件/图片 → Bot 自动下载到 `WORKPLACE/user_files/` 或 `WORKPLACE/user_images/`
-- Bot 在回复时会参考这些文件/图片的内容
-
-**发送文件**：用户可以让 Bot 通过 MCP 工具发送本地文件到飞书
-
-## 配置优先级
-
-配置加载优先级（高到低）：
-
-1. **环境变量** - `export FEISHU_APP_ID=xxx`
-2. **.env 文件** - 项目根目录下的 `.env`
-3. **config.json** - 一般配置文件
-
-## 日志文件
-
-| 日志文件 | 说明 |
-|---------|------|
-| `logs/main.log` | WebSocket 连接状态日志 |
-| `logs/bot_debug.log` | Bot 调试日志 |
-| `logs/bot_output.log` | Bot 标准输出 |
-| `logs/feishu_api.log` | 飞书 API 调用日志 |
-| `logs/ops_check.log` | 运维检查日志 |
-| `logs/cron_check.log` | 定时任务日志 |
-
-## 定时任务
-
-配置每 30 分钟自动执行运维检查：
-
-```bash
-crontab -e
-```
-
-添加：
-
-```cron
-*/30 * * * * cd /project/larkbot && ./bot_manager.sh check >> /project/larkbot/logs/cron_check.log 2>&1
-```
-
-## 开发指南
-
-### 导入模块
-
-```python
-# 从 src 包导入（推荐）
-from src import LarkBot, CONFIG
-from src.bot import LarkBot
-from src.config import get_absolute_path
-
-# 向后兼容
-from clawdboz import LarkBot
-```
-
-### 项目架构
-
-详见 [ARCHITECTURE.md](docs/ARCHITECTURE.md)
-
-```
-src/main.py ──► src/bot.py ──► src/acp_client.py ──► src/config.py
-              │
-              ▼
-        src/handlers.py
-```
-
-## 更新记录
-
-### v2.1.0 (2026-02-15)
-
-- **配置安全增强**：敏感信息迁移到 `.env` 文件，不提交 Git
-- **聊天记录增强**：支持自动下载用户发送的图片/文件
-- **WebSocket 监控**：新增连接状态监控和心跳告警
-
-### v2.0.0 (2026-02-13)
-
-- 模块化架构重构
-- 新增运维检查和自动修复功能
-- 支持 MCP 工具调用
 
 ## 许可证
 
-[Your License Here]
+MIT License
