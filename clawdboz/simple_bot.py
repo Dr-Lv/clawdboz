@@ -16,6 +16,123 @@ from .config import load_config, get_absolute_path, PROJECT_ROOT, CONFIG as GLOB
 from .bot import LarkBot
 
 
+def _ensure_project_files(work_dir: str, verbose: bool = False):
+    """
+    确保项目文件存在（.bots.md 和 bot_manager.sh）
+    内部辅助函数，避免循环导入
+    """
+    try:
+        # 尝试从 cli 导入
+        from .cli import ensure_bot_files
+        return ensure_bot_files(work_dir, verbose=verbose)
+    except ImportError:
+        # 如果导入失败，直接创建文件
+        result = {'created': [], 'existing': [], 'errors': []}
+        
+        # 创建 .bots.md
+        bots_md_path = os.path.join(work_dir, '.bots.md')
+        if not os.path.exists(bots_md_path):
+            default_bots_md = """# Agent 指令 - 嗑唠的宝子
+
+> 本文档是嗑唠的宝子 (Clawdboz) 的系统提示词和开发规范。
+
+## 基本信息
+
+1. 你的名字叫 **clawdboz**，中文名称叫 **嗑唠的宝子**
+2. 版本: **v2.0.0** - 模块化架构
+
+## 开发规范
+
+1. 调用 skills 或者 MCP 产生的中间临时文件，请放在 **WORKPLACE** 文件夹中
+2. 谨慎使用删除命令，如果需要删除，**向用户询问**确认
+3. 当新增功能被用户测试完，确认成功后，**git 更新版本**
+"""
+            try:
+                with open(bots_md_path, 'w', encoding='utf-8') as f:
+                    f.write(default_bots_md)
+                result['created'].append('.bots.md')
+                if verbose:
+                    print(f"[Bot] 创建 Bot 规则文件: .bots.md")
+            except Exception as e:
+                result['errors'].append(f'.bots.md: {e}')
+        else:
+            result['existing'].append('.bots.md')
+        
+        # 创建简化版 bot_manager.sh
+        bot_manager_path = os.path.join(work_dir, 'bot_manager.sh')
+        if not os.path.exists(bot_manager_path):
+            default_bot_manager = """#!/bin/bash
+#
+# 飞书 Bot 管理脚本
+# 功能：启动、停止、重启、状态查看
+#
+
+BOT_NAME="feishu_bot"
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+PID_FILE="/tmp/${BOT_NAME}_$(echo "$PROJECT_ROOT" | tr '/' '_').pid"
+
+cd "$PROJECT_ROOT" || exit 1
+
+case "$1" in
+    start)
+        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+            echo "Bot 已在运行 (PID: $(cat $PID_FILE))"
+            exit 1
+        fi
+        echo "启动 Bot..."
+        nohup python3 -c "from clawdboz import Bot; bot = Bot(); bot.run()" > logs/bot_output.log 2>&1 &
+        echo $! > "$PID_FILE"
+        echo "Bot 已启动 (PID: $!)"
+        ;;
+    stop)
+        if [ -f "$PID_FILE" ]; then
+            PID=$(cat "$PID_FILE")
+            if kill -0 "$PID" 2>/dev/null; then
+                echo "停止 Bot (PID: $PID)..."
+                kill "$PID"
+                rm -f "$PID_FILE"
+                echo "Bot 已停止"
+            else
+                echo "Bot 未运行"
+                rm -f "$PID_FILE"
+            fi
+        else
+            echo "未找到 PID 文件，Bot 可能未运行"
+        fi
+        ;;
+    restart)
+        $0 stop
+        sleep 2
+        $0 start
+        ;;
+    status)
+        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+            echo "Bot 运行中 (PID: $(cat $PID_FILE))"
+        else
+            echo "Bot 未运行"
+        fi
+        ;;
+    *)
+        echo "用法: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+"""
+            try:
+                with open(bot_manager_path, 'w', encoding='utf-8') as f:
+                    f.write(default_bot_manager)
+                os.chmod(bot_manager_path, 0o755)
+                result['created'].append('bot_manager.sh')
+                if verbose:
+                    print(f"[Bot] 创建管理脚本: bot_manager.sh")
+            except Exception as e:
+                result['errors'].append(f'bot_manager.sh: {e}')
+        else:
+            result['existing'].append('bot_manager.sh')
+        
+        return result
+
+
 class Bot:
     """
     嗑唠的宝子简化版 Bot 类
@@ -67,6 +184,9 @@ class Bot:
         
         # 切换到工作目录
         os.chdir(self.work_dir)
+        
+        # 自动创建 .bots.md 和 bot_manager.sh（如果不存在）
+        _ensure_project_files(self.work_dir, verbose=True)
         
         # 加载配置
         self.config = self._load_configuration(
