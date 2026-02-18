@@ -1,9 +1,0 @@
-lark-oapi>=1.5.0
-requests>=2.28.0
-python-socks>=2.0.0
-websockets>=12.0
-
-[dev]
-pytest>=7.0.0
-black>=23.0.0
-flake8>=6.0.0
