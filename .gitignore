@@ -65,3 +65,13 @@ test_script/
 
 # 根目录测试文件（临时）
 test_webhook_server.py
+
+# 构建产物
+dist/
+*.egg-info/
+
+# uv lock 文件（库项目不需要）
+uv.lock
+
+# Python 版本文件（个人开发环境）
+.python-version
