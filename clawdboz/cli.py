@@ -12,7 +12,9 @@ cli.py - 命令行入口
 import argparse
 import json
 import os
+import shutil
 import sys
+from pathlib import Path
 from typing import Optional
 
 
@@ -23,6 +25,27 @@ def get_version() -> str:
         return version("clawdboz")
     except Exception:
         return "2.2.0"
+
+
+def get_templates_dir() -> Path:
+    """获取模板文件目录"""
+    try:
+        from importlib import resources
+        # 尝试获取包内的 templates 目录
+        with resources.files('clawdboz') as pkg_path:
+            templates_dir = pkg_path / 'templates'
+            if templates_dir.exists():
+                return templates_dir
+    except Exception:
+        pass
+    
+    # 回退到当前文件所在目录下的 templates
+    templates_dir = Path(__file__).parent / 'templates'
+    if templates_dir.exists():
+        return templates_dir
+    
+    # 最后回退到项目根目录
+    return Path(__file__).parent.parent
 
 
 def init_project(work_dir: Optional[str] = None):
@@ -100,10 +123,113 @@ def init_project(work_dir: Optional[str] = None):
             json.dump(mcp_config, f, indent=2)
         print(f"[INIT] 创建 MCP 配置: .kimi/mcp.json")
     
+    # 创建 .bots.md（如果不存在）
+    bots_md_path = os.path.join(target_dir, '.bots.md')
+    if not os.path.exists(bots_md_path):
+        default_bots_md = """# Agent 指令 - 嗑唠的宝子
+
+> 本文档是嗑唠的宝子 (Clawdboz) 的系统提示词和开发规范。
+
+## 基本信息
+
+1. 你的名字叫 **clawdboz**，中文名称叫 **嗑唠的宝子**
+2. 版本: **v2.0.0** - 模块化架构
+
+## 开发规范
+
+1. 调用 skills 或者 MCP 产生的中间临时文件，请放在 **WORKPLACE** 文件夹中
+2. 谨慎使用删除命令，如果需要删除，**向用户询问**确认
+3. 当新增功能被用户测试完，确认成功后，**git 更新版本**
+"""
+        with open(bots_md_path, 'w', encoding='utf-8') as f:
+            f.write(default_bots_md)
+        print(f"[INIT] 创建 Bot 规则文件: .bots.md")
+    else:
+        print(f"[INFO] Bot 规则文件已存在: .bots.md")
+    
+    # 创建 bot_manager.sh（如果不存在）
+    bot_manager_path = os.path.join(target_dir, 'bot_manager.sh')
+    if not os.path.exists(bot_manager_path):
+        # 尝试从包数据目录复制模板
+        templates_dir = get_templates_dir()
+        template_path = templates_dir / 'bot_manager.sh'
+        
+        if template_path.exists():
+            shutil.copy2(template_path, bot_manager_path)
+            # 设置可执行权限
+            os.chmod(bot_manager_path, 0o755)
+            print(f"[INIT] 复制管理脚本: bot_manager.sh")
+        else:
+            # 如果找不到模板，创建简化版本
+            default_bot_manager = """#!/bin/bash
+#
+# 飞书 Bot 管理脚本
+# 功能：启动、停止、重启、状态查看
+#
+
+BOT_NAME="feishu_bot"
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+PID_FILE="/tmp/${BOT_NAME}_$(echo "$PROJECT_ROOT" | tr '/' '_').pid"
+
+cd "$PROJECT_ROOT" || exit 1
+
+case "$1" in
+    start)
+        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+            echo "Bot 已在运行 (PID: $(cat $PID_FILE))"
+            exit 1
+        fi
+        echo "启动 Bot..."
+        nohup clawdboz run > logs/bot_output.log 2>&1 &
+        echo $! > "$PID_FILE"
+        echo "Bot 已启动 (PID: $!)"
+        ;;
+    stop)
+        if [ -f "$PID_FILE" ]; then
+            PID=$(cat "$PID_FILE")
+            if kill -0 "$PID" 2>/dev/null; then
+                echo "停止 Bot (PID: $PID)..."
+                kill "$PID"
+                rm -f "$PID_FILE"
+                echo "Bot 已停止"
+            else
+                echo "Bot 未运行"
+                rm -f "$PID_FILE"
+            fi
+        else
+            echo "未找到 PID 文件，Bot 可能未运行"
+        fi
+        ;;
+    restart)
+        $0 stop
+        sleep 2
+        $0 start
+        ;;
+    status)
+        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+            echo "Bot 运行中 (PID: $(cat $PID_FILE))"
+        else
+            echo "Bot 未运行"
+        fi
+        ;;
+    *)
+        echo "用法: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+"""
+            with open(bot_manager_path, 'w', encoding='utf-8') as f:
+                f.write(default_bot_manager)
+            os.chmod(bot_manager_path, 0o755)
+            print(f"[INIT] 创建管理脚本: bot_manager.sh")
+    else:
+        print(f"[INFO] 管理脚本已存在: bot_manager.sh")
+    
     print(f"[INIT] 项目初始化完成！")
     print(f"\n下一步:")
     print(f"  1. 编辑 config.json，填入飞书 App ID 和 App Secret")
     print(f"  2. 运行: clawdboz run")
+    print(f"  或使用: ./bot_manager.sh start")
 
 
 def run_bot(app_id: Optional[str], app_secret: Optional[str], config: Optional[str]):

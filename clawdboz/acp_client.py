@@ -55,6 +55,9 @@ class ACPClient:
         # 加载项目目录下的 skills
         skills = self._load_skills()
         
+        # 加载项目目录下的 .bots.md 规则文件
+        system_prompt = self._load_bots_md()
+        
         # 创建新会话，使用 WORKPLACE 作为工作目录
         workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
         session_params = {
@@ -63,8 +66,10 @@ class ACPClient:
         }
         if skills:
             session_params['skills'] = skills
+        if system_prompt:
+            session_params['systemPrompt'] = system_prompt
             
-        self._log(f"[ACP] 创建会话，cwd: {workplace_path}, MCP服务器: {[s.get('name') for s in mcp_servers]}, Skills: {len(skills)}")
+        self._log(f"[ACP] 创建会话，cwd: {workplace_path}, MCP服务器: {[s.get('name') for s in mcp_servers]}, Skills: {len(skills)}, 系统提示词: {'已加载' if system_prompt else '未加载'}")
         result, error = self.call_method('session/new', session_params)
         if error:
             raise Exception(f"创建会话失败: {error}")
@@ -205,6 +210,28 @@ class ACPClient:
         except Exception as e:
             self._log(f"[ACP] 加载 Skills 失败: {e}")
             return []
+    
+    def _load_bots_md(self):
+        """加载项目目录下的 .bots.md 规则文件作为系统提示词"""
+        bots_md_path = get_absolute_path('.bots.md')
+        
+        if not os.path.exists(bots_md_path):
+            self._log(f"[ACP] 未找到 .bots.md 文件: {bots_md_path}")
+            return None
+        
+        try:
+            with open(bots_md_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            if not content.strip():
+                self._log(f"[ACP] .bots.md 文件为空")
+                return None
+            
+            self._log(f"[ACP] 加载 .bots.md 成功，长度: {len(content)} 字符")
+            return content
+        except Exception as e:
+            self._log(f"[ACP] 加载 .bots.md 失败: {e}")
+            return None
 
     def _read_responses(self):
         """持续读取响应"""
