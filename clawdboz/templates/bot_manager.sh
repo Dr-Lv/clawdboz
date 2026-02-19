@@ -7,7 +7,6 @@
 # 基础配置
 BOT_NAME="feishu_bot"
 BOT_MODULE="clawdboz.main"
-BOT_SCRIPT="bot0.py"  # 自定义启动脚本
 
 # 获取脚本所在目录（作为默认项目根目录）
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -19,6 +18,9 @@ CONFIG_FILE="$SCRIPT_DIR/config.json"
 get_config() {
     python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
 }
+
+# 启动脚本优先级: 环境变量 BOT_START_SCRIPT > config.json 中的 start_script > 默认 bot0.py
+BOT_SCRIPT="${BOT_START_SCRIPT:-$(get_config "['start_script']" 2>/dev/null || echo 'bot0.py')}"
 
 # 获取项目根目录（优先环境变量 LARKBOT_ROOT，其次 config.json 中的 project_root）
 PROJECT_ROOT="${LARKBOT_ROOT:-}"
@@ -42,9 +44,9 @@ export LARKBOT_ROOT="$PROJECT_ROOT"
 # 将项目路径中的 / 替换为 _ 来生成合法的 PID 文件名
 PROJECT_ROOT_HASH=$(echo "$PROJECT_ROOT" | tr '/' '_')
 PID_FILE="/tmp/${BOT_NAME}_${PROJECT_ROOT_HASH}.pid"
-VENV_DIR="$PROJECT_ROOT/.venv"
-PYTHON_BIN="$VENV_DIR/bin/python"
-KIMI_DIR="/root/.local/bin/"
+
+# 使用当前环境中的 Python（支持虚拟环境）
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 # 日志路径（从配置文件读取，基于项目根目录）
 LOG_FILE="$PROJECT_ROOT/$(get_config "['logs']['main_log']" || echo 'logs/main.log')"
@@ -59,13 +61,6 @@ NOTIFICATION_ENABLED=$(get_config "['notification']['enabled']" || echo 'true')
 ENABLE_FEISHU_NOTIFY="${ENABLE_FEISHU_NOTIFY:-$NOTIFICATION_ENABLED}"
 NOTIFY_SCRIPT_NAME=$(get_config "['notification']['script']" || echo 'feishu_tools/notify_feishu.py')
 NOTIFY_SCRIPT="$PROJECT_ROOT/$NOTIFY_SCRIPT_NAME"
-
-# SSL 证书配置（解决 WebSocket SSL 连接问题）
-CERT_PATH="$VENV_DIR/lib/python3.10/site-packages/certifi/cacert.pem"
-if [ -f "$CERT_PATH" ]; then
-    export SSL_CERT_FILE="$CERT_PATH"
-    export REQUESTS_CA_BUNDLE="$CERT_PATH"
-fi
 
 # QVeris API Key 配置（优先环境变量，其次配置文件）
 QVERIS_API_KEY_CONFIG=$(get_config "['qveris']['api_key']" || echo '')
@@ -195,18 +190,14 @@ start() {
         info "或创建 config.json 文件"
     fi
     
-    # 检查启动方式
+    # 检查启动脚本
     local START_CMD=""
     if [ -f "$PROJECT_ROOT/$BOT_SCRIPT" ]; then
-        # 优先使用自定义脚本 bot0.py
         START_CMD="$PYTHON_BIN $PROJECT_ROOT/$BOT_SCRIPT"
         info "使用启动脚本: $BOT_SCRIPT"
-    elif [ -d "$PROJECT_ROOT/clawdboz" ]; then
-        # 使用模块方式启动
-        START_CMD="$PYTHON_BIN -m $BOT_MODULE"
-        info "使用模块启动: $BOT_MODULE"
     else
-        error "找不到启动方式: 既没有 $BOT_SCRIPT 也没有 clawdboz 包"
+        error "找不到启动脚本: $BOT_SCRIPT"
+        error "请在 config.json 中配置 start_script，或创建 bot0.py"
         return 1
     fi
     
@@ -216,18 +207,15 @@ start() {
         return 1
     }
     
-    # 检查虚拟环境
-    if [ ! -f "$PYTHON_BIN" ]; then
-        error "虚拟环境不存在: $PYTHON_BIN"
+    # 检查 Python 是否可用
+    if ! command -v "$PYTHON_BIN" &> /dev/null; then
+        error "Python 命令不存在: $PYTHON_BIN"
+        error "请确保 Python 已安装或在虚拟环境中运行"
         return 1
     fi
 
-    # 启动 Bot（带环境变量）
-    info "启动 Python 进程 (使用虚拟环境)..."
-    if [ -f "$CERT_PATH" ]; then
-        export SSL_CERT_FILE="$CERT_PATH"
-        export REQUESTS_CA_BUNDLE="$CERT_PATH"
-    fi
+    # 启动 Bot
+    info "启动 Python 进程 (使用: $PYTHON_BIN)..."
     nohup $START_CMD > "$LOG_FILE" 2>&1 &
     local pid=$!
     
@@ -813,18 +801,19 @@ check() {
         check_results="${check_results}\n[WARN] MCP 上下文: 不存在"
     fi
     
-    # 7. 检查虚拟环境
-    info "检查虚拟环境..."
-    if [ -f "$PYTHON_BIN" ]; then
-        success "✓ 虚拟环境正常"
-        log_ops "INFO" "虚拟环境正常"
-        check_results="${check_results}\n[OK] 虚拟环境: 正常"
+    # 7. 检查 Python
+    info "检查 Python..."
+    if command -v "$PYTHON_BIN" &> /dev/null; then
+        local python_version=$($PYTHON_BIN --version 2>&1)
+        success "✓ Python 正常: $python_version"
+        log_ops "INFO" "Python 正常: $python_version"
+        check_results="${check_results}\n[OK] Python: $python_version"
     else
-        error "✗ 虚拟环境不存在"
+        error "✗ Python 不存在: $PYTHON_BIN"
         has_error=1
-        error_details="${error_details}\n- 虚拟环境缺失"
-        log_ops "ERROR" "虚拟环境缺失"
-        check_results="${check_results}\n[FAIL] 虚拟环境: 缺失"
+        error_details="${error_details}\n- Python 缺失"
+        log_ops "ERROR" "Python 缺失"
+        check_results="${check_results}\n[FAIL] Python: 缺失"
     fi
     
     echo ""

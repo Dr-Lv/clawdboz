@@ -55,6 +55,291 @@ class LarkBot:
             f.write(f"=== Feishu API Log started at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
         # 获取 Bot 的 user_id
         self._fetch_bot_user_id()
+        
+        # 心跳相关配置
+        self._heart_beat_interval = CONFIG.get('scheduler', {}).get('heart_beat', 60)  # 默认60秒
+        self._last_heart_beat_time = time.time()
+        self._heart_beat_thread = None
+        self._heart_beat_stop_event = threading.Event()
+        
+        # 汇总相关
+        self._last_daily_summary_date = None  # 上次汇总的日期
+        
+        # 启动心跳线程
+        self._start_heart_beat()
+
+    def _start_heart_beat(self):
+        """启动心跳线程，定期检查定时任务"""
+        if self._heart_beat_thread is None or not self._heart_beat_thread.is_alive():
+            self._heart_beat_stop_event.clear()
+            self._heart_beat_thread = threading.Thread(target=self._heart_beat_loop, daemon=True)
+            self._heart_beat_thread.start()
+            self._log(f"[HEART_BEAT] 心跳线程已启动，间隔: {self._heart_beat_interval}秒")
+
+    def _stop_heart_beat(self):
+        """停止心跳线程"""
+        if self._heart_beat_thread and self._heart_beat_thread.is_alive():
+            self._heart_beat_stop_event.set()
+            self._heart_beat_thread.join(timeout=5)
+            self._log("[HEART_BEAT] 心跳线程已停止")
+
+    def _heart_beat_loop(self):
+        """心跳循环，定期检查 scheduler_tasks.json 中的任务"""
+        while not self._heart_beat_stop_event.is_set():
+            try:
+                # 等待指定间隔，但可以被提前唤醒
+                self._heart_beat_stop_event.wait(timeout=self._heart_beat_interval)
+                if self._heart_beat_stop_event.is_set():
+                    break
+                
+                # 执行心跳检查
+                self._check_scheduler_tasks()
+                
+                # 检查是否需要执行每日汇总
+                self._check_daily_summary()
+                
+            except Exception as e:
+                self._log(f"[HEART_BEAT] 心跳检查异常: {e}")
+
+    def _get_tasks_file_path(self):
+        """获取任务文件路径"""
+        return get_absolute_path('WORKPLACE/scheduler_tasks.json')
+
+    def _load_tasks_data(self):
+        """加载任务数据"""
+        import json
+        tasks_file = self._get_tasks_file_path()
+        if not os.path.exists(tasks_file):
+            return {'task_id_counter': 0, 'tasks': {}}
+        try:
+            with open(tasks_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            self._log(f"[HEART_BEAT] 加载任务数据失败: {e}")
+            return {'task_id_counter': 0, 'tasks': {}}
+
+    def _save_tasks_data(self, data):
+        """保存任务数据"""
+        import json
+        tasks_file = self._get_tasks_file_path()
+        try:
+            os.makedirs(os.path.dirname(tasks_file), exist_ok=True)
+            with open(tasks_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self._log(f"[HEART_BEAT] 保存任务数据失败: {e}")
+
+    def _update_task_status(self, task_id, status, success=True, error_msg=None):
+        """更新任务状态"""
+        data = self._load_tasks_data()
+        task_id_str = str(task_id)
+        
+        if task_id_str not in data['tasks']:
+            return
+        
+        task = data['tasks'][task_id_str]
+        task['status'] = status
+        task['updated_at'] = time.time()
+        
+        if status == 'completed':
+            # 执行成功，补上 execute_time
+            if not task.get('execute_time'):
+                task['execute_time'] = time.time()
+            task['success'] = True
+        elif status == 'failed':
+            task['success'] = False
+            if error_msg:
+                task['error'] = error_msg
+        
+        self._save_tasks_data(data)
+
+    def _check_scheduler_tasks(self):
+        """检查 scheduler_tasks.json 中是否有需要执行的任务"""
+        try:
+            data = self._load_tasks_data()
+            tasks = data.get('tasks', {})
+            if not tasks:
+                return
+            
+            current_time = time.time()
+            window_start = self._last_heart_beat_time
+            window_end = current_time
+            
+            # 更新上次检查时间
+            self._last_heart_beat_time = current_time
+            
+            # 检查是否有任务需要执行
+            pending_tasks = []
+            for task_id_str, task_data in tasks.items():
+                execute_time = task_data.get('execute_time')
+                status = task_data.get('status', 'pending')
+                
+                # 只检查 pending 状态的任务
+                if status != 'pending':
+                    continue
+                
+                # 规则1: 如果 execute_time 为空，默认是有效任务（立即执行）
+                if execute_time is None or execute_time == '':
+                    pending_tasks.append({
+                        'id': task_data.get('id'),
+                        'chat_id': task_data.get('chat_id'),
+                        'description': task_data.get('description'),
+                        'execute_time': None
+                    })
+                # 规则2: 如果执行时间在当前窗口内
+                elif window_start <= execute_time <= window_end:
+                    pending_tasks.append({
+                        'id': task_data.get('id'),
+                        'chat_id': task_data.get('chat_id'),
+                        'description': task_data.get('description'),
+                        'execute_time': execute_time
+                    })
+            
+            if pending_tasks:
+                self._log(f"[HEART_BEAT] 发现 {len(pending_tasks)} 个待执行任务")
+                for task in pending_tasks:
+                    self.executor.submit(self._execute_scheduled_task, task)
+                    
+        except Exception as e:
+            self._log(f"[HEART_BEAT] 检查任务失败: {e}")
+
+    def _check_daily_summary(self):
+        """检查是否需要执行每日汇总（每天早上9点）"""
+        try:
+            from datetime import datetime, time as dt_time
+            
+            now = datetime.now()
+            current_time = now.time()
+            
+            # 检查是否是早上9点（9:00-9:01之间）
+            is_nine_am = (current_time.hour == 9 and current_time.minute == 0)
+            
+            # 检查今天是否已经汇总过
+            today_str = now.strftime('%Y-%m-%d')
+            if self._last_daily_summary_date == today_str:
+                return
+            
+            if is_nine_am:
+                self._log("[HEART_BEAT] 执行每日任务汇总")
+                self._do_daily_summary()
+                self._last_daily_summary_date = today_str
+                
+        except Exception as e:
+            self._log(f"[HEART_BEAT] 每日汇总检查失败: {e}")
+
+    def _do_daily_summary(self):
+        """执行每日任务汇总，找出所有执行了但未成功的任务"""
+        try:
+            data = self._load_tasks_data()
+            tasks = data.get('tasks', {})
+            
+            # 找出所有 failed 或 executing 状态的任务
+            failed_tasks = []
+            executing_tasks = []
+            
+            for task_id_str, task_data in tasks.items():
+                status = task_data.get('status', 'pending')
+                
+                if status == 'failed':
+                    failed_tasks.append(task_data)
+                elif status == 'executing':
+                    executing_tasks.append(task_data)
+            
+            if not failed_tasks and not executing_tasks:
+                self._log("[HEART_BEAT] 没有未成功的任务需要汇总")
+                return
+            
+            # 按 chat_id 分组
+            from collections import defaultdict
+            chat_tasks = defaultdict(list)
+            
+            for task in failed_tasks:
+                chat_tasks[task.get('chat_id')].append(task)
+            for task in executing_tasks:
+                chat_tasks[task.get('chat_id')].append(task)
+            
+            # 向每个聊天发送汇总消息
+            for chat_id, tasks_list in chat_tasks.items():
+                message_lines = ["📊 **每日任务执行汇总**", ""]
+                message_lines.append(f"共有 {len(tasks_list)} 个任务未成功执行：")
+                message_lines.append("")
+                
+                for i, task in enumerate(tasks_list, 1):
+                    desc = task.get('description', '无描述')[:50]
+                    status = task.get('status', '未知')
+                    error = task.get('error', '')
+                    
+                    message_lines.append(f"{i}. {desc}")
+                    message_lines.append(f"   状态: {status}")
+                    if error:
+                        message_lines.append(f"   错误: {error}")
+                    message_lines.append("")
+                
+                message_lines.append("请检查这些任务并重试。")
+                
+                message = "\n".join(message_lines)
+                self.reply_text(chat_id, message, streaming=False)
+            
+            self._log(f"[HEART_BEAT] 已发送每日汇总到 {len(chat_tasks)} 个聊天")
+            
+        except Exception as e:
+            self._log(f"[HEART_BEAT] 每日汇总执行失败: {e}")
+
+    def _execute_scheduled_task(self, task: dict):
+        """执行定时任务"""
+        task_id = task['id']
+        chat_id = task['chat_id']
+        description = task['description']
+        
+        try:
+            self._log(f"[HEART_BEAT] 执行任务 #{task_id}: {description[:50]}...")
+            
+            # 更新任务状态为 executing
+            self._update_task_status(task_id, 'executing')
+            
+            # 初始化 ACP 客户端（如果未初始化）
+            if self.acp_client is None:
+                try:
+                    self.acp_client = ACPClient(bot_ref=self)
+                    self._log("[DEBUG] ACP 客户端已初始化")
+                except Exception as e:
+                    self._log(f"[ERROR] ACP 客户端初始化失败: {e}")
+                    self._update_task_status(task_id, 'failed', success=False, error_msg=str(e))
+                    return
+            
+            # 构建提示词
+            prompt = f"这是一个定时任务，请执行以下内容并返回结果:\n\n{description}"
+            
+            # 调用 ACP 获取结果
+            result = self.acp_client.chat(prompt, timeout=300)
+            
+            # 格式化消息
+            message = f"⏰ **定时任务提醒**\n\n任务: {description}\n\n{result}"
+            
+            # 发送消息给用户
+            self.reply_text(chat_id, message, streaming=False)
+            
+            # 更新任务状态为 completed（补上 execute_time）
+            self._update_task_status(task_id, 'completed', success=True)
+            
+            self._log(f"[HEART_BEAT] 任务 #{task_id} 执行完成")
+            
+        except Exception as e:
+            error_msg = str(e)
+            self._log(f"[HEART_BEAT] 执行任务 #{task_id} 失败: {error_msg}")
+            
+            # 更新任务状态为 failed
+            self._update_task_status(task_id, 'failed', success=False, error_msg=error_msg)
+            
+            # 尝试发送错误信息
+            try:
+                self.reply_text(
+                    chat_id,
+                    f"⏰ **定时任务执行失败**\n\n任务: {description}\n\n错误: {error_msg}",
+                    streaming=False
+                )
+            except:
+                pass
 
     def _log(self, message):
         """写入日志到文件"""
@@ -71,6 +356,8 @@ class LarkBot:
         # 实际会在收到第一条消息时从 mentions 中提取
         self._bot_user_id = None
         self._log(f"[DEBUG] Bot user_id 将在收到消息时动态检测")
+    
+
 
     def _log_feishu(self, direction, content, extra=""):
         """记录飞书 API 调用日志
@@ -676,6 +963,12 @@ class LarkBot:
             if msg_type == 'text':
                 text = current_text
                 
+                # 处理特殊命令
+                command_result = self._handle_command(text, chat_id)
+                if command_result:
+                    # 命令已处理，直接返回
+                    return
+                
                 # 构建最终提示词
                 final_prompt = context_prompt + f"用户当前消息：{text}\n\n请基于上下文回复用户的消息。"
                 
@@ -744,6 +1037,182 @@ class LarkBot:
             import traceback
             self._log(traceback.format_exc())
 
+    def _handle_command(self, text: str, chat_id: str) -> bool:
+        """处理特殊命令
+        
+        Args:
+            text: 用户输入的文本
+            chat_id: 聊天ID
+            
+        Returns:
+            bool: 如果是命令则返回 True，否则返回 False
+        """
+        # 去除前后空白
+        text = text.strip()
+        
+        # Ctrl+C 信号（用户发送 Ctrl+C 或 "/stop"）
+        if text in ['Ctrl-C', 'Ctrl+C', '/stop', '中断', '停止']:
+            self._log(f"[COMMAND] 收到中断命令: {text}")
+            
+            # 通知 ACP 客户端取消生成
+            if self.acp_client:
+                self.acp_client.cancel()
+                self._log(f"[COMMAND] 已通知 ACP 客户端取消生成")
+                self.reply_text(
+                    chat_id,
+                    "⏹️ **已中断当前任务**\n\n生成已取消，可以发送新消息。",
+                    streaming=False
+                )
+            else:
+                self.reply_text(
+                    chat_id,
+                    "ℹ️ **没有正在运行的任务**\n\nBot 当前空闲，可以直接发送新消息。",
+                    streaming=False
+                )
+            return True
+        
+        # 定时任务命令
+        scheduler_result = self._handle_scheduler_command(text, chat_id)
+        if scheduler_result:
+            return True
+        
+        # 不是命令
+        return False
+
+    def _handle_scheduler_command(self, text: str, chat_id: str) -> bool:
+        """处理定时任务命令
+        
+        通过操作 WORKPLACE/scheduler_tasks.json 文件管理定时任务。
+        Bot 心跳线程会自动检测并执行到期的任务。
+        
+        Args:
+            text: 用户消息文本
+            chat_id: 聊天ID
+            
+        Returns:
+            bool: 如果是定时任务命令则返回 True，否则返回 False
+        """
+        import re
+        from datetime import datetime
+        
+        # 导入新的工具函数
+        try:
+            from ..skills.scheduler.scheduler import (
+                create_task, delete_task, list_tasks, 
+                parse_time, format_task_list, format_time
+            )
+        except ImportError:
+            try:
+                from skills.scheduler.scheduler import (
+                    create_task, delete_task, list_tasks,
+                    parse_time, format_task_list, format_time
+                )
+            except ImportError:
+                self._log("[ERROR] 无法导入 scheduler 模块")
+                return False
+        
+        # 列出所有定时任务
+        if re.search(r'^(列出|查看|显示).*(定时任务|任务列表|所有任务)', text):
+            tasks = list_tasks(chat_id)
+            reply = format_task_list(tasks)
+            self.reply_text(chat_id, reply, streaming=False)
+            return True
+        
+        # 取消定时任务
+        cancel_match = re.search(r'^(取消|删除).*(?:定时)?任务\s*#?(\d+)', text)
+        if cancel_match:
+            task_id = int(cancel_match.group(2))
+            success = delete_task(task_id)
+            if success:
+                self.reply_text(
+                    chat_id,
+                    f"✅ **任务 #{task_id} 已取消**\n\n该任务已从任务列表中删除。",
+                    streaming=False
+                )
+            else:
+                self.reply_text(
+                    chat_id,
+                    f"⚠️ **任务 #{task_id} 不存在**\n\n请使用「列出定时任务」查看所有任务。",
+                    streaming=False
+                )
+            return True
+        
+        # 创建定时任务
+        # 匹配模式：设置/创建/添加 + 时间 + 任务内容
+        create_patterns = [
+            r'(?:设置|创建|添加).*(?:一个)?定时任务[,，]?\s*(.+?)[:：]\s*(.+)',
+            r'(?:设置|创建|添加).*(?:一个)?定时任务[,，]?\s*(.+?)[,，]\s*(.+)',
+            r'(?:定时任务[:：])\s*(.+?)[:，]\s*(.+)',
+        ]
+        
+        time_str = None
+        task_desc = None
+        
+        for pattern in create_patterns:
+            match = re.search(pattern, text)
+            if match:
+                time_str = match.group(1).strip()
+                task_desc = match.group(2).strip()
+                break
+        
+        # 如果没有匹配到上述模式，尝试更宽松的匹配
+        if not time_str or not task_desc:
+            # 尝试匹配：时间 + 任务描述
+            time_keywords = r'(明天|今天|后天|\d+分钟后|\d+小时后|\d+天后|\d{4}-\d{2}-\d{2})'
+            if re.search(time_keywords, text):
+                for keyword in ['明天', '今天', '后天', '分钟后', '小时后', '天后']:
+                    if keyword in text:
+                        idx = text.find(keyword)
+                        start = max(0, idx - 10)
+                        end = idx + len(keyword) + 5
+                        time_str = text[start:end].strip()
+                        task_desc = text[end:].strip() or text[:start].strip()
+                        break
+        
+        if time_str and task_desc:
+            execute_time = parse_time(time_str)
+            
+            if execute_time:
+                task_id = create_task(chat_id, task_desc, execute_time)
+                
+                if task_id:
+                    time_display = format_time(execute_time)
+                    
+                    self.reply_text(
+                        chat_id,
+                        f"✅ **定时任务已创建**\n\n"
+                        f"**任务 #{task_id}**\n"
+                        f"⏰ 执行时间: {time_display}\n"
+                        f"📝 任务内容: {task_desc}\n\n"
+                        f"到时间后我会自动执行并发送结果。",
+                        streaming=False
+                    )
+                else:
+                    self.reply_text(
+                        chat_id,
+                        "❌ **创建任务失败**\n\n请稍后重试。",
+                        streaming=False
+                    )
+                return True
+            else:
+                self.reply_text(
+                    chat_id,
+                    f"⚠️ **无法识别时间格式**\n\n"
+                    f"识别到的时间: `{time_str}`\n\n"
+                    f"支持的时间格式：\n"
+                    f"• X分钟后（如：10分钟后）\n"
+                    f"• X小时后（如：1小时后）\n"
+                    f"• 明天上午/下午X点（如：明天上午9点）\n"
+                    f"• 今天X点（如：今天下午3点）\n"
+                    f"• HH:MM（如：14:30）\n"
+                    f"• YYYY-MM-DD HH:MM（如：2024-01-15 09:00）",
+                    streaming=False
+                )
+                return True
+        
+        return False
+
+
     def run_msg_script_streaming(self, chat_id, text, async_mode=False):
         """使用 ACP 协议调用 Kimi Code CLI（流式输出）
         
@@ -757,6 +1226,10 @@ class LarkBot:
             if self.acp_client is None:
                 self._log("[DEBUG] 初始化 ACP 客户端...")
                 self.acp_client = ACPClient(bot_ref=self)
+            
+            # 重置 ACP 客户端的取消标志（确保新任务不受之前的取消影响）
+            self.acp_client.reset_cancel()
+            self._log("[DEBUG] 已重置 ACP 取消标志")
 
             # 先发送占位消息（卡片格式）
             initial_message_id = self.reply_text(chat_id, "⏳ 正在思考...", streaming=True)

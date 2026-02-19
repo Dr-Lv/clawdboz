@@ -1,0 +1,24 @@
+{
+  "project_root": "/Users/tomlee/code/github/clawdboz",
+  "feishu": {
+    "app_id": "cli_a907c9018f7a9cc5",
+    "app_secret": "5VDY7pUnBmQpT1MOiVjQEgRYXjhjdCA7"
+  },
+  "qveris": {
+    "api_key": "${QVERIS_API_KEY}"
+  },
+  "logs": {
+    "main_log": "logs/main.log",
+    "debug_log": "logs/bot_debug.log",
+    "feishu_api_log": "logs/feishu_api.log",
+    "ops_log": "logs/ops_check.log"
+  },
+  "paths": {
+    "workplace": "WORKPLACE",
+    "user_images": "WORKPLACE/user_images",
+    "user_files": "WORKPLACE/user_files",
+    "mcp_config": ".kimi/mcp.json",
+    "skills_dir": ".kimi/skills"
+  },
+  "start_script": "test_cancel.py"
+}
