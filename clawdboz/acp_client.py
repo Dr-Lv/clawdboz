@@ -21,6 +21,7 @@ class ACPClient:
         self._lock = threading.Lock()
         self._reader_thread = None
         self._bot_ref = bot_ref  # 保存 bot 引用，用于日志
+        self._cancelled = False  # 取消标志
         self._initialize()
 
     def _log(self, message):
@@ -55,8 +56,8 @@ class ACPClient:
         # 加载项目目录下的 skills
         skills = self._load_skills()
         
-        # 加载项目目录下的 .bots.md 规则文件
-        system_prompt = self._load_bots_md()
+        # 加载项目目录下的 .bots.md 规则文件（传入 skills 列表）
+        system_prompt = self._load_bots_md(skills)
         
         # 创建新会话，使用 WORKPLACE 作为工作目录
         workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
@@ -68,6 +69,9 @@ class ACPClient:
             session_params['skills'] = skills
         if system_prompt:
             session_params['systemPrompt'] = system_prompt
+        
+        # 保存 system_prompt 供后续 chat 使用
+        self.system_prompt = system_prompt
             
         self._log(f"[ACP] 创建会话，cwd: {workplace_path}, MCP服务器: {[s.get('name') for s in mcp_servers]}, Skills: {len(skills)}, 系统提示词: {'已加载' if system_prompt else '未加载'}")
         result, error = self.call_method('session/new', session_params)
@@ -92,8 +96,9 @@ class ACPClient:
         # 获取 Python 解释器路径
         python_exe = sys.executable
         
-        # 构建 FeishuFileSender 配置
+        # 构建 MCP server 路径
         feishu_file_server = feishu_tools_dir / 'mcp_feishu_file_server.py'
+        feishu_msg_server = feishu_tools_dir / 'mcp_feishu_msg_server.py'
         
         if not feishu_file_server.exists():
             self._log(f"[ACP] 内置 MCP 工具不存在: {feishu_file_server}")
@@ -110,8 +115,9 @@ class ACPClient:
         self._log(f"[ACP] 使用内置 MCP 配置")
         self._log(f"[ACP]   Python: {python_exe}")
         self._log(f"[ACP]   FeishuFileSender: {feishu_file_server}")
+        self._log(f"[ACP]   FeishuMessageSender: {feishu_msg_server}")
         
-        return {
+        mcp_servers = {
             'FeishuFileSender': {
                 'type': 'stdio',
                 'command': python_exe,
@@ -122,6 +128,20 @@ class ACPClient:
                 }
             }
         }
+        
+        # 添加消息发送 MCP（如果文件存在）
+        if feishu_msg_server.exists():
+            mcp_servers['FeishuMessageSender'] = {
+                'type': 'stdio',
+                'command': python_exe,
+                'args': [str(feishu_msg_server)],
+                'env': {
+                    'FEISHU_APP_ID': app_id,
+                    'FEISHU_APP_SECRET': app_secret
+                }
+            }
+        
+        return mcp_servers
     
     def _load_mcp_config(self):
         """加载项目目录下的 MCP 配置文件 (.kimi/mcp.json)
@@ -187,51 +207,191 @@ class ACPClient:
             return []
     
     def _load_skills(self):
-        """加载项目目录下的 skills (.kimi/skills/)"""
-        skills_dir = get_absolute_path('.kimi/skills')
-        if not os.path.exists(skills_dir):
-            self._log(f"[ACP] 未找到 skills 目录: {skills_dir}")
-            return []
-        
+        """加载 skills（用户目录 + 内置 skills）"""
         skills = []
+        
+        # 1. 加载用户项目目录下的 skills
+        user_skills_dir = get_absolute_path('.kimi/skills')
+        if os.path.exists(user_skills_dir):
+            try:
+                for item in os.listdir(user_skills_dir):
+                    skill_path = os.path.join(user_skills_dir, item)
+                    if os.path.isdir(skill_path):
+                        skill_md = os.path.join(skill_path, 'SKILL.md')
+                        if os.path.exists(skill_md):
+                            # 读取 SKILL.md 内容
+                            try:
+                                with open(skill_md, 'r', encoding='utf-8') as f:
+                                    skill_content = f.read()
+                                skills.append({
+                                    'name': item,
+                                    'path': skill_path,
+                                    'content': skill_content
+                                })
+                            except Exception as e:
+                                self._log(f"[ACP] 读取 Skill {item} 失败: {e}")
+                                skills.append({
+                                    'name': item,
+                                    'path': skill_path
+                                })
+                self._log(f"[ACP] 加载用户 Skills: {len(skills)} 个")
+            except Exception as e:
+                self._log(f"[ACP] 加载用户 Skills 失败: {e}")
+        else:
+            self._log(f"[ACP] 未找到用户 skills 目录: {user_skills_dir}")
+        
+        # 2. 加载包内置的 skills
         try:
-            for item in os.listdir(skills_dir):
-                skill_path = os.path.join(skills_dir, item)
-                if os.path.isdir(skill_path):
-                    # 检查是否有 SKILL.md 文件
-                    skill_md = os.path.join(skill_path, 'SKILL.md')
-                    if os.path.exists(skill_md):
-                        skills.append({
-                            'name': item,
-                            'path': skill_path
-                        })
-            self._log(f"[ACP] 加载 Skills 成功，数量: {len(skills)}")
-            return skills
+            import inspect
+            builtin_skills_dir = os.path.join(
+                os.path.dirname(os.path.abspath(inspect.getfile(self.__class__))),
+                '.kimi', 'skills'
+            )
+            
+            if os.path.exists(builtin_skills_dir):
+                builtin_count = 0
+                for item in os.listdir(builtin_skills_dir):
+                    skill_path = os.path.join(builtin_skills_dir, item)
+                    if os.path.isdir(skill_path):
+                        skill_md = os.path.join(skill_path, 'SKILL.md')
+                        if os.path.exists(skill_md):
+                            # 避免重复加载同名 skill
+                            if not any(s['name'] == item for s in skills):
+                                # 读取 SKILL.md 内容
+                                try:
+                                    with open(skill_md, 'r', encoding='utf-8') as f:
+                                        skill_content = f.read()
+                                    skills.append({
+                                        'name': item,
+                                        'path': skill_path,
+                                        'content': skill_content
+                                    })
+                                except Exception as e:
+                                    self._log(f"[ACP] 读取内置 Skill {item} 失败: {e}")
+                                    skills.append({
+                                        'name': item,
+                                        'path': skill_path
+                                    })
+                                builtin_count += 1
+                self._log(f"[ACP] 加载内置 Skills: {builtin_count} 个")
+            else:
+                self._log(f"[ACP] 未找到内置 skills 目录: {builtin_skills_dir}")
         except Exception as e:
-            self._log(f"[ACP] 加载 Skills 失败: {e}")
-            return []
+            self._log(f"[ACP] 加载内置 Skills 失败: {e}")
+        
+        self._log(f"[ACP] 总共加载 Skills: {len(skills)} 个")
+        return skills
     
-    def _load_bots_md(self):
-        """加载项目目录下的 .bots.md 规则文件作为系统提示词"""
+    def _load_bots_md(self, skills=None):
+        """加载项目目录下的 .bots.md 规则文件作为系统提示词
+        
+        Args:
+            skills: 已加载的 skills 列表，会追加到 system prompt 中
+        """
         bots_md_path = get_absolute_path('.bots.md')
         
-        if not os.path.exists(bots_md_path):
-            self._log(f"[ACP] 未找到 .bots.md 文件: {bots_md_path}")
-            return None
+        content = ""
         
-        try:
-            with open(bots_md_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+        # 加载 .bots.md 文件
+        if os.path.exists(bots_md_path):
+            try:
+                with open(bots_md_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                self._log(f"[ACP] 加载 .bots.md 成功，长度: {len(content)} 字符")
+            except Exception as e:
+                self._log(f"[ACP] 加载 .bots.md 失败: {e}")
+        else:
+            self._log(f"[ACP] 未找到 .bots.md 文件: {bots_md_path}")
+        
+        # 添加可用 skills 列表到 system prompt
+        if skills:
+            skills_section = "\n\n## 可用 Skills（功能模块）\n\n"
+            skills_section += "**重要：当用户询问你有什么功能、技能、能做什么、支持什么时，必须主动详细介绍以下内容：**\n\n"
             
-            if not content.strip():
-                self._log(f"[ACP] .bots.md 文件为空")
-                return None
+            for skill in skills:
+                skill_name = skill['name']
+                skill_path = skill['path']
+                skill_md_path = os.path.join(skill_path, 'SKILL.md')
+                
+                try:
+                    with open(skill_md_path, 'r', encoding='utf-8') as f:
+                        skill_content = f.read()
+                    
+                    # 解析 SKILL.md 内容
+                    lines = skill_content.split('\n')
+                    description = ""  # 初始化描述变量
+                    
+                    # 处理 frontmatter (--- 开头的 YAML)
+                    content_start = 0
+                    if lines and lines[0].strip() == '---':
+                        # 查找第二个 ---
+                        for i in range(1, len(lines)):
+                            if lines[i].strip() == '---':
+                                content_start = i + 1
+                                break
+                        # 从 frontmatter 提取 description
+                        for i in range(1, content_start):
+                            if lines[i].startswith('description:'):
+                                description = lines[i].split(':', 1)[1].strip()
+                                break
+                    
+                    # 获取标题（第一个 # 开头的行）
+                    title = skill_name
+                    for i in range(content_start, len(lines)):
+                        if lines[i].strip().startswith('#'):
+                            title = lines[i].strip().lstrip('#').strip()
+                            break
+                    
+                    # 如果没有从 frontmatter 获取到描述，尝试从 ## 描述/功能 部分获取
+                    if not description:
+                        in_desc = False
+                        desc_lines = []
+                        for i in range(content_start, len(lines)):
+                            line = lines[i]
+                            if line.strip().startswith('## 描述') or line.strip().startswith('## 功能'):
+                                in_desc = True
+                                continue
+                            elif line.strip().startswith('##') and in_desc:
+                                break
+                            elif in_desc and line.strip():
+                                desc_lines.append(line.strip())
+                        
+                        description = ' '.join(desc_lines) if desc_lines else "暂无描述"
+                    
+                    # 获取使用示例
+                    examples = []
+                    in_examples = False
+                    for line in lines:
+                        if '使用示例' in line or '使用场景' in line or '使用方式' in line:
+                            in_examples = True
+                            continue
+                        elif in_examples and line.strip().startswith('-'):
+                            example = line.strip().lstrip('-').strip()
+                            if example:
+                                examples.append(example)
+                        elif in_examples and line.strip().startswith('##'):
+                            break
+                    
+                    # 构建 skill 描述
+                    skills_section += f"### {skill_name} - {title}\n"
+                    skills_section += f"- **功能**：{description}\n"
+                    
+                    if examples:
+                        skills_section += "- **使用示例**：\n"
+                        for ex in examples[:3]:  # 最多3个示例
+                            skills_section += f"  - {ex}\n"
+                    
+                    skills_section += "\n"
+                    
+                except Exception as e:
+                    # 如果读取失败，使用简单描述
+                    skills_section += f"### {skill_name}\n"
+                    skills_section += f"- 功能：暂无描述\n\n"
             
-            self._log(f"[ACP] 加载 .bots.md 成功，长度: {len(content)} 字符")
-            return content
-        except Exception as e:
-            self._log(f"[ACP] 加载 .bots.md 失败: {e}")
-            return None
+            skills_section += "**规则**：当用户问\"你有什么技能\"、\"你能做什么\"、\"你有什么功能\"时，必须主动、详细地介绍以上所有 skills 的功能和使用方法。\n"
+            content = content + skills_section if content else skills_section
+        
+        return content if content.strip() else None
 
     def _read_responses(self):
         """持续读取响应"""
@@ -337,13 +497,43 @@ class ACPClient:
             "params": params
         }
 
-        # 发送请求
-        try:
-            self.process.stdin.write(json.dumps(request) + '\n')
-            self.process.stdin.flush()
-            self._log(f"发送请求: {method}, id: {msg_id[:8]}...")
-        except Exception as e:
-            return None, f"发送请求失败: {str(e)}"
+        # 发送请求，支持自动重试
+        max_retries = 2
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # 检查进程是否存活
+                if self.process.poll() is not None:
+                    self._log(f"[CALL] ACP 进程已终止，尝试重新初始化")
+                    self._initialize()
+                
+                self.process.stdin.write(json.dumps(request) + '\n')
+                self.process.stdin.flush()
+                self._log(f"发送请求: {method}, id: {msg_id[:8]}...")
+                break  # 发送成功，跳出重试循环
+                
+            except BrokenPipeError:
+                retry_count += 1
+                self._log(f"[CALL] Broken pipe 错误 (重试 {retry_count}/{max_retries})")
+                
+                if retry_count >= max_retries:
+                    return None, "ACP 连接已断开"
+                
+                # 尝试重新初始化
+                try:
+                    if self.process:
+                        try:
+                            self.process.kill()
+                        except:
+                            pass
+                    self._initialize()
+                    time.sleep(0.5)
+                except Exception as reinit_error:
+                    return None, f"重新初始化失败: {reinit_error}"
+                    
+            except Exception as e:
+                return None, f"发送请求失败: {str(e)}"
 
         # 等待响应
         start_time = time.time()
@@ -377,6 +567,12 @@ class ACPClient:
         chat_start_time = time.time()
         last_chunk_time = chat_start_time
 
+        # 构建完整消息：system_prompt + user message
+        # ACP 可能不处理 session/new 中的 systemPrompt，所以在每次 chat 时前置
+        full_message = message
+        if hasattr(self, 'system_prompt') and self.system_prompt:
+            full_message = f"{self.system_prompt}\n\n---\n\n{message}"
+        
         # 发送 prompt（不等待响应，直接开始监听通知）
         msg_id = str(uuid.uuid4())
         request = {
@@ -385,17 +581,54 @@ class ACPClient:
             "method": "session/prompt",
             "params": {
                 'sessionId': self.session_id,
-                'prompt': [{'type': 'text', 'text': message}]
+                'prompt': [{'type': 'text', 'text': full_message}]
             }
         }
         
-        try:
-            self.process.stdin.write(json.dumps(request) + '\n')
-            self.process.stdin.flush()
-            # 流式日志已禁用
-            # self._log(f"[CHAT] 发送 prompt: {msg_id[:8]}...")
-        except Exception as e:
-            return f"发送请求失败: {str(e)}"
+        # 发送请求，支持自动重试
+        max_retries = 2
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # 检查进程是否仍然存活
+                if self.process.poll() is not None:
+                    self._log("[CHAT] ACP 进程已终止，尝试重新初始化")
+                    self._initialize()
+                    self._log("[CHAT] 重新初始化完成")
+                
+                self.process.stdin.write(json.dumps(request) + '\n')
+                self.process.stdin.flush()
+                break  # 发送成功，跳出重试循环
+                
+            except BrokenPipeError:
+                retry_count += 1
+                self._log(f"[CHAT] Broken pipe 错误，ACP 进程可能已崩溃 (重试 {retry_count}/{max_retries})")
+                
+                if retry_count >= max_retries:
+                    return "ACP 连接已断开，请稍后重试"
+                
+                # 尝试重新初始化
+                try:
+                    self._log("[CHAT] 尝试重新初始化 ACP 连接...")
+                    # 清理旧进程
+                    if self.process:
+                        try:
+                            self.process.kill()
+                        except:
+                            pass
+                    # 重新初始化
+                    self._initialize()
+                    self._log("[CHAT] 重新初始化成功，准备重试...")
+                    # 需要更新 session_id 到请求中
+                    request['params']['sessionId'] = self.session_id
+                    time.sleep(0.5)  # 短暂延迟确保连接稳定
+                except Exception as reinit_error:
+                    self._log(f"[CHAT] 重新初始化失败: {reinit_error}")
+                    return f"ACP 连接已断开，重新初始化失败: {reinit_error}"
+                    
+            except Exception as e:
+                return f"发送请求失败: {str(e)}"
 
         # 等待响应完成（检查 stopReason）
         last_callback_text = ""  # 记录上次回调的内容，避免重复调用
@@ -403,6 +636,11 @@ class ACPClient:
         
         while time.time() - chat_start_time < timeout:
             time.sleep(0.01)  # 更短的睡眠间隔，更快响应
+            
+            # 检查是否被取消
+            if self._cancelled:
+                self._log("[CHAT] 检测到取消标志，停止接收新内容")
+                break  # 跳出循环，继续组装已收集的内容
 
             # 快速获取锁，复制新通知，然后释放锁
             new_notifications = []
@@ -438,6 +676,11 @@ class ACPClient:
                 batch = new_notifications[i:i+batch_size]
                 
                 for notification in batch:
+                    # 检查是否被取消
+                    if self._cancelled:
+                        self._log("[CHAT] 处理通知时检测到取消标志")
+                        break  # 跳出内层循环
+                    
                     params = notification.get('params', {})
                     update = params.get('update', {})
                     update_type = update.get('sessionUpdate')
@@ -492,7 +735,10 @@ class ACPClient:
                                 collected_messages.append(text)
                                 last_chunk_time = time.time()
 
-                # 每批处理后回调（流式更新）
+                # 每批处理后回调（流式更新）- 回调前检查取消标志
+                if self._cancelled:
+                    self._log("[CHAT] 回调前检测到取消标志，继续组装已收集内容")
+                
                 if on_chunk:
                     thinking_text = ''.join(collected_thinking).strip()
                     message_text = ''.join(collected_messages).strip()
@@ -676,9 +922,25 @@ class ACPClient:
             combined_parts.append(message_text)
 
         reply = '\n\n'.join(combined_parts)
+        
+        # 如果被取消，添加取消标记
+        if self._cancelled:
+            cancel_marker = "\n\n---\n⏹️ **生成已取消**"
+            reply = reply + cancel_marker if reply else "⏹️ **生成已取消**"
+            self._log("[CHAT] 添加取消标记到回复末尾")
+        
         # 流式日志已禁用
         # self._log(f"[CHAT] 最终回复长度: {len(reply)}")
         return reply if reply else "处理完成，无回复"
+
+    def cancel(self):
+        """取消当前生成任务"""
+        self._log("[CANCEL] 设置取消标志")
+        self._cancelled = True
+    
+    def reset_cancel(self):
+        """重置取消标志（用于新任务）"""
+        self._cancelled = False
 
     def close(self):
         """关闭连接"""

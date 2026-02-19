@@ -77,6 +77,14 @@ def ensure_bot_files(target_dir: str, verbose: bool = True) -> dict:
 1. 你的名字叫 **clawdboz**，中文名称叫 **嗑唠的宝子**
 2. 版本: **v2.0.0** - 模块化架构
 
+## 特殊命令
+
+用户可以通过飞书消息发送以下特殊命令：
+
+- **`/clear`** - 清除上下文：重置 MCP 上下文、清除对话历史、清除待处理的图片/文件
+- **`/compact`** - 压缩上下文：提示用户该功能需要 ACP 协议支持（当前建议使用 /clear）
+- **`Ctrl-C`** / **`/stop`** / **`中断`** - 停止当前任务：中断正在执行的对话或任务
+
 ## 开发规范
 
 1. 调用 skills 或者 MCP 产生的中间临时文件，请放在 **WORKPLACE** 文件夹中
@@ -242,7 +250,8 @@ def init_project(work_dir: Optional[str] = None):
                 "user_files": "WORKPLACE/user_files",
                 "mcp_config": ".kimi/mcp.json",
                 "skills_dir": ".kimi/skills"
-            }
+            },
+            "start_script": "bot0.py"
         }
         
         with open(config_path, 'w', encoding='utf-8') as f:

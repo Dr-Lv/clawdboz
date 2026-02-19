@@ -8,6 +8,14 @@
         "/path/to/your/site-packages/feishu_tools/mcp_feishu_file_server.py"
       ],
       "env": {}
+    },
+    "FeishuMessageSender": {
+      "type": "stdio",
+      "command": "/path/to/your/python",
+      "args": [
+        "/path/to/your/site-packages/feishu_tools/mcp_feishu_msg_server.py"
+      ],
+      "env": {}
     }
   }
 }

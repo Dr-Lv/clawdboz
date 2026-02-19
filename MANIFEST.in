@@ -5,8 +5,8 @@ include requirements.txt
 # 递归包含文档
 global-include *.md
 
-# 包含 MCP 配置文件
-recursive-include .kimi *.json *.md
+# 包含 MCP 配置文件和内置 skills
+recursive-include .kimi *.json *.md *.py
 
 # 包含 bot_manager.sh 和 .bots.md 模板
 recursive-include clawdboz/templates *

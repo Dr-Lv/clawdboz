@@ -190,7 +190,10 @@ def load_config(silent=False):
         config = {
             'feishu': {},
             'logs': {},
-            'paths': {}
+            'paths': {},
+            'scheduler': {
+                'heart_beat': 60  # 心跳间隔，单位秒，默认60秒
+            }
         }
     except Exception as e:
         print(f"[ERROR] 加载配置文件失败: {e}")
@@ -219,7 +222,10 @@ except SystemExit:
     CONFIG = {
         'feishu': {},
         'logs': {},
-        'paths': {}
+        'paths': {},
+        'scheduler': {
+            'heart_beat': 60  # 心跳间隔，单位秒，默认60秒
+        }
     }
 
 

@@ -58,7 +58,15 @@ exclude = ["tests*", "docs*", "test_script*"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-clawdboz = ["*.md", "*.json", ".kimi/**/*.json", ".kimi/**/*.md", "templates/*", "templates/**/*"]
+clawdboz = [
+    "*.md", 
+    "*.json", 
+    ".kimi/**/*.json", 
+    ".kimi/**/*.md",
+    ".kimi/**/*.py",
+    "templates/*", 
+    "templates/**/*"
+]
 
 [tool.black]
 line-length = 100
