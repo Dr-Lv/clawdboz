@@ -38,7 +38,7 @@ bot.run()
 
 ### 1. 环境准备
 
-**⚠️ 前置依赖：请先安装 [Kimi Code CLI](https://www.coze.cn/)**
+**⚠️ 前置依赖：请先安装 [Kimi Code CLI](https://www.kimi.com/code/docs/kimi-cli/guides/getting-started.html)**
 
 Kimi Code CLI 是嗑唠的宝子的核心依赖，提供 AI 对话能力和工具调用支持。
 
