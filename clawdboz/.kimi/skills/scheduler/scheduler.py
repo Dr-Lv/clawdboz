@@ -44,12 +44,45 @@ class TaskScheduler:
         
         # 数据文件路径
         if data_dir is None:
-            data_dir = os.path.dirname(os.path.abspath(__file__))
+            # 默认使用工作目录（从当前目录向上查找 WORKPLACE）
+            data_dir = self._find_workplace_dir()
         self.data_dir = data_dir
         self.data_file = os.path.join(data_dir, 'scheduler_tasks.json')
         
         # 确保目录存在
         os.makedirs(data_dir, exist_ok=True)
+    
+    def _find_workplace_dir(self) -> str:
+        """
+        查找工作目录
+        从当前目录向上查找包含 WORKPLACE 或 .kimi 的目录
+        """
+        # 1. 首先尝试环境变量
+        if 'CLAWDBOZ_WORKPLACE' in os.environ:
+            return os.environ['CLAWDBOZ_WORKPLACE']
+        
+        # 2. 从当前目录向上查找
+        current_dir = os.getcwd()
+        for _ in range(10):  # 最多向上查找 10 层
+            # 检查是否有 WORKPLACE 目录
+            workplace = os.path.join(current_dir, 'WORKPLACE')
+            if os.path.isdir(workplace):
+                return workplace
+            
+            # 检查是否有 .kimi 目录（说明是项目根目录）
+            if os.path.isdir(os.path.join(current_dir, '.kimi')):
+                workplace = os.path.join(current_dir, 'WORKPLACE')
+                os.makedirs(workplace, exist_ok=True)
+                return workplace
+            
+            # 向上移动
+            parent = os.path.dirname(current_dir)
+            if parent == current_dir:  # 到达根目录
+                break
+            current_dir = parent
+        
+        # 3. 默认使用当前目录
+        return os.getcwd()
     
     def _save_data(self, data: dict):
         """原子写入 JSON 文件"""
