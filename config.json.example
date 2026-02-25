@@ -1,0 +1,24 @@
+{
+  "project_root": "/path/to/your/project",
+  "feishu": {
+    "app_id": "${FEISHU_APP_ID}",
+    "app_secret": "${FEISHU_APP_SECRET}"
+  },
+  "qveris": {
+    "api_key": "${QVERIS_API_KEY}"
+  },
+  "logs": {
+    "main_log": "logs/main.log",
+    "debug_log": "logs/bot_debug.log",
+    "feishu_api_log": "logs/feishu_api.log",
+    "ops_log": "logs/ops_check.log"
+  },
+  "paths": {
+    "workplace": "WORKPLACE",
+    "user_images": "WORKPLACE/user_images",
+    "user_files": "WORKPLACE/user_files",
+    "mcp_config": ".kimi/mcp.json",
+    "skills_dir": ".kimi/skills"
+  },
+  "start_script": "test_cancel.py"
+}

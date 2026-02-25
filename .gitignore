@@ -75,3 +75,9 @@ uv.lock
 
 # Python 版本文件（个人开发环境）
 .python-version
+
+# 敏感配置文件
+config.json
+.env
+*.secret
+*.key
