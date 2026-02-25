@@ -1,27 +1,48 @@
----
-name: scheduler
-description: 定时任务管理 - 通过修改 scheduler_tasks.json 文件创建和管理定时任务
----
-
 # 定时任务 Skill
 
-定时任务功能通过修改 `WORKPLACE/scheduler_tasks.json` 文件实现。
-Bot 的心跳线程会自动检测并执行到期的任务。
+## 描述
+创建和管理定时任务数据，生成标准的 `scheduler_tasks.json` 文件。
 
-## 任务文件格式
+**注意：本 skill 只负责数据管理，不执行任务调度。** 任务执行由外部系统（如 Bot 心跳机制）读取 JSON 文件后处理。
 
-文件位置：`WORKPLACE/scheduler_tasks.json`
+## 功能
+
+### 1. 创建定时任务
+解析用户自然语言，生成任务数据：
+- "设置一个定时任务，明天上午9点提醒我开会"
+- "10分钟后帮我查一下今天的天气"
+- "每隔5分钟获取纳斯达克指数"
+- "今天下午3点总结这个群的所有消息"
+
+### 2. 列出/查看任务
+- "列出所有定时任务"
+- "查看我的任务列表"
+- "任务 #1 的详情"
+
+### 3. 更新/删除任务
+- "修改任务 #1 的执行时间"
+- "取消定时任务 #1"
+- "删除任务 #2"
+
+## JSON 数据格式规范
 
 ```json
 {
-  "task_id_counter": 1,
+  "task_id_counter": 3,
   "tasks": {
     "1": {
-      "id": 1,
-      "chat_id": "oc_xxxxx",
+      "id": "1",
+      "chat_id": "oc_xxx",
+      "execute_time": 1771526400,
       "description": "任务描述",
-      "execute_time": 1234567890.0,
-      "created_at": 1234567890.0,
+      "status": "pending"
+    },
+    "2": {
+      "id": "2",
+      "chat_id": "oc_xxx",
+      "execute_time": 1771508400,
+      "time_interval": 60,
+      "description": "重复任务描述",
       "status": "pending"
     }
   }
@@ -30,115 +51,151 @@ Bot 的心跳线程会自动检测并执行到期的任务。
 
 ### 字段说明
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | int | 任务唯一标识 |
-| `chat_id` | string | 发送结果的聊天 ID |
-| `description` | string | 任务描述，Bot 会执行这个内容 |
-| `execute_time` | float | 执行时间戳（秒），可为 null |
-| `created_at` | float | 创建时间戳 |
-| `status` | string | 状态：pending/executing/completed/failed |
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `id` | string | ✅ | 任务唯一标识（字符串） |
+| `chat_id` | string | ✅ | 飞书聊天会话ID |
+| `execute_time` | number | ✅ | 任务执行时间戳（Unix秒，必须为正数） |
+| `time_interval` | number | 可选 | 重复周期（秒），**有值=重复任务**，**无值=一次性任务** |
+| `description` | string | ✅ | 任务描述，执行时发送给 Kimi ACP |
+| `status` | string | ✅ | 状态：`pending`/`running`/`completed`/`failed` |
 
-## 使用方式
+### 任务类型
 
-### 1. 创建定时任务
+**一次性任务**（无 `time_interval`）：
+- 在 `execute_time` 执行一次
+- 执行完成后状态变为 `completed`
 
-直接编辑或创建 `WORKPLACE/scheduler_tasks.json`：
+**重复任务**（有 `time_interval`）：
+- 首次在 `execute_time` 执行
+- 之后每隔 `time_interval` 秒执行
+- 外部系统负责更新 `execute_time` 为下次执行时间
 
-```python
-import json
-import time
-from clawdboz.config import get_absolute_path
+### 状态说明
 
-tasks_file = get_absolute_path('WORKPLACE/scheduler_tasks.json')
+| 状态 | 说明 |
+|------|------|
+| `pending` | 等待执行 |
+| `running` | 正在执行 |
+| `completed` | 执行完成（一次性任务） |
+| `failed` | 执行失败 |
 
-# 读取现有任务
-try:
-    with open(tasks_file, 'r') as f:
-        data = json.load(f)
-except:
-    data = {'task_id_counter': 0, 'tasks': {}}
+## 支持的时间格式
 
-# 生成新任务 ID
-data['task_id_counter'] += 1
-task_id = data['task_id_counter']
+### 相对时间
+- "X分钟后" - 如 "10分钟后"
+- "X小时后" - 如 "1小时后"
+- "X天后" - 如 "2天后"
 
-# 添加新任务
-data['tasks'][str(task_id)] = {
-    'id': task_id,
-    'chat_id': 'oc_xxxxx',  # 用户聊天 ID
-    'description': '提醒我吃午饭',
-    'execute_time': time.time() + 3600,  # 1小时后
-    'created_at': time.time(),
-    'status': 'pending'
-}
+### 绝对时间
+- "明天上午9点"
+- "今天下午3点"
+- "YYYY-MM-DD HH:MM" - 如 "2024-01-15 09:00"
 
-# 保存
-with open(tasks_file, 'w') as f:
-    json.dump(data, f, indent=2)
+### 重复间隔
+- "每X分钟" / "X分钟一次"
+- "每X小时" / "X小时一次"
+- "每X天" / "X天一次"
+
+## 工作原理
+
+```
+用户输入
+    │
+    ▼
+┌─────────────────┐
+│ 解析时间/间隔    │  ← parse_time(), parse_interval()
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 生成任务对象     │  ← TaskScheduler.create_task()
+│ {               │
+│   id, chat_id,  │
+│   execute_time, │
+│   description,  │
+│   status        │
+│ }               │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 保存到 JSON 文件 │  ← scheduler_tasks.json
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────┐
+│      外部系统（如 Bot 心跳）      │
+│  1. 读取 scheduler_tasks.json   │
+│  2. 检查 execute_time <= now()  │
+│  3. 执行 description            │
+│  4. 更新 status                 │
+│  5. 重复任务更新 execute_time   │
+└─────────────────────────────────┘
 ```
 
-### 2. 常用时间格式
-
-创建任务时可以使用以下时间格式：
-
-| 格式 | 示例 | 说明 |
-|------|------|------|
-| 相对分钟 | "10分钟后" | 当前时间 +10 分钟 |
-| 相对小时 | "1小时后" | 当前时间 +1 小时 |
-| 相对天数 | "明天上午9点" | 明天 9:00 |
-| 绝对时间 | "2024-01-15 09:00" | 指定日期时间 |
-| 仅时间 | "14:30" | 今天或明天 14:30 |
-
-### 3. 使用辅助工具函数
+## API 接口
 
 ```python
-from skills.scheduler.scheduler import create_task, parse_time, list_tasks
+from scheduler import TaskScheduler, get_scheduler
 
-# 解析时间
-execute_time = parse_time("明天上午9点")  # 返回时间戳
+# 获取实例
+scheduler = get_scheduler(data_dir='./WORKPLACE')
 
 # 创建任务
-task_id = create_task(
-    chat_id='oc_xxxxx',
-    description='明天早上9点提醒我开会',
-    execute_time=execute_time
+task_id = scheduler.create_task(
+    chat_id="oc_xxx",
+    description="明天上午9点提醒开会",
+    execute_time=1771526400,  # 时间戳
+    time_interval=None        # None=一次性，数字=重复间隔
 )
 
-# 查看所有任务
-tasks = list_tasks()
-```
+# 获取任务
+task = scheduler.get_task("1")
 
-### 4. 任务执行规则
+# 列出任务
+tasks = scheduler.list_tasks(chat_id="oc_xxx", status="pending")
 
-- **空 execute_time**：任务会立即执行
-- **pending 状态**：等待执行
-- **时间窗口内**：心跳线程会在 `execute_time` 落在检查窗口内时执行
-- **执行完成后**：Bot 自动更新状态为 `completed` 或 `failed`
+# 更新任务
+scheduler.update_task("1", execute_time=1771600000, status="pending")
 
-### 5. 取消/修改任务
-
-直接编辑 JSON 文件：
-
-```python
-from skills.scheduler.scheduler import load_tasks, save_tasks
-
-# 加载
-data = load_tasks()
-
-# 修改任务状态为 pending（重新执行）
-data['tasks']['1']['status'] = 'pending'
-
-# 或删除任务
-del data['tasks']['1']
-
-# 保存
-save_tasks(data)
+# 删除任务
+scheduler.delete_task("1")
 ```
 
 ## 注意事项
 
-1. 任务文件必须位于 `WORKPLACE/scheduler_tasks.json`
-2. 任务 ID 必须唯一，使用 `task_id_counter` 自增
-3. 执行失败的任务会在每天早上9点汇总提醒
-4. 已完成或失败的任务不会自动删除，可手动清理
+1. **本 skill 无调度功能** - 只生成 JSON，不执行任何定时逻辑
+2. `execute_time` 必须为正数时间戳
+3. 重复任务需外部系统更新 `execute_time` 实现循环
+4. 文件使用原子写入，防止损坏
+5. 线程安全：内部使用锁保护文件读写
+
+## 外部执行示例
+
+Bot 心跳机制读取并执行任务的伪代码：
+
+```python
+def heartbeat():
+    data = load_json('scheduler_tasks.json')
+    now = time.time()
+    
+    for task in data['tasks'].values():
+        if task['status'] != 'pending':
+            continue
+            
+        if task['execute_time'] <= now:
+            # 执行任务
+            execute_task(task)
+            
+            # 更新状态
+            if task.get('time_interval'):
+                # 重复任务：更新下次执行时间
+                task['execute_time'] = now + task['time_interval']
+                task['status'] = 'pending'
+            else:
+                # 一次性任务：标记完成
+                task['status'] = 'completed'
+    
+    save_json(data)
+```
