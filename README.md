@@ -36,7 +36,25 @@ bot.run()
 
 ## 快速开始
 
-### 1. 安装
+### 1. 环境准备
+
+**⚠️ 前置依赖：请先安装 [Kimi Code CLI](https://www.coze.cn/)**
+
+Kimi Code CLI 是嗑唠的宝子的核心依赖，提供 AI 对话能力和工具调用支持。
+
+安装方式：
+```bash
+# 通过 pip 安装
+pip install kimi-cli
+
+# 或使用 uv 安装（推荐）
+uv tool install kimi-cli
+
+# 验证安装
+kimi --version
+```
+
+### 2. 安装嗑唠的宝子
 
 ```bash
 pip install clawdboz
@@ -50,7 +68,7 @@ cd larkbot
 pip install -e .
 ```
 
-### 2. 启动 Bot
+### 3. 启动 Bot
 
 #### 方式一：三行代码（快速体验）
 
