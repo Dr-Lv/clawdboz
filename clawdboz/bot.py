@@ -85,123 +85,73 @@ class LarkBot:
 
     def _heart_beat_loop(self):
         """心跳循环，定期检查 scheduler_tasks.json 中的任务"""
+        self._log("[HEART_BEAT] 心跳循环开始")
+        beat_count = 0
         while not self._heart_beat_stop_event.is_set():
             try:
+                beat_count += 1
+                self._log(f"[HEART_BEAT] 第 {beat_count} 次心跳，等待 {self._heart_beat_interval} 秒...")
+                
                 # 等待指定间隔，但可以被提前唤醒
                 self._heart_beat_stop_event.wait(timeout=self._heart_beat_interval)
                 if self._heart_beat_stop_event.is_set():
+                    self._log("[HEART_BEAT] 收到停止信号，退出循环")
                     break
                 
+                self._log(f"[HEART_BEAT] 第 {beat_count} 次心跳，开始检查任务...")
                 # 执行心跳检查
                 self._check_scheduler_tasks()
                 
                 # 检查是否需要执行每日汇总
                 self._check_daily_summary()
                 
+                self._log(f"[HEART_BEAT] 第 {beat_count} 次心跳完成")
+                
             except Exception as e:
                 self._log(f"[HEART_BEAT] 心跳检查异常: {e}")
-
-    def _get_tasks_file_path(self):
-        """获取任务文件路径"""
-        return get_absolute_path('WORKPLACE/scheduler_tasks.json')
-
-    def _load_tasks_data(self):
-        """加载任务数据"""
-        import json
-        tasks_file = self._get_tasks_file_path()
-        if not os.path.exists(tasks_file):
-            return {'task_id_counter': 0, 'tasks': {}}
-        try:
-            with open(tasks_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            self._log(f"[HEART_BEAT] 加载任务数据失败: {e}")
-            return {'task_id_counter': 0, 'tasks': {}}
-
-    def _save_tasks_data(self, data):
-        """保存任务数据"""
-        import json
-        tasks_file = self._get_tasks_file_path()
-        try:
-            os.makedirs(os.path.dirname(tasks_file), exist_ok=True)
-            with open(tasks_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            self._log(f"[HEART_BEAT] 保存任务数据失败: {e}")
-
-    def _update_task_status(self, task_id, status, success=True, error_msg=None):
-        """更新任务状态"""
-        data = self._load_tasks_data()
-        task_id_str = str(task_id)
-        
-        if task_id_str not in data['tasks']:
-            return
-        
-        task = data['tasks'][task_id_str]
-        task['status'] = status
-        task['updated_at'] = time.time()
-        
-        if status == 'completed':
-            # 执行成功，补上 execute_time
-            if not task.get('execute_time'):
-                task['execute_time'] = time.time()
-            task['success'] = True
-        elif status == 'failed':
-            task['success'] = False
-            if error_msg:
-                task['error'] = error_msg
-        
-        self._save_tasks_data(data)
+                import traceback
+                self._log(f"[HEART_BEAT] 异常详情: {traceback.format_exc()}")
 
     def _check_scheduler_tasks(self):
-        """检查 scheduler_tasks.json 中是否有需要执行的任务"""
+        """调用 scheduler skill 检查并执行定时任务"""
         try:
-            data = self._load_tasks_data()
-            tasks = data.get('tasks', {})
-            if not tasks:
-                return
+            import sys
+            # 添加 skill 路径到 sys.path
+            skill_path = get_absolute_path('.kimi/skills')
+            if skill_path not in sys.path:
+                sys.path.insert(0, skill_path)
+            
+            from scheduler.scheduler import tick, update_task
             
             current_time = time.time()
             window_start = self._last_heart_beat_time
-            window_end = current_time
+            
+            # 指定数据目录为 WORKPLACE
+            data_dir = get_absolute_path('WORKPLACE')
+            
+            self._log(f"[HEART_BEAT] 检查任务: window=[{window_start:.0f}, {current_time:.0f}], data_dir={data_dir}")
+            
+            # 调用 skill 的 tick() 获取待执行任务
+            pending_tasks = tick(current_time, window_start, data_dir=data_dir)
             
             # 更新上次检查时间
             self._last_heart_beat_time = current_time
             
-            # 检查是否有任务需要执行
-            pending_tasks = []
-            for task_id_str, task_data in tasks.items():
-                execute_time = task_data.get('execute_time')
-                status = task_data.get('status', 'pending')
-                
-                # 只检查 pending 状态的任务
-                if status != 'pending':
-                    continue
-                
-                # 规则1: 如果 execute_time 为空，默认是有效任务（立即执行）
-                if execute_time is None or execute_time == '':
-                    pending_tasks.append({
-                        'id': task_data.get('id'),
-                        'chat_id': task_data.get('chat_id'),
-                        'description': task_data.get('description'),
-                        'execute_time': None
-                    })
-                # 规则2: 如果执行时间在当前窗口内
-                elif window_start <= execute_time <= window_end:
-                    pending_tasks.append({
-                        'id': task_data.get('id'),
-                        'chat_id': task_data.get('chat_id'),
-                        'description': task_data.get('description'),
-                        'execute_time': execute_time
-                    })
+            self._log(f"[HEART_BEAT] tick 返回 {len(pending_tasks)} 个任务")
             
             if pending_tasks:
-                self._log(f"[HEART_BEAT] 发现 {len(pending_tasks)} 个待执行任务")
+                self._log(f"[HEART_BEAT] 发现 {len(pending_tasks)} 个待执行任务 (via skill)")
                 for task in pending_tasks:
+                    task_id = task['id']
+                    # 立即更新状态为 running，防止重复执行
+                    update_task(task_id, data_dir=data_dir, status='running')
+                    self._log(f"[HEART_BEAT] 任务 #{task_id} 状态已更新为 running，提交执行")
                     self.executor.submit(self._execute_scheduled_task, task)
                     
         except Exception as e:
             self._log(f"[HEART_BEAT] 检查任务失败: {e}")
+            import traceback
+            self._log(f"[HEART_BEAT] 异常详情: {traceback.format_exc()}")
 
     def _check_daily_summary(self):
         """检查是否需要执行每日汇总（每天早上9点）"""
@@ -228,24 +178,23 @@ class LarkBot:
             self._log(f"[HEART_BEAT] 每日汇总检查失败: {e}")
 
     def _do_daily_summary(self):
-        """执行每日任务汇总，找出所有执行了但未成功的任务"""
+        """执行每日任务汇总（使用 skill）"""
         try:
-            data = self._load_tasks_data()
-            tasks = data.get('tasks', {})
+            import sys
+            skill_path = get_absolute_path('.kimi/skills')
+            if skill_path not in sys.path:
+                sys.path.insert(0, skill_path)
+            from scheduler.scheduler import list_tasks
             
-            # 找出所有 failed 或 executing 状态的任务
-            failed_tasks = []
-            executing_tasks = []
+            # 指定数据目录
+            data_dir = get_absolute_path('WORKPLACE')
             
-            for task_id_str, task_data in tasks.items():
-                status = task_data.get('status', 'pending')
-                
-                if status == 'failed':
-                    failed_tasks.append(task_data)
-                elif status == 'executing':
-                    executing_tasks.append(task_data)
+            # 获取所有 failed 和 running 状态的任务
+            all_tasks = list_tasks(data_dir=data_dir)
+            failed_tasks = [t for t in all_tasks if t.get('status') == 'failed']
+            running_tasks = [t for t in all_tasks if t.get('status') == 'running']
             
-            if not failed_tasks and not executing_tasks:
+            if not failed_tasks and not running_tasks:
                 self._log("[HEART_BEAT] 没有未成功的任务需要汇总")
                 return
             
@@ -253,9 +202,7 @@ class LarkBot:
             from collections import defaultdict
             chat_tasks = defaultdict(list)
             
-            for task in failed_tasks:
-                chat_tasks[task.get('chat_id')].append(task)
-            for task in executing_tasks:
+            for task in failed_tasks + running_tasks:
                 chat_tasks[task.get('chat_id')].append(task)
             
             # 向每个聊天发送汇总消息
@@ -267,12 +214,9 @@ class LarkBot:
                 for i, task in enumerate(tasks_list, 1):
                     desc = task.get('description', '无描述')[:50]
                     status = task.get('status', '未知')
-                    error = task.get('error', '')
                     
                     message_lines.append(f"{i}. {desc}")
                     message_lines.append(f"   状态: {status}")
-                    if error:
-                        message_lines.append(f"   错误: {error}")
                     message_lines.append("")
                 
                 message_lines.append("请检查这些任务并重试。")
@@ -286,16 +230,26 @@ class LarkBot:
             self._log(f"[HEART_BEAT] 每日汇总执行失败: {e}")
 
     def _execute_scheduled_task(self, task: dict):
-        """执行定时任务"""
+        """执行定时任务（使用 skill 更新状态）
+        
+        注意：任务状态已在 _check_scheduler_tasks 中更新为 running
+        """
         task_id = task['id']
         chat_id = task['chat_id']
         description = task['description']
+        time_interval = task.get('time_interval')
         
         try:
-            self._log(f"[HEART_BEAT] 执行任务 #{task_id}: {description[:50]}...")
+            import sys
+            skill_path = get_absolute_path('.kimi/skills')
+            if skill_path not in sys.path:
+                sys.path.insert(0, skill_path)
+            from scheduler.scheduler import update_task
             
-            # 更新任务状态为 executing
-            self._update_task_status(task_id, 'executing')
+            # 指定数据目录
+            data_dir = get_absolute_path('WORKPLACE')
+            
+            self._log(f"[HEART_BEAT] 执行任务 #{task_id}: {description[:50]}...")
             
             # 初始化 ACP 客户端（如果未初始化）
             if self.acp_client is None:
@@ -304,7 +258,7 @@ class LarkBot:
                     self._log("[DEBUG] ACP 客户端已初始化")
                 except Exception as e:
                     self._log(f"[ERROR] ACP 客户端初始化失败: {e}")
-                    self._update_task_status(task_id, 'failed', success=False, error_msg=str(e))
+                    update_task(task_id, data_dir=data_dir, status='failed')
                     return
             
             # 构建提示词
@@ -319,8 +273,16 @@ class LarkBot:
             # 发送消息给用户
             self.reply_text(chat_id, message, streaming=False)
             
-            # 更新任务状态为 completed（补上 execute_time）
-            self._update_task_status(task_id, 'completed', success=True)
+            # 处理重复任务
+            data_dir = get_absolute_path('WORKPLACE')
+            if time_interval and time_interval > 0:
+                # 重复任务：更新下次执行时间，状态重置为 pending
+                next_time = time.time() + time_interval
+                update_task(task_id, data_dir=data_dir, execute_time=next_time, status='pending')
+                self._log(f"[HEART_BEAT] 任务 #{task_id} 已重置，下次执行: {next_time}")
+            else:
+                # 一次性任务：标记为 completed
+                update_task(task_id, data_dir=data_dir, status='completed')
             
             self._log(f"[HEART_BEAT] 任务 #{task_id} 执行完成")
             
@@ -329,7 +291,16 @@ class LarkBot:
             self._log(f"[HEART_BEAT] 执行任务 #{task_id} 失败: {error_msg}")
             
             # 更新任务状态为 failed
-            self._update_task_status(task_id, 'failed', success=False, error_msg=error_msg)
+            try:
+                import sys
+                skill_path = get_absolute_path('.kimi/skills')
+                if skill_path not in sys.path:
+                    sys.path.insert(0, skill_path)
+                from scheduler.scheduler import update_task
+                data_dir = get_absolute_path('WORKPLACE')
+                update_task(task_id, data_dir=data_dir, status='failed')
+            except:
+                pass
             
             # 尝试发送错误信息
             try:
@@ -1097,19 +1068,19 @@ class LarkBot:
         
         # 导入新的工具函数
         try:
-            from ..skills.scheduler.scheduler import (
-                create_task, delete_task, list_tasks, 
+            # 尝试从用户工作目录导入
+            import sys
+            skills_dir = get_absolute_path('.kimi/skills')
+            if skills_dir not in sys.path:
+                sys.path.insert(0, skills_dir)
+            
+            from scheduler.scheduler import (
+                create_task, delete_task, list_tasks,
                 parse_time, format_task_list, format_time
             )
-        except ImportError:
-            try:
-                from skills.scheduler.scheduler import (
-                    create_task, delete_task, list_tasks,
-                    parse_time, format_task_list, format_time
-                )
-            except ImportError:
-                self._log("[ERROR] 无法导入 scheduler 模块")
-                return False
+        except ImportError as e:
+            self._log(f"[ERROR] 无法导入 scheduler 模块: {e}")
+            return False
         
         # 列出所有定时任务
         if re.search(r'^(列出|查看|显示).*(定时任务|任务列表|所有任务)', text):

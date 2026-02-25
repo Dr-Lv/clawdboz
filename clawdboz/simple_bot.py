@@ -502,15 +502,17 @@ class Bot:
             print("  3. 运行: clawdboz init")
             raise ValueError("配置不完整")
     
-    def run(self, blocking: bool = True):
+    def run(self, blocking: bool = True, enable_cli: bool = True):
         """
         启动 Bot
         
         Args:
             blocking: 是否阻塞运行（默认 True）
+            enable_cli: 是否启用本地 CLI 接口（默认 True）
         
         Example:
             bot.run()  # 阻塞运行，直到手动停止
+            bot.run(enable_cli=True)  # 启用 CLI 接口
         """
         print(f"[Bot] 启动嗑唠的宝子 v2.2.0")
         print(f"[Bot] 工作目录: {self.work_dir}")
@@ -518,6 +520,10 @@ class Bot:
         
         # 复制内置 skills 到用户目录
         _copy_builtin_skills(self.work_dir, verbose=True)
+        
+        # 启用 CLI 服务器
+        if enable_cli:
+            self._enable_cli()
         
         if blocking:
             # 阻塞模式：直接启动 WebSocket 监听
@@ -528,6 +534,17 @@ class Bot:
             thread = threading.Thread(target=self._start_websocket, daemon=True)
             thread.start()
             return thread
+            
+    def _enable_cli(self):
+        """启用本地 CLI 接口"""
+        try:
+            from .cli_server import CLIServer
+            socket_path = os.path.join(self.work_dir, '.bot_cli.sock')
+            self._cli_server = CLIServer(socket_path, self._bot)
+            self._cli_server.start()
+            print(f"[Bot] CLI 接口已启用: {socket_path}")
+        except Exception as e:
+            print(f"[Bot] CLI 接口启动失败: {e}")
     
     def _start_websocket(self):
         """启动 WebSocket 连接"""
