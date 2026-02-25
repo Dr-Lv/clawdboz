@@ -56,6 +56,9 @@ class LarkBot:
         # 获取 Bot 的 user_id
         self._fetch_bot_user_id()
         
+        # 设置内置 skills 到工作目录
+        self._setup_builtin_skills()
+        
         # 心跳相关配置
         self._heart_beat_interval = CONFIG.get('scheduler', {}).get('heart_beat', 60)  # 默认60秒
         self._last_heart_beat_time = time.time()
@@ -67,6 +70,63 @@ class LarkBot:
         
         # 启动心跳线程
         self._start_heart_beat()
+    
+    def _setup_builtin_skills(self):
+        """将内置 skills 复制到工作目录的 .kimi/skills"""
+        try:
+            import shutil
+            from pathlib import Path
+            
+            # 获取工作目录
+            workplace_dir = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+            
+            # 获取包安装目录
+            package_dir = Path(__file__).parent.resolve()
+            builtin_skills_dir = package_dir / '.kimi' / 'skills'
+            
+            if not builtin_skills_dir.exists():
+                self._log("[INIT] 未找到内置 skills 目录")
+                return
+            
+            # 用户工作目录的 skills 路径
+            user_skills_dir = Path(workplace_dir) / '.kimi' / 'skills'
+            
+            copied = []
+            existing = []
+            
+            # 遍历内置 skills
+            for skill_name in os.listdir(builtin_skills_dir):
+                builtin_skill_path = builtin_skills_dir / skill_name
+                
+                # 只处理目录
+                if not builtin_skill_path.is_dir():
+                    continue
+                
+                # 检查是否有 SKILL.md
+                if not (builtin_skill_path / 'SKILL.md').exists():
+                    continue
+                
+                user_skill_path = user_skills_dir / skill_name
+                
+                # 如果用户目录已存在同名 skill，跳过（不覆盖用户自定义的）
+                if user_skill_path.exists():
+                    existing.append(skill_name)
+                    continue
+                
+                # 复制 skill 到用户目录
+                try:
+                    shutil.copytree(builtin_skill_path, user_skill_path)
+                    copied.append(skill_name)
+                except Exception as e:
+                    self._log(f"[INIT] 复制 Skill 失败: {skill_name} - {e}")
+            
+            if copied:
+                self._log(f"[INIT] 已复制内置 skills: {', '.join(copied)}")
+            if existing:
+                self._log(f"[INIT] Skills 已存在（跳过）: {', '.join(existing)}")
+                
+        except Exception as e:
+            self._log(f"[INIT] 设置内置 skills 失败: {e}")
 
     def _start_heart_beat(self):
         """启动心跳线程，定期检查定时任务"""
