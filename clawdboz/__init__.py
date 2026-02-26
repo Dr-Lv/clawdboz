@@ -15,6 +15,7 @@ from .handlers import (
     do_card_action_trigger,
     do_url_preview_get,
     do_bot_p2p_chat_entered,
+    do_bot_p2p_chat_create,
     do_message_read,
 )
 from .main import main
@@ -38,6 +39,7 @@ __all__ = [
     'do_card_action_trigger',
     'do_url_preview_get',
     'do_bot_p2p_chat_entered',
+    'do_bot_p2p_chat_create',
     'do_message_read',
     'main',
 ]

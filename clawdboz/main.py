@@ -33,6 +33,7 @@ from .handlers import (
     do_card_action_trigger,
     do_url_preview_get,
     do_bot_p2p_chat_entered,
+    do_bot_p2p_chat_create,
     do_message_read,
 )
 
@@ -183,6 +184,7 @@ def main():
         .register_p2_card_action_trigger(do_card_action_trigger) \
         .register_p2_url_preview_get(do_url_preview_get) \
         .register_p2_im_chat_access_event_bot_p2p_chat_entered_v1(do_bot_p2p_chat_entered) \
+        .register_p2_customized_event('im.chat.access_event.bot_p2p_chat_create_v1', do_bot_p2p_chat_create) \
         .register_p2_im_message_message_read_v1(do_message_read) \
         .build()
 
@@ -245,6 +247,7 @@ def run_with_bot(bot_instance: LarkBot = None):
         .register_p2_card_action_trigger(do_card_action_trigger) \
         .register_p2_url_preview_get(do_url_preview_get) \
         .register_p2_im_chat_access_event_bot_p2p_chat_entered_v1(do_bot_p2p_chat_entered) \
+        .register_p2_customized_event('im.chat.access_event.bot_p2p_chat_create_v1', do_bot_p2p_chat_create) \
         .register_p2_im_message_message_read_v1(do_message_read) \
         .build()
     

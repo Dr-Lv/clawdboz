@@ -23,6 +23,15 @@ def do_bot_p2p_chat_entered(data):
     return None
 
 
+def do_bot_p2p_chat_create(data):
+    """机器人创建单聊事件处理（用户首次与Bot创建单聊）"""
+    print(lark.JSON.marshal(data))
+    chat_id = data.event.chat_id
+    operator_id = data.event.operator_id
+    print(f"用户创建与机器人的单聊: chat_id={chat_id}, operator_id={operator_id}")
+    return None
+
+
 def do_message_read(data):
     """消息已读事件处理（忽略）"""
     return None
