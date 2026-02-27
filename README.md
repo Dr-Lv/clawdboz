@@ -14,13 +14,10 @@
 
 ## 📺 演示
 
-### Bot 对话演示
-
-![Bot 对话演示](clawdboz_demo.gif)
-
-### 代码执行演示
-
-![代码执行演示](clawdboz_demo2.gif)
+<p float="left">
+  <img src="clawdboz_demo.gif" width="48%" alt="Bot 对话演示" />
+  <img src="clawdboz_demo2.gif" width="48%" alt="代码执行演示" />
+</p>
 
 ## 功能特性
 
