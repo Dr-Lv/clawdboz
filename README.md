@@ -52,6 +52,8 @@ uv tool install --python 3.13 kimi-cli
 
 # 验证安装
 kimi --version
+
+# 注意：首次安装需要登陆kimi code
 ```
 
 ### 2. 安装嗑唠的宝子
