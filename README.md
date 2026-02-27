@@ -48,7 +48,7 @@ Kimi Code CLI 是嗑唠的宝子的核心依赖，提供 AI 对话能力和工�
 pip install kimi-cli
 
 # 或使用 uv 安装（推荐）
-uv tool install kimi-cli
+uv tool install --python 3.13 kimi-cli
 
 # 验证安装
 kimi --version
