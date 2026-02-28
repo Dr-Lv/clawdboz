@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clawdboz"
-version = "2.2.7"
+version = "2.2.8"
 description = "嗑唠的宝子 - 基于 Kimi Code CLI 的智能飞书机器人"
 readme = "README.md"
 requires-python = ">=3.6"
