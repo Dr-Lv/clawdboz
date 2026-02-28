@@ -124,9 +124,69 @@ class LarkBot:
                 self._log(f"[INIT] 已复制内置 skills: {', '.join(copied)}")
             if existing:
                 self._log(f"[INIT] Skills 已存在（跳过）: {', '.join(existing)}")
+            
+            # 初始化默认定时任务
+            self._init_default_scheduler_tasks()
                 
         except Exception as e:
             self._log(f"[INIT] 设置内置 skills 失败: {e}")
+
+    def _init_default_scheduler_tasks(self):
+        """初始化默认定时任务（每天晚上12点分析对话记录）"""
+        try:
+            from datetime import datetime, timedelta
+            import json
+            
+            workplace_dir = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+            scheduler_file = os.path.join(workplace_dir, 'scheduler_tasks.json')
+            
+            # 加载现有任务
+            data = {'task_id_counter': 0, 'tasks': {}}
+            if os.path.exists(scheduler_file):
+                try:
+                    with open(scheduler_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                except Exception:
+                    pass
+            
+            # 检查是否已存在每日分析任务
+            has_daily_analysis = False
+            for task in data.get('tasks', {}).values():
+                if '每日分析' in task.get('description', '') or 'analyze_daily' in task.get('description', ''):
+                    has_daily_analysis = True
+                    break
+            
+            if not has_daily_analysis:
+                # 计算今晚12点的时间戳
+                now = datetime.now()
+                midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                midnight_timestamp = midnight.timestamp()
+                
+                # 创建默认任务
+                data['task_id_counter'] += 1
+                task_id = str(data['task_id_counter'])
+                
+                data['tasks'][task_id] = {
+                    'id': task_id,
+                    'chat_id': 'default',
+                    'execute_time': midnight_timestamp,
+                    'time_interval': 86400,  # 每天重复（24小时 = 86400秒）
+                    'description': '[系统默认任务] 每日对话分析：分析当天所有对话记录，提取重要信息保存到记忆中。分析完成后向用户发送汇总报告。',
+                    'status': 'pending',
+                    'is_default': True  # 标记为默认任务
+                }
+                
+                # 保存任务文件
+                os.makedirs(workplace_dir, exist_ok=True)
+                with open(scheduler_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                
+                self._log(f"[INIT] 已创建默认定时任务：每日对话分析（任务ID: {task_id}，首次执行: {midnight.strftime('%Y-%m-%d %H:%M')}）")
+            else:
+                self._log("[INIT] 默认定时任务已存在，跳过创建")
+                
+        except Exception as e:
+            self._log(f"[INIT] 初始化默认定时任务失败: {e}")
 
     def _start_heart_beat(self):
         """启动心跳线程，定期检查定时任务"""
