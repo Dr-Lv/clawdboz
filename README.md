@@ -15,8 +15,8 @@
 ## 📺 演示
 
 <p float="left">
-  <img src="clawdboz_demo.gif" width="48%" alt="Bot 对话演示" />
-  <img src="clawdboz_demo2.gif" width="48%" alt="代码执行演示" />
+  <img src="https://raw.githubusercontent.com/Dr-Lv/clawdboz/main/clawdboz_demo.gif" width="48%" alt="Bot 对话演示" />
+  <img src="https://raw.githubusercontent.com/Dr-Lv/clawdboz/main/clawdboz_demo2.gif" width="48%" alt="代码执行演示" />
 </p>
 
 ## 功能特性
