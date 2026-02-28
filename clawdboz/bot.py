@@ -1367,8 +1367,8 @@ class LarkBot:
                 # 立即更新卡片，去掉生成中字样
                 self._do_update_card_now(initial_message_id, final_text)
 
-            # 调用 ACP（流式，超时 5 分钟）
-            response = self.acp_client.chat(text, on_chunk=on_chunk, timeout=300)
+            # 调用 ACP（流式，超时 30 分钟）
+            response = self.acp_client.chat(text, on_chunk=on_chunk, timeout=1800)
 
             # 检查是否是后台任务（Kimi 将任务放入后台执行）
             if is_background[0] and ("请稍后再试" in response or "请稍后查看" in response or len(response) < 50):

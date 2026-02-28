@@ -828,21 +828,21 @@ class ACPClient:
                 if hasattr(self, '_all_tools_completed_time'):
                     delattr(self, '_all_tools_completed_time')
             
-            # 统一超时时间：5分钟（300秒）
-            TIMEOUT_5_MIN = 300
+            # 统一超时时间：30分钟（1800秒）
+            TIMEOUT_30_MIN = 1800
             
-            # 检查是否处于工具完成后的缓冲期（给5分钟让服务器发送后续消息）
+            # 检查是否处于工具完成后的缓冲期（给30分钟让服务器发送后续消息）
             tools_completed_buffer = 0
             if hasattr(self, '_all_tools_completed_time'):
                 tools_completed_buffer = time.time() - self._all_tools_completed_time
             
-            # 如果超过 5 分钟没有新 chunk，且没有正在运行的工具，且不在缓冲期内，认为已完成
+            # 如果超过 30 分钟没有新 chunk，且没有正在运行的工具，且不在缓冲期内，认为已完成
             idle_time = time.time() - last_chunk_time
-            if (idle_time > TIMEOUT_5_MIN and not has_in_progress_tool and 
-                tools_completed_buffer > TIMEOUT_5_MIN and  # 所有工具完成后至少等5分钟
+            if (idle_time > TIMEOUT_30_MIN and not has_in_progress_tool and 
+                tools_completed_buffer > TIMEOUT_30_MIN and  # 所有工具完成后至少等30分钟
                 (collected_thinking or collected_tools or collected_messages)):
                 # 流式日志已禁用
-                # self._log(f"[CHAT] 5分钟无新内容，工具已完成{tools_completed_buffer:.1f}秒，准备退出...")
+                # self._log(f"[CHAT] 30分钟无新内容，工具已完成{tools_completed_buffer:.1f}秒，准备退出...")
                 # 退出前等待一小段时间，确保所有通知都被处理
                 exit_wait_start = time.time()
                 while time.time() - exit_wait_start < 10:  # 最后确认等待10秒
@@ -864,11 +864,11 @@ class ACPClient:
                     if hasattr(self, '_all_tools_completed_time'):
                         delattr(self, '_all_tools_completed_time')
                     break
-            elif has_in_progress_tool and tool_running_time > TIMEOUT_5_MIN:
-                # 有工具运行超过5分钟，提示超时
+            elif has_in_progress_tool and tool_running_time > TIMEOUT_30_MIN:
+                # 有工具运行超过30分钟，提示超时
                 # 流式日志已禁用
-                # self._log(f"[CHAT] 工具运行超过5分钟，提示超时")
-                timeout_warning = "\n\n⚠️ **提示**：部分工具调用耗时过长（超过5分钟），可能已超时。如未收到完整结果，请重试。"
+                # self._log(f"[CHAT] 工具运行超过30分钟，提示超时")
+                timeout_warning = "\n\n⚠️ **提示**：部分工具调用耗时过长（超过30分钟），可能已超时。如未收到完整结果，请重试。"
                 collected_messages.append(timeout_warning)
                 break
         
