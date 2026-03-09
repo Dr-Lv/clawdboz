@@ -1,6 +1,6 @@
 # 嗑唠的宝子 (Clawdboz) - 飞书 Bot
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](#)
 
@@ -123,6 +123,28 @@ export FEISHU_APP_SECRET="xxxxxxxxxxxxxxxxxxxxxx"
 # 运维检查
 ./bot_manager.sh check
 ```
+
+#### 定时运维监控（推荐）
+
+配置 crontab 定时任务，每 10 分钟自动检查 Bot 状态：
+
+```bash
+# 编辑 crontab
+export EDITOR=vim && crontab -e
+
+# 添加以下行（每 10 分钟检查一次，故障时自动通知并尝试修复）
+*/10 * * * * cd /path/to/your/bot && ./bot_manager.sh check >/dev/null 2>&1
+```
+
+**check 命令功能：**
+- 检查 Bot 进程状态
+- 检查 WebSocket 连接
+- 检查所有日志文件错误
+- 检查 MCP 配置
+- 检查 Skills 状态
+- 检查 Python 环境
+- 发现异常时自动发送飞书通知
+- 自动调用 Kimi 修复（需安装 Kimi CLI）
 
 **3. 自定义启动脚本 bot0.py**
 

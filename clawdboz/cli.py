@@ -238,6 +238,10 @@ def init_project(work_dir: Optional[str] = None):
             "qveris": {
                 "api_key": "${QVERIS_API_KEY}"
             },
+            "notification": {
+                "enabled": True,
+                "script": "feishu_tools/notify_feishu.py"
+            },
             "logs": {
                 "main_log": "logs/main.log",
                 "debug_log": "logs/bot_debug.log",

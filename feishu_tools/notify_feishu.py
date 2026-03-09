@@ -9,12 +9,82 @@ import os
 import json
 import requests
 
-# 导入 src 中的配置模块
-import sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from src.config import PROJECT_ROOT, CONFIG, get_absolute_path
 
-# 飞书应用配置
+def find_project_root():
+    """
+    查找项目根目录
+    优先级：
+    1. LARKBOT_ROOT 环境变量
+    2. 从当前目录向上查找 config.json
+    3. 当前工作目录
+    """
+    # 1. 环境变量
+    if 'LARKBOT_ROOT' in os.environ:
+        return os.environ['LARKBOT_ROOT']
+    
+    # 2. 从当前目录向上查找
+    current_dir = os.getcwd()
+    for _ in range(10):  # 最多向上查找 10 层
+        config_path = os.path.join(current_dir, 'config.json')
+        if os.path.exists(config_path):
+            return current_dir
+        
+        # 检查 WORKPLACE 目录（可能是项目根目录）
+        if os.path.basename(current_dir) == 'WORKPLACE':
+            parent = os.path.dirname(current_dir)
+            if os.path.exists(os.path.join(parent, 'config.json')):
+                return parent
+        
+        parent = os.path.dirname(current_dir)
+        if parent == current_dir:
+            break
+        current_dir = parent
+    
+    # 3. 默认使用当前目录
+    return os.getcwd()
+
+
+def load_config():
+    """加载配置文件"""
+    project_root = find_project_root()
+    config_path = os.path.join(project_root, 'config.json')
+    
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"读取配置文件失败: {e}", file=sys.stderr)
+    
+    return {}
+
+
+def get_context_file_path():
+    """获取上下文文件路径"""
+    project_root = find_project_root()
+    
+    # 优先从配置读取
+    config = load_config()
+    paths = config.get('paths', {})
+    
+    # 尝试路径优先级
+    possible_paths = [
+        paths.get('context_file'),  # 配置中指定的路径
+        os.path.join(project_root, 'WORKPLACE', 'mcp_context.json'),
+        os.path.join(project_root, 'mcp_context.json'),
+        '/tmp/mcp_context.json',
+    ]
+    
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            return path
+    
+    # 默认返回最可能的路径（即使不存在）
+    return os.path.join(project_root, 'WORKPLACE', 'mcp_context.json')
+
+
+# 加载配置
+CONFIG = load_config()
 feishu_config = CONFIG.get('feishu', {})
 APP_ID = feishu_config.get('app_id')
 APP_SECRET = feishu_config.get('app_secret')
@@ -41,11 +111,11 @@ def get_tenant_access_token() -> str:
 
 def get_chat_info_from_context():
     """从上下文文件获取聊天信息"""
-    paths_config = CONFIG.get('paths', {})
-    context_file = get_absolute_path(paths_config.get('context_file', 'WORKPLACE/mcp_context.json'))
+    context_file = get_context_file_path()
+    
     try:
         if os.path.exists(context_file):
-            with open(context_file, 'r') as f:
+            with open(context_file, 'r', encoding='utf-8') as f:
                 context = json.load(f)
                 return {
                     'chat_id': context.get('chat_id'),
@@ -53,6 +123,7 @@ def get_chat_info_from_context():
                 }
     except Exception as e:
         print(f"读取上下文失败: {e}", file=sys.stderr)
+    
     return None
 
 
@@ -115,7 +186,6 @@ def send_text_card(title: str, content: str, status: str = "info"):
         return False
     
     chat_id = chat_info['chat_id']
-    # chat_type = chat_info['chat_type']
     
     # 飞书 API：群聊和单聊都使用 chat_id 作为 receive_id_type
     receive_id_type = "chat_id"

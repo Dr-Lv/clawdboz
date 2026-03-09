@@ -10,6 +10,8 @@ simple_bot.py - 简化版 Bot API
 
 import os
 import sys
+import shutil
+from pathlib import Path
 from typing import Optional, Dict, Any
 
 from .config import load_config, get_absolute_path, PROJECT_ROOT, CONFIG as GLOBAL_CONFIG
@@ -43,6 +45,88 @@ def _get_caller_script() -> str:
     
     # 默认回退
     return 'bot0.py'
+
+
+def _create_minimal_bot_manager(bot_manager_path: str, result: dict, verbose: bool = False):
+    """创建简化版 bot_manager.sh（降级方案，当模板不可用时）"""
+    minimal_bot_manager = """#!/bin/bash
+#
+# 飞书 Bot 管理脚本（简化版）
+# 功能：启动、停止、重启、状态查看
+#
+
+BOT_NAME="feishu_bot"
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+PID_FILE="/tmp/${BOT_NAME}_$(echo "$PROJECT_ROOT" | tr '/' '_').pid"
+CONFIG_FILE="$PROJECT_ROOT/config.json"
+
+# 使用当前环境中的 Python（支持虚拟环境）
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+# 从 config.json 读取启动脚本路径，默认 bot0.py
+get_config() {
+    python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
+}
+BOT_SCRIPT=$(get_config "['start_script']" 2>/dev/null || echo 'bot0.py')
+
+cd "$PROJECT_ROOT" || exit 1
+
+case "$1" in
+    start)
+        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+            echo "Bot 已在运行 (PID: $(cat $PID_FILE))"
+            exit 1
+        fi
+        
+        if [ ! -f "$PROJECT_ROOT/$BOT_SCRIPT" ]; then
+            echo "错误: 找不到启动脚本: $BOT_SCRIPT"
+            exit 1
+        fi
+        
+        echo "启动 Bot..."
+        nohup "$PYTHON_BIN" "$BOT_SCRIPT" > logs/bot_output.log 2>&1 &
+        echo $! > "$PID_FILE"
+        echo "Bot 已启动 (PID: $!)"
+        ;;
+    stop)
+        if [ -f "$PID_FILE" ]; then
+            PID=$(cat "$PID_FILE")
+            if kill -0 "$PID" 2>/dev/null; then
+                kill "$PID"
+                rm -f "$PID_FILE"
+                echo "Bot 已停止"
+            else
+                echo "Bot 未运行"
+                rm -f "$PID_FILE"
+            fi
+        else
+            echo "Bot 未运行"
+        fi
+        ;;
+    restart)
+        $0 stop
+        sleep 2
+        $0 start
+        ;;
+    status)
+        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+            echo "Bot 运行中 (PID: $(cat $PID_FILE))"
+        else
+            echo "Bot 未运行"
+        fi
+        ;;
+    *)
+        echo "用法: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+"""
+    with open(bot_manager_path, 'w', encoding='utf-8') as f:
+        f.write(minimal_bot_manager)
+    os.chmod(bot_manager_path, 0o755)
+    result['created'].append('bot_manager.sh')
+    if verbose:
+        print(f"[Bot] 创建简化管理脚本: bot_manager.sh")
 
 
 def _ensure_project_files(work_dir: str, verbose: bool = False):
@@ -95,104 +179,31 @@ def _ensure_project_files(work_dir: str, verbose: bool = False):
         else:
             result['existing'].append('.bots.md')
         
-        # 创建简化版 bot_manager.sh
+        # 创建 bot_manager.sh（从模板复制完整版）
         bot_manager_path = os.path.join(work_dir, 'bot_manager.sh')
         if not os.path.exists(bot_manager_path):
-            default_bot_manager = """#!/bin/bash
-#
-# 飞书 Bot 管理脚本
-# 功能：启动、停止、重启、状态查看
-#
-
-BOT_NAME="feishu_bot"
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
-PID_FILE="/tmp/${BOT_NAME}_$(echo "$PROJECT_ROOT" | tr '/' '_').pid"
-CONFIG_FILE="$PROJECT_ROOT/config.json"
-
-# 使用当前环境中的 Python（支持虚拟环境）
-PYTHON_BIN="${PYTHON_BIN:-python3}"
-
-# 从 config.json 读取启动脚本路径，默认 bot0.py
-get_config() {
-    python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
-}
-BOT_SCRIPT=$(get_config "['start_script']" 2>/dev/null || echo 'bot0.py')
-
-cd "$PROJECT_ROOT" || exit 1
-
-case "$1" in
-    start)
-        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
-            echo "Bot 已在运行 (PID: $(cat $PID_FILE))"
-            exit 1
-        fi
-        
-        # 检查启动脚本是否存在
-        if [ ! -f "$PROJECT_ROOT/$BOT_SCRIPT" ]; then
-            echo "错误: 找不到启动脚本: $BOT_SCRIPT"
-            echo "请在 config.json 中配置 start_script，或创建 bot0.py"
-            exit 1
-        fi
-        
-        # 检查 Python 是否可用
-        if ! command -v "$PYTHON_BIN" &> /dev/null; then
-            echo "错误: Python 命令不存在: $PYTHON_BIN"
-            echo "请确保 Python 已安装或在虚拟环境中运行"
-            exit 1
-        fi
-        
-        echo "启动 Bot (使用: $BOT_SCRIPT, Python: $PYTHON_BIN)..."
-        nohup "$PYTHON_BIN" "$BOT_SCRIPT" > logs/bot_output.log 2>&1 &
-        echo $! > "$PID_FILE"
-        echo "Bot 已启动 (PID: $!)"
-        ;;
-    stop)
-        if [ -f "$PID_FILE" ]; then
-            PID=$(cat "$PID_FILE")
-            if kill -0 "$PID" 2>/dev/null; then
-                echo "停止 Bot (PID: $PID)..."
-                kill "$PID"
-                rm -f "$PID_FILE"
-                echo "Bot 已停止"
-            else
-                echo "Bot 未运行"
-                rm -f "$PID_FILE"
-            fi
-        else
-            echo "未找到 PID 文件，Bot 可能未运行"
-        fi
-        ;;
-    restart)
-        $0 stop
-        sleep 2
-        $0 start
-        ;;
-    status)
-        if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
-            echo "Bot 运行中 (PID: $(cat $PID_FILE))"
-        else
-            echo "Bot 未运行"
-        fi
-        ;;
-    *)
-        echo "用法: $0 {start|stop|restart|status}"
-        echo ""
-        echo "启动脚本配置:"
-        echo "  1. 默认使用 bot0.py"
-        echo "  2. 或在 config.json 中配置: \"start_script\": \"my_bot.py\""
-        exit 1
-        ;;
-esac
-"""
             try:
-                with open(bot_manager_path, 'w', encoding='utf-8') as f:
-                    f.write(default_bot_manager)
-                os.chmod(bot_manager_path, 0o755)
-                result['created'].append('bot_manager.sh')
-                if verbose:
-                    print(f"[Bot] 创建管理脚本: bot_manager.sh")
+                # 获取模板路径（支持本地开发和 whl 包安装）
+                import clawdboz
+                templates_dir = Path(clawdboz.__path__[0]) / 'templates'
+                template_path = templates_dir / 'bot_manager.sh'
+                
+                if template_path.exists():
+                    # 从模板复制完整版
+                    shutil.copy2(template_path, bot_manager_path)
+                    os.chmod(bot_manager_path, 0o755)
+                    result['created'].append('bot_manager.sh')
+                    if verbose:
+                        print(f"[Bot] 复制管理脚本: bot_manager.sh")
+                else:
+                    # 模板不存在，创建简化版（降级方案）
+                    _create_minimal_bot_manager(bot_manager_path, result, verbose)
             except Exception as e:
-                result['errors'].append(f'bot_manager.sh: {e}')
+                # 复制失败，创建简化版
+                try:
+                    _create_minimal_bot_manager(bot_manager_path, result, verbose)
+                except Exception as e2:
+                    result['errors'].append(f'bot_manager.sh: {e2}')
         else:
             result['existing'].append('bot_manager.sh')
         
@@ -448,6 +459,10 @@ class Bot:
                     "qveris": config.get('qveris', {
                         "api_key": os.environ.get('QVERIS_API_KEY', "${QVERIS_API_KEY}")
                     }),
+                    "notification": {
+                        "enabled": True,
+                        "script": "feishu_tools/notify_feishu.py"
+                    },
                     "logs": config.get('logs', {
                         "main_log": "logs/main.log",
                         "debug_log": "logs/bot_debug.log",

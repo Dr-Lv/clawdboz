@@ -6,8 +6,7 @@
 
 # 基础配置
 BOT_NAME="feishu_bot"
-# 启动脚本路径: 从 config.json 读取 start_script，默认 bot0.py
-BOT_SCRIPT=$(get_config "['start_script']" 2>/dev/null || echo 'bot0.py')
+BOT_MODULE="clawdboz.main"
 
 # 获取脚本所在目录（作为默认项目根目录）
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -19,6 +18,9 @@ CONFIG_FILE="$SCRIPT_DIR/config.json"
 get_config() {
     python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
 }
+
+# 启动脚本优先级: 环境变量 BOT_START_SCRIPT > config.json 中的 start_script > 默认 bot0.py
+BOT_SCRIPT="${BOT_START_SCRIPT:-$(get_config "['start_script']" 2>/dev/null || echo 'bot0.py')}"
 
 # 获取项目根目录（优先环境变量 LARKBOT_ROOT，其次 config.json 中的 project_root）
 PROJECT_ROOT="${LARKBOT_ROOT:-}"
@@ -44,7 +46,19 @@ PROJECT_ROOT_HASH=$(echo "$PROJECT_ROOT" | tr '/' '_')
 PID_FILE="/tmp/${BOT_NAME}_${PROJECT_ROOT_HASH}.pid"
 
 # 使用当前环境中的 Python（支持虚拟环境）
-PYTHON_BIN="${PYTHON_BIN:-python3}"
+PYTHON_BIN="${PYTHON_BIN:-$PROJECT_ROOT/.venv/bin/python}"
+
+# Kimi CLI 路径（优先环境变量，其次尝试从 PATH 查找）
+if [ -z "$KIMI_DIR" ]; then
+    # 尝试查找 kimi 可执行文件
+    KIMI_BIN=$(which kimi 2>/dev/null)
+    if [ -n "$KIMI_BIN" ]; then
+        KIMI_DIR=$(dirname "$KIMI_BIN")
+    else
+        # 默认路径
+        KIMI_DIR="$HOME/.local/bin"
+    fi
+fi
 
 # 日志路径（从配置文件读取，基于项目根目录）
 LOG_FILE="$PROJECT_ROOT/$(get_config "['logs']['main_log']" || echo 'logs/main.log')"
@@ -58,7 +72,56 @@ OPS_LOG="$PROJECT_ROOT/$(get_config "['logs']['ops_log']" || echo 'logs/ops_chec
 NOTIFICATION_ENABLED=$(get_config "['notification']['enabled']" || echo 'true')
 ENABLE_FEISHU_NOTIFY="${ENABLE_FEISHU_NOTIFY:-$NOTIFICATION_ENABLED}"
 NOTIFY_SCRIPT_NAME=$(get_config "['notification']['script']" || echo 'feishu_tools/notify_feishu.py')
-NOTIFY_SCRIPT="$PROJECT_ROOT/$NOTIFY_SCRIPT_NAME"
+
+# 查找 notify_feishu.py 脚本路径（支持本地开发和 whl 包安装场景）
+find_notify_script() {
+    local script_name="$1"
+    
+    # 1. 首先尝试项目根目录下的路径（本地开发场景）
+    local local_path="$PROJECT_ROOT/$script_name"
+    if [ -f "$local_path" ]; then
+        echo "$local_path"
+        return 0
+    fi
+    
+    # 2. 尝试通过 Python 找到 feishu_tools 包的路径（whl 包安装场景）
+    local python_path=$($PYTHON_BIN -c "import feishu_tools; print(feishu_tools.get_notify_script_path())" 2>/dev/null)
+    if [ -n "$python_path" ] && [ -f "$python_path" ]; then
+        echo "$python_path"
+        return 0
+    fi
+    
+    # 3. 尝试直接在 Python 路径中查找
+    local site_packages_path=$($PYTHON_BIN -c "import feishu_tools, os; print(os.path.dirname(feishu_tools.__file__))" 2>/dev/null)
+    if [ -n "$site_packages_path" ]; then
+        local notify_path="$site_packages_path/notify_feishu.py"
+        if [ -f "$notify_path" ]; then
+            echo "$notify_path"
+            return 0
+        fi
+    fi
+    
+    # 4. 尝试从 sys.path 中查找
+    local found_path=$($PYTHON_BIN -c "
+import sys
+import os
+for p in sys.path:
+    candidate = os.path.join(p, 'feishu_tools', 'notify_feishu.py')
+    if os.path.exists(candidate):
+        print(candidate)
+        break
+" 2>/dev/null)
+    if [ -n "$found_path" ] && [ -f "$found_path" ]; then
+        echo "$found_path"
+        return 0
+    fi
+    
+    # 未找到，返回默认路径（用于错误提示）
+    echo "$PROJECT_ROOT/$script_name"
+    return 1
+}
+
+NOTIFY_SCRIPT=$(find_notify_script "$NOTIFY_SCRIPT_NAME")
 
 # QVeris API Key 配置（优先环境变量，其次配置文件）
 QVERIS_API_KEY_CONFIG=$(get_config "['qveris']['api_key']" || echo '')
@@ -521,8 +584,8 @@ notify_feishu() {
     local command="$1"
     local message="${2:-}"
     
-    # 检查是否启用通知
-    if [ "$ENABLE_FEISHU_NOTIFY" != "true" ]; then
+    # 检查是否启用通知（支持 true/True）
+    if [ "$ENABLE_FEISHU_NOTIFY" != "true" ] && [ "$ENABLE_FEISHU_NOTIFY" != "True" ]; then
         return 0
     fi
     
@@ -542,19 +605,19 @@ notify_feishu() {
     # 发送通知（后台执行，不阻塞）
     case "$command" in
         check_start)
-            (python3 "$NOTIFY_SCRIPT" check_start >/dev/null 2>&1 &)
+            ($PYTHON_BIN "$NOTIFY_SCRIPT" check_start >/dev/null 2>&1 &)
             ;;
         issues_found)
-            (python3 "$NOTIFY_SCRIPT" issues_found "$message" >/dev/null 2>&1 &)
+            ($PYTHON_BIN "$NOTIFY_SCRIPT" issues_found "$message" >/dev/null 2>&1 &)
             ;;
         repair_success)
-            (python3 "$NOTIFY_SCRIPT" repair_success >/dev/null 2>&1 &)
+            ($PYTHON_BIN "$NOTIFY_SCRIPT" repair_success >/dev/null 2>&1 &)
             ;;
         repair_failed)
-            (python3 "$NOTIFY_SCRIPT" repair_failed "$message" >/dev/null 2>&1 &)
+            ($PYTHON_BIN "$NOTIFY_SCRIPT" repair_failed "$message" >/dev/null 2>&1 &)
             ;;
         check_passed)
-            (python3 "$NOTIFY_SCRIPT" check_passed >/dev/null 2>&1 &)
+            ($PYTHON_BIN "$NOTIFY_SCRIPT" check_passed >/dev/null 2>&1 &)
             ;;
     esac
 }
@@ -644,8 +707,61 @@ check() {
         check_results="${check_results}\n[SKIP] WebSocket: 日志文件不存在"
     fi
     
-    # 3. 检查日志错误（只检查最近 40 分钟内的）
-    info "检查日志错误（最近40分钟）..."
+    # 3. 检查所有日志文件
+    info "检查所有日志文件..."
+    local logs_dir="$PROJECT_ROOT/logs"
+    local total_log_errors=0
+    local log_error_details=""
+    
+    if [ -d "$logs_dir" ]; then
+        # 遍历 logs 目录下的所有 .log 文件
+        for log_file in "$logs_dir"/*.log; do
+            if [ -f "$log_file" ]; then
+                local log_name=$(basename "$log_file")
+                local log_errors=$(grep -cE "ERROR|Exception|Traceback|Failed" "$log_file" 2>/dev/null | tr -d '\n' || echo 0)
+                
+                if [ "$log_errors" -gt 0 ]; then
+                    warn "⚠ $log_name 中发现 $log_errors 个错误/异常"
+                    log_ops "WARN" "$log_name 错误数: $log_errors"
+                    check_results="${check_results}\n[WARN] $log_name: $log_errors 个错误"
+                    total_log_errors=$((total_log_errors + log_errors))
+                    log_error_details="${log_error_details}\n- $log_name: $log_errors 个错误"
+                    has_error=1
+                    
+                    # 显示最近的几条错误
+                    info "$log_name 最近错误:"
+                    grep -E "ERROR|Exception|Traceback|Failed" "$log_file" 2>/dev/null | tail -3 | while read line; do
+                        echo "  ${YELLOW}$line${NC}"
+                    done
+                else
+                    success "✓ $log_name 无错误"
+                    log_ops "INFO" "$log_name 正常，无错误"
+                    check_results="${check_results}\n[OK] $log_name: 无错误"
+                fi
+                
+                # 检查日志文件大小（如果超过 10MB 警告）
+                local log_size=$(stat -f%z "$log_file" 2>/dev/null || stat -c%s "$log_file" 2>/dev/null || echo 0)
+                local log_size_mb=$((log_size / 1024 / 1024))
+                if [ "$log_size_mb" -gt 10 ]; then
+                    warn "⚠ $log_name 文件较大: ${log_size_mb}MB，建议清理"
+                    log_ops "WARN" "$log_name 文件过大: ${log_size_mb}MB"
+                    check_results="${check_results}\n[WARN] $log_name 大小: ${log_size_mb}MB"
+                fi
+            fi
+        done
+        
+        # 如果有任何日志错误，更新错误详情
+        if [ "$total_log_errors" -gt 0 ]; then
+            error_details="${error_details}\n- 日志错误总数: $total_log_errors个${log_error_details}"
+        fi
+    else
+        warn "⚠ logs 目录不存在"
+        log_ops "WARN" "logs 目录不存在"
+        check_results="${check_results}\n[WARN] logs 目录: 不存在"
+    fi
+    
+    # 4. 检查调试日志错误（只检查最近 40 分钟内的）
+    info "检查调试日志错误（最近40分钟）..."
     if [ -f "$DEBUG_LOG" ]; then
         # 获取当前时间戳
         local current_timestamp=$(date +%s)
@@ -724,7 +840,7 @@ check() {
         check_results="${check_results}\n[SKIP] 日志检查: 调试日志不存在"
     fi
     
-    # 4. 检查 MCP 配置
+    # 5. 检查 MCP 配置
     info "检查 MCP 配置..."
     if [ -f "$PROJECT_ROOT/.kimi/mcp.json" ]; then
         if grep -q "mcp_feishu_file_server.py" "$PROJECT_ROOT/.kimi/mcp.json" 2>/dev/null; then
@@ -760,7 +876,7 @@ check() {
         check_results="${check_results}\n[FAIL] MCP 配置: 缺失"
     fi
     
-    # 5. 检查 Skills
+    # 6. 检查 Skills
     info "检查 Skills..."
     local skills_dir="$PROJECT_ROOT/.kimi/skills"
     if [ -d "$skills_dir" ]; then
@@ -774,7 +890,7 @@ check() {
         check_results="${check_results}\n[WARN] Skills: 目录不存在"
     fi
     
-    # 6. 检查上下文文件
+    # 7. 检查上下文文件
     info "检查 MCP 上下文..."
     local context_file="$PROJECT_ROOT/WORKPLACE/mcp_context.json"
     if [ -f "$context_file" ]; then
@@ -799,7 +915,7 @@ check() {
         check_results="${check_results}\n[WARN] MCP 上下文: 不存在"
     fi
     
-    # 7. 检查 Python
+    # 8. 检查 Python
     info "检查 Python..."
     if command -v "$PYTHON_BIN" &> /dev/null; then
         local python_version=$($PYTHON_BIN --version 2>&1)
@@ -829,8 +945,11 @@ check() {
         # 发送问题通知
         notify_feishu "issues_found" "$error_details"
         
+        # 清理 error_details 中的非法 UTF-8 字符（避免 Kimi 编码错误）
+        local clean_error_details=$(echo -e "$error_details" | iconv -f UTF-8 -t UTF-8//IGNORE 2>/dev/null || echo "$error_details")
+        
         # 构建运维指令
-        local repair_prompt="请修复飞书 Bot 的以下问题:$error_details
+        local repair_prompt="请修复飞书 Bot 的以下问题:$clean_error_details
 
 项目目录: $PROJECT_ROOT
 当前工作目录: $(pwd)
@@ -850,6 +969,19 @@ MCP 配置: .kimi/mcp.json
 
         info "调用 Kimi 进行自动修复..."
         log_ops "INFO" "开始调用 Kimi 自动修复"
+        
+        # 检查 kimi 是否存在
+        if [ ! -f "$KIMI_DIR/kimi" ]; then
+            error "Kimi CLI 不存在: $KIMI_DIR/kimi"
+            error "请安装 Kimi CLI 或设置 KIMI_DIR 环境变量"
+            log_ops "ERROR" "Kimi CLI 不存在: $KIMI_DIR/kimi"
+            notify_feishu "repair_failed" "Kimi CLI 未安装"
+            echo ""
+            warn "自动修复跳过，请手动处理问题"
+            log_ops "INFO" "========== 运维检查结束（未修复：Kimi CLI 不存在）=========="
+            return 1
+        fi
+        
         cd "$PROJECT_ROOT" && $KIMI_DIR/kimi --yolo -p "$repair_prompt"
         local repair_result=$?
         
