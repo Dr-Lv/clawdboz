@@ -19,6 +19,17 @@ get_config() {
     python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
 }
 
+# 从配置文件读取并加载虚拟环境（如果配置了）
+VENV_PATH=$(get_config "['python']['venv']" 2>/dev/null || echo '.venv')
+# 支持相对路径和绝对路径
+if [ "${VENV_PATH:0:1}" != "/" ]; then
+    VENV_PATH="$SCRIPT_DIR/$VENV_PATH"
+fi
+if [ -f "$VENV_PATH/bin/activate" ]; then
+    # shellcheck source=/dev/null
+    source "$VENV_PATH/bin/activate"
+fi
+
 # 启动脚本优先级: 环境变量 BOT_START_SCRIPT > config.json 中的 start_script > 默认 bot0.py
 BOT_SCRIPT="${BOT_START_SCRIPT:-$(get_config "['start_script']" 2>/dev/null || echo 'bot0.py')}"
 
@@ -965,7 +976,10 @@ Bot 主脚本: clawdboz/main.py
 MCP 配置: .kimi/mcp.json
 日志文件: logs/bot_debug.log, logs/main.log
 
-如果需要重启 Bot，使用: ./bot_manager.sh restart"
+如果需要重启 Bot，使用: ./bot_manager.sh restart
+
+tips:
+1. 一般小问题，如连接断掉之类的，重启就能解决"
 
         info "调用 Kimi 进行自动修复..."
         log_ops "INFO" "开始调用 Kimi 自动修复"
