@@ -204,8 +204,9 @@ esac
 import os
 from clawdboz import Bot
 
-# 从环境变量或 config.json 读取配置
-bot = Bot()
+# 从 config.json 读取配置（文件由 clawdboz init 生成）
+# 支持环境变量覆盖: FEISHU_APP_ID, FEISHU_APP_SECRET
+bot = Bot(config_path="config.json")
 bot.run()
 '''
         try:
