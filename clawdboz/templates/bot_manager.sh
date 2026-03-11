@@ -51,10 +51,8 @@ PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd)"
 # 导出项目根目录环境变量（供 Python 脚本使用）
 export LARKBOT_ROOT="$PROJECT_ROOT"
 
-# PID 文件路径 - 基于项目根目录生成唯一路径（支持多实例）
-# 将项目路径中的 / 替换为 _ 来生成合法的 PID 文件名
-PROJECT_ROOT_HASH=$(echo "$PROJECT_ROOT" | tr '/' '_')
-PID_FILE="/tmp/${BOT_NAME}_${PROJECT_ROOT_HASH}.pid"
+# PID 文件路径 - 放在脚本所在目录（当前目录）
+PID_FILE="$SCRIPT_DIR/${BOT_NAME}.pid"
 
 # 使用当前环境中的 Python（支持虚拟环境）
 PYTHON_BIN="${PYTHON_BIN:-$PROJECT_ROOT/.venv/bin/python}"
@@ -613,6 +611,25 @@ notify_feishu() {
         return 1
     fi
     
+    # 防止重复通知：检查上次通知时间（5分钟内不重复发送同类型通知）
+    local notify_lock_dir="/tmp/clawdboz_notify"
+    mkdir -p "$notify_lock_dir"
+    local lock_file="$notify_lock_dir/${PROJECT_ROOT_HASH}_${command}"
+    local current_time=$(date +%s)
+    local min_interval=300  # 5分钟 = 300秒
+    
+    if [ -f "$lock_file" ]; then
+        local last_notify=$(cat "$lock_file" 2>/dev/null || echo 0)
+        local time_diff=$((current_time - last_notify))
+        if [ $time_diff -lt $min_interval ]; then
+            log_ops "INFO" "跳过重复通知 ($command): ${time_diff}秒前已发送"
+            return 0
+        fi
+    fi
+    
+    # 记录通知时间
+    echo "$current_time" > "$lock_file"
+    
     # 发送通知（后台执行，不阻塞）
     case "$command" in
         check_start)
@@ -631,6 +648,8 @@ notify_feishu() {
             ($PYTHON_BIN "$NOTIFY_SCRIPT" check_passed >/dev/null 2>&1 &)
             ;;
     esac
+    
+    log_ops "INFO" "已发送通知: $command"
 }
 
 # 检查和修复 Bot
