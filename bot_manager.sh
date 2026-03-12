@@ -757,10 +757,16 @@ check() {
     local log_error_details=""
     
     if [ -d "$logs_dir" ]; then
-        # 遍历 logs 目录下的所有 .log 文件
+        # 遍历 logs 目录下的所有 .log 文件（排除运维日志）
+        local ops_log_name=$(basename "$OPS_LOG")
         for log_file in "$logs_dir"/*.log; do
             if [ -f "$log_file" ]; then
                 local log_name=$(basename "$log_file")
+                
+                # 跳过运维日志（避免自引用）
+                if [ "$log_name" = "$ops_log_name" ]; then
+                    continue
+                fi
                 local log_errors=$(grep -cE "ERROR|Exception|Traceback|Failed" "$log_file" 2>/dev/null | tr -d '\n' || echo 0)
                 
                 if [ "$log_errors" -gt 0 ]; then
