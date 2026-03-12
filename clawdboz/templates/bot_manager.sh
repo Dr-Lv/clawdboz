@@ -56,20 +56,17 @@ if [ -f "$VENV_PATH/bin/activate" ]; then
     source "$VENV_PATH/bin/activate"
 fi
 
-# 启动脚本优先级: 环境变量 BOT_START_SCRIPT > config.json 中的 start_script > 默认 bot0.py
-BOT_SCRIPT="${BOT_START_SCRIPT:-$(get_config "['start_script']" 2>/dev/null || echo 'bot0.py')}"
+# 启动脚本从 config.json 读取，默认为 bot0.py
+BOT_SCRIPT=$(get_config "['start_script']" 2>/dev/null || echo 'bot0.py')
 
-# 获取项目根目录（优先环境变量 LARKBOT_ROOT，其次 config.json 中的 project_root）
-PROJECT_ROOT="${LARKBOT_ROOT:-}"
-if [ -z "$PROJECT_ROOT" ]; then
-    PROJECT_ROOT_CONFIG=$(get_config "['project_root']" || echo '.')
-    if [ "${PROJECT_ROOT_CONFIG:0:1}" = "/" ]; then
-        # 绝对路径
-        PROJECT_ROOT="$PROJECT_ROOT_CONFIG"
-    else
-        # 相对路径，相对于脚本所在目录
-        PROJECT_ROOT="$SCRIPT_DIR/$PROJECT_ROOT_CONFIG"
-    fi
+# 获取项目根目录（从 config.json 读取，默认为脚本所在目录）
+PROJECT_ROOT_CONFIG=$(get_config "['project_root']" 2>/dev/null || echo '.')
+if [ "${PROJECT_ROOT_CONFIG:0:1}" = "/" ]; then
+    # 绝对路径
+    PROJECT_ROOT="$PROJECT_ROOT_CONFIG"
+else
+    # 相对路径，相对于脚本所在目录
+    PROJECT_ROOT="$SCRIPT_DIR/$PROJECT_ROOT_CONFIG"
 fi
 # 规范化路径
 PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd -P)"
@@ -80,18 +77,14 @@ export LARKBOT_ROOT="$PROJECT_ROOT"
 # PID 文件路径 - 放在脚本所在目录（当前目录）
 PID_FILE="$SCRIPT_DIR/${BOT_NAME}.pid"
 
-# Kimi CLI 路径（优先级: 环境变量 > config.json > which kimi > 默认路径）
-if [ -z "$KIMI_DIR" ]; then
-    # 尝试从 config.json 读取 kimi 路径
-    KIMI_CONFIG_DIR=$(get_config "['kimi']['bin_dir']" 2>/dev/null)
-    if [ -n "$KIMI_CONFIG_DIR" ]; then
-        # 支持相对路径和绝对路径
-        if [ "${KIMI_CONFIG_DIR:0:1}" != "/" ]; then
-            KIMI_CONFIG_DIR="$SCRIPT_DIR/$KIMI_CONFIG_DIR"
-        fi
-        KIMI_DIR="$KIMI_CONFIG_DIR"
-    fi
+# Kimi CLI 路径从 config.json 读取，默认为 ~/.local/bin
+KIMI_DIR=$(get_config "['kimi']['bin_dir']" 2>/dev/null)
+
+if [ -n "$KIMI_DIR" ] && [ "${KIMI_DIR:0:1}" != "/" ]; then
+    # 相对路径，转换为绝对路径
+    KIMI_DIR="$SCRIPT_DIR/$KIMI_DIR"
 fi
+
 if [ -z "$KIMI_DIR" ]; then
     # 尝试查找 kimi 可执行文件
     KIMI_BIN=$(which kimi 2>/dev/null)
@@ -1041,7 +1034,7 @@ tips:
         # 检查 kimi 是否存在
         if [ ! -f "$KIMI_DIR/kimi" ]; then
             error "Kimi CLI 不存在: $KIMI_DIR/kimi"
-            error "请安装 Kimi CLI 或设置 KIMI_DIR 环境变量"
+            error "请安装 Kimi CLI 或在 config.json 中配置 kimi.bin_dir"
             log_ops "ERROR" "Kimi CLI 不存在: $KIMI_DIR/kimi"
             notify_feishu "repair_failed" "Kimi CLI 未安装"
             echo ""
@@ -1091,7 +1084,7 @@ init() {
     echo "当前配置:"
     echo "  project_root (config.json): $current_project_root"
     echo "  脚本所在目录: $detected_root"
-    echo "  环境变量 LARKBOT_ROOT: ${LARKBOT_ROOT:-未设置}"
+    echo "  项目根目录: $PROJECT_ROOT"
     echo ""
     
     # 检查当前配置是否正确
@@ -1321,7 +1314,6 @@ ${GREEN}飞书 Bot 管理脚本${NC}
     $0 send "chat_id" "Hello"   # 发送自定义消息
 
 环境变量:
-    LARKBOT_ROOT=/path/to/bot     # 项目根目录（优先级最高）
     ENABLE_FEISHU_NOTIFY=true/false  # 是否启用飞书通知（默认 true）
 
 配置文件:
