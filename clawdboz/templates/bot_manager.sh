@@ -17,6 +17,7 @@ CONFIG_FILE="$SCRIPT_DIR/config.json"
 # 使用 jq 或系统 python3 读取配置（用于获取 python.bin 配置）
 _get_config() {
     local path="$1"
+    local result=""
     
     # 检查配置文件是否存在
     if [ ! -f "$CONFIG_FILE" ]; then
@@ -25,13 +26,21 @@ _get_config() {
     
     # 尝试使用 jq（如果安装了）
     if command -v jq &> /dev/null; then
-        local jq_path=$(echo "$path" | sed "s/\['/. /g; s/'\]//g; s/^\././")
-        jq -r "$jq_path" "$CONFIG_FILE" 2>/dev/null | grep -v '^null$'
+        local jq_path=$(echo "$path" | sed "s/\['/./g; s/'\]//g")
+        result=$(jq -r "$jq_path" "$CONFIG_FILE" 2>/dev/null)
+        if [ "$result" = "null" ] || [ -z "$result" ]; then
+            return 1
+        fi
+        echo "$result"
         return 0
     fi
     
     # 回退到系统 python3
-    python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
+    result=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null)
+    if [ -z "$result" ]; then
+        return 1
+    fi
+    echo "$result"
 }
 
 # 从配置文件读取 Python 路径（只从 config.json 读取）

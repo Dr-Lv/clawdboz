@@ -18,6 +18,7 @@ CONFIG_FILE="$SCRIPT_DIR/config.json"
 # 优先使用 jq（更快），否则使用系统 python3
 get_config() {
     local path="$1"
+    local result=""
     
     # 检查配置文件是否存在
     if [ ! -f "$CONFIG_FILE" ]; then
@@ -27,13 +28,22 @@ get_config() {
     # 尝试使用 jq（如果安装了）
     if command -v jq &> /dev/null; then
         # 转换路径格式：['a']['b'] -> .a.b
-        local jq_path=$(echo "$path" | sed "s/\['/. /g; s/'\]//g; s/^\././")
-        jq -r "$jq_path" "$CONFIG_FILE" 2>/dev/null | grep -v '^null$'
+        local jq_path=$(echo "$path" | sed "s/\['/./g; s/'\]//g")
+        result=$(jq -r "$jq_path" "$CONFIG_FILE" 2>/dev/null)
+        # 检查是否为 null 或空
+        if [ "$result" = "null" ] || [ -z "$result" ]; then
+            return 1
+        fi
+        echo "$result"
         return 0
     fi
     
     # 回退到 Python（系统 python3）
-    python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
+    result=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null)
+    if [ -z "$result" ]; then
+        return 1
+    fi
+    echo "$result"
 }
 
 # 从配置文件读取并加载虚拟环境（如果配置了）
