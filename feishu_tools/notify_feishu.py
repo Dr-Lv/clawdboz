@@ -297,6 +297,40 @@ def notify_check_passed():
     return send_text_card("检查通过", content, "success")
 
 
+def notify_kimi_not_logged_in(message: str):
+    """通知：Kimi CLI 未登录"""
+    content = f"""⚠️ **Kimi CLI 未登录**
+
+{message}
+
+**登录步骤：**
+1. 在终端执行: `kimi auth login`
+2. 按提示完成登录
+3. 重新运行检查
+
+或访问 [Kimi 平台](https://platform.moonshot.cn) 获取帮助"""
+    
+    return send_text_card("Kimi 未登录", content, "warning")
+
+
+def notify_kimi_not_installed(message: str):
+    """通知：Kimi CLI 未安装"""
+    content = f"""❌ **Kimi CLI 未安装**
+
+{message}
+
+**安装步骤：**
+```bash
+curl -L code.kimi.com/install.sh | bash
+```
+
+安装完成后，请执行 `kimi auth login` 登录。
+
+或访问 [Kimi 平台](https://platform.moonshot.cn) 获取帮助"""
+    
+    return send_text_card("Kimi 未安装", content, "error")
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python notify_feishu.py <command> [args]", file=sys.stderr)
@@ -306,6 +340,8 @@ def main():
         print("  repair_success       - 通知修复成功", file=sys.stderr)
         print("  repair_failed <msg>  - 通知修复失败", file=sys.stderr)
         print("  check_passed         - 通知检查通过", file=sys.stderr)
+        print("  kimi_not_logged_in <msg> - 通知 Kimi 未登录", file=sys.stderr)
+        print("  kimi_not_installed <msg> - 通知 Kimi 未安装", file=sys.stderr)
         sys.exit(1)
     
     command = sys.argv[1]
@@ -322,6 +358,12 @@ def main():
         notify_repair_failed(error)
     elif command == "check_passed":
         notify_check_passed()
+    elif command == "kimi_not_logged_in":
+        message = sys.argv[2] if len(sys.argv) > 2 else "Kimi CLI 未登录"
+        notify_kimi_not_logged_in(message)
+    elif command == "kimi_not_installed":
+        message = sys.argv[2] if len(sys.argv) > 2 else "Kimi CLI 未安装"
+        notify_kimi_not_installed(message)
     else:
         print(f"未知命令: {command}", file=sys.stderr)
         sys.exit(1)

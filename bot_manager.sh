@@ -996,6 +996,75 @@ check() {
         check_results="${check_results}\n[FAIL] Python: 缺失"
     fi
     
+    # 9. 检查 Kimi CLI 登录状态
+    info "检查 Kimi CLI 登录状态..."
+    local kimi_login_status=0
+    local kimi_login_msg=""
+    
+    # 检查 kimi 命令是否存在
+    if command -v kimi &> /dev/null; then
+        # 检查登录状态
+        local kimi_credentials_file="$HOME/.kimi/credentials/kimi-code.json"
+        if [ ! -f "$kimi_credentials_file" ]; then
+            # 尝试其他路径
+            kimi_credentials_file="$HOME/.kimi/credentials/kimi.json"
+        fi
+        
+        if [ -f "$kimi_credentials_file" ]; then
+            # 检查是否有 access_token
+            local has_token=$($PYTHON_BIN -c "
+import json
+import sys
+try:
+    with open('$kimi_credentials_file', 'r') as f:
+        creds = json.load(f)
+    if creds.get('access_token'):
+        print('1')
+    else:
+        print('0')
+except:
+    print('0')
+" 2>/dev/null)
+            
+            if [ "$has_token" = "1" ]; then
+                success "✓ Kimi CLI 已登录"
+                log_ops "INFO" "Kimi CLI 已登录"
+                check_results="${check_results}\n[OK] Kimi CLI: 已登录"
+            else
+                error "✗ Kimi CLI 未登录"
+                has_error=1
+                kimi_login_status=1
+                kimi_login_msg="Kimi CLI 未登录，请先执行: kimi auth login"
+                error_details="${error_details}\n- Kimi CLI 未登录"
+                log_ops "ERROR" "Kimi CLI 未登录"
+                check_results="${check_results}\n[FAIL] Kimi CLI: 未登录"
+            fi
+        else
+            error "✗ Kimi CLI 未登录（未找到凭证文件）"
+            has_error=1
+            kimi_login_status=1
+            kimi_login_msg="Kimi CLI 未登录，请先执行: kimi auth login"
+            error_details="${error_details}\n- Kimi CLI 未登录"
+            log_ops "ERROR" "Kimi CLI 未登录（未找到凭证文件）"
+            check_results="${check_results}\n[FAIL] Kimi CLI: 未登录"
+        fi
+    else
+        error "✗ Kimi CLI 未安装"
+        has_error=1
+        kimi_login_status=2
+        kimi_login_msg="Kimi CLI 未安装，请先安装: curl -L code.kimi.com/install.sh | bash"
+        error_details="${error_details}\n- Kimi CLI 未安装"
+        log_ops "ERROR" "Kimi CLI 未安装"
+        check_results="${check_results}\n[FAIL] Kimi CLI: 未安装"
+    fi
+    
+    # 如果 Kimi 未登录，发送通知
+    if [ $kimi_login_status -eq 1 ]; then
+        notify_feishu "kimi_not_logged_in" "$kimi_login_msg"
+    elif [ $kimi_login_status -eq 2 ]; then
+        notify_feishu "kimi_not_installed" "$kimi_login_msg"
+    fi
+    
     echo ""
     info "检查完成"
     log_ops "INFO" "检查完成，结果汇总:$check_results"
