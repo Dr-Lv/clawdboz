@@ -585,6 +585,10 @@ class Bot:
         self._bot.executor.shutdown(wait=True)
         print("[Bot] 已停止")
     
+    def _log(self, message: str):
+        """记录日志（供 ACPClient 调用）"""
+        print(message)
+    
     def send_message(self, chat_id: str, message: str) -> bool:
         """
         发送文本消息到指定聊天

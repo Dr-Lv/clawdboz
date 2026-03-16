@@ -289,44 +289,11 @@ def init_project(work_dir: Optional[str] = None):
     else:
         print(f"[INFO] 配置文件已存在: config.json")
     
-    # 创建 .kimi/mcp.json（如果不存在）
+    # 创建 .kimi/mcp.json（空配置，保留文件用于兼容性）
     mcp_path = os.path.join(target_dir, '.kimi', 'mcp.json')
     if not os.path.exists(mcp_path):
-        # 获取 feishu_tools 的实际路径
-        try:
-            import feishu_tools
-            feishu_tools_dir = os.path.dirname(feishu_tools.__file__)
-        except Exception:
-            feishu_tools_dir = os.path.join(os.path.dirname(__file__), '..', 'feishu_tools')
-        
-        mcp_config = {
-            "mcpServers": {
-                "FeishuFileSender": {
-                    "type": "stdio",
-                    "command": sys.executable,
-                    "args": [
-                        os.path.join(feishu_tools_dir, "mcp_feishu_file_server.py")
-                    ],
-                    "env": {
-                        "FEISHU_APP_ID": "${FEISHU_APP_ID}",
-                        "FEISHU_APP_SECRET": "${FEISHU_APP_SECRET}"
-                    }
-                },
-                "FeishuMessageSender": {
-                    "type": "stdio",
-                    "command": sys.executable,
-                    "args": [
-                        os.path.join(feishu_tools_dir, "mcp_feishu_msg_server.py")
-                    ],
-                    "env": {
-                        "FEISHU_APP_ID": "${FEISHU_APP_ID}",
-                        "FEISHU_APP_SECRET": "${FEISHU_APP_SECRET}"
-                    }
-                }
-            }
-        }
         with open(mcp_path, 'w', encoding='utf-8') as f:
-            json.dump(mcp_config, f, indent=2)
+            json.dump({}, f, indent=2)
         print(f"[INIT] 创建 MCP 配置: .kimi/mcp.json")
     
     # 复制内置 skills 到项目目录（使用白名单机制）
@@ -335,6 +302,7 @@ def init_project(work_dir: Optional[str] = None):
         'find-skills',
         'local-memory', 
         'scheduler',
+        'feishu-api-sender',  # 飞书消息/文件发送
         # 'auto-test',  # 已禁用，需要手动安装
     ]
     

@@ -1,0 +1,2878 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>大模型数据销售特训营</title>
+<script src="https://statics.moonshot.cn/kimi-ppt/html-gen/static/tailwindcss@4_0805.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Chiron+Hei+HK:wght@400;700&amp;family=Hedvig+Letters+Sans:wght@400;700&amp;family=Noto+Sans+SC:wght@400;500;700&amp;family=Quattrocento+Sans:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet"/>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.0/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdmirror.com/npm/mathjax@3.2.2/es5/tex-svg.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .ppt-slide {
+                @apply relative w-[1280px] h-[720px] mx-auto p-[40px] box-border overflow-hidden mb-[40px] bg-[#1A1D21];
+            }
+        }
+    </style>
+<style>
+        body {
+            color: #EDF2F4;
+            font-family: 'Noto Sans SC', 'Quattrocento Sans', sans-serif;
+        }
+        .font-heading-cn {
+            font-family: 'Chiron Hei HK', sans-serif;
+        }
+        .font-heading-en {
+            font-family: 'Hedvig Letters Sans', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 py-8">
+<!-- Slide 1: Cover -->
+<div class="ppt-slide" type="cover">
+<img alt="" class="absolute inset-0 w-full h-full object-cover opacity-60" src="cover_bg.png"/>
+<div class="absolute inset-0 bg-gradient-to-br from-[#1A1D21]/80 via-[#4A5C6A]/60 to-[#1A1D21]/90"></div>
+<div class="relative h-full flex flex-col justify-center items-start z-10">
+<div class="mb-6">
+<div class="inline-block px-4 py-2 bg-[#E07A5F]/20 border border-[#E07A5F] rounded-full mb-4">
+<span class="text-[#E07A5F] text-base font-medium tracking-wider">1.5小时精编版</span>
+</div>
+</div>
+<h1 class="font-heading-cn text-7xl font-bold text-[#EDF2F4] mb-6 leading-tight">
+                大模型数据<br/>销售特训营
+            </h1>
+<p class="text-2xl text-[#8D99AE] mb-12 font-light">从入门到精通 · 掌握AI数据销售核心技能</p>
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-database text-[#E07A5F] text-xl"></i>
+</div>
+<div>
+<p class="text-sm text-[#8D99AE]">数据类型</p>
+<p class="text-lg font-semibold text-[#EDF2F4]">4大紧缺品类</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-users text-[#E07A5F] text-xl"></i>
+</div>
+<div>
+<p class="text-sm text-[#8D99AE]">客户画像</p>
+<p class="text-lg font-semibold text-[#EDF2F4]">6类高价值客户</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-rocket text-[#E07A5F] text-xl"></i>
+</div>
+<div>
+<p class="text-sm text-[#8D99AE]">战略前瞻</p>
+<p class="text-lg font-semibold text-[#EDF2F4]">5年趋势预测</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 2: Table of Contents -->
+<div class="ppt-slide" type="table_of_contents">
+<div class="h-full flex flex-col">
+<div class="mb-8">
+<p class="text-[#E07A5F] text-base font-semibold tracking-wider mb-2">COURSE NAVIGATION</p>
+<h2 class="font-heading-cn text-5xl font-bold text-[#EDF2F4]">课程导航</h2>
+</div>
+<div class="flex-1 grid grid-cols-3 gap-6">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-6">
+<div class="w-16 h-16 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-3xl font-bold font-heading-cn">01</span>
+</div>
+<div>
+<p class="text-[#8D99AE] text-sm">0-30分钟</p>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">入门基础</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-center gap-6">
+<div class="flex items-start gap-3">
+<i class="fas fa-graduation-cap text-[#E07A5F] mt-1 text-lg"></i>
+<p class="text-[#EDF2F4] text-lg leading-relaxed">深入理解大模型数据的本质，掌握核心概念与商业逻辑</p>
+</div>
+<div class="flex items-start gap-3">
+<i class="fas fa-sitemap text-[#E07A5F] mt-1 text-lg"></i>
+<p class="text-[#EDF2F4] text-lg leading-relaxed">构建完整的数据类型商业图谱，建立系统化认知框架</p>
+</div>
+<div class="flex items-start gap-3">
+<i class="fas fa-search-dollar text-[#E07A5F] mt-1 text-lg"></i>
+<p class="text-[#EDF2F4] text-lg leading-relaxed">学会评估客户数据资产，精准识别高价值数据资源</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-6">
+<div class="w-16 h-16 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-3xl font-bold font-heading-cn">02</span>
+</div>
+<div>
+<p class="text-[#8D99AE] text-sm">30-60分钟</p>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">当下热点</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-center gap-6">
+<div class="flex items-start gap-3">
+<i class="fas fa-chart-line text-[#E07A5F] mt-1 text-lg"></i>
+<p class="text-[#EDF2F4] text-lg leading-relaxed">把握2026年市场格局剧变，洞察三大颠覆性趋势</p>
+</div>
+<div class="flex items-start gap-3">
+<i class="fas fa-fire text-[#E07A5F] mt-1 text-lg"></i>
+<p class="text-[#EDF2F4] text-lg leading-relaxed">精准定位四大紧缺数据类型，抓住市场红利窗口</p>
+</div>
+<div class="flex items-start gap-3">
+<i class="fas fa-user-tie text-[#E07A5F] mt-1 text-lg"></i>
+<p class="text-[#EDF2F4] text-lg leading-relaxed">绘制新贵客户地图，制定针对性销售策略</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-6">
+<div class="w-16 h-16 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-3xl font-bold font-heading-cn">03</span>
+</div>
+<div>
+<p class="text-[#8D99AE] text-sm">60-90分钟</p>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">未来方向</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-center gap-6">
+<div class="flex items-start gap-3">
+<i class="fas fa-telescope text-[#E07A5F] mt-1 text-lg"></i>
+<p class="text-[#EDF2F4] text-lg leading-relaxed">预测2026-2031技术演进，布局未来5年战略</p>
+</div>
+<div class="flex items-start gap-3">
+<i class="fas fa-gem text-[#E07A5F] mt-1 text-lg"></i>
+<p class="text-[#EDF2F4] text-lg leading-relaxed">识别战略级紧缺数据，建立长期竞争壁垒</p>
+</div>
+<div class="flex items-start gap-3">
+<i class="fas fa-level-up-alt text-[#E07A5F] mt-1 text-lg"></i>
+<p class="text-[#EDF2F4] text-lg leading-relaxed">升级销售能力，从数据贩子到AI数据战略顾问</p>
+</div>
+</div>
+</div>
+<div class="mt-6 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 border border-blue-500/50 rounded-xl p-5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 rounded-xl bg-blue-600/30 flex items-center justify-center">
+<i class="fas fa-play-circle text-blue-400 text-2xl"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4]">交互式训练过程演示中心</p>
+<p class="text-sm text-[#8D99AE]">预训练 · 微调(SFT) · 强化学习(RLHF) · 思维链(CoT) · 工具调用</p>
+</div>
+</div>
+<a href="ai_training_demos.html" target="_blank" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center gap-2 font-semibold">
+<i class="fas fa-external-link-alt"></i>
+<span>进入演示中心</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 3: Chapter 1 -->
+<div class="ppt-slide" type="chapter">
+<img alt="" class="absolute inset-0 w-full h-full object-cover opacity-50" src="chapter1_bg.png"/>
+<div class="absolute inset-0 bg-gradient-to-r from-[#1A1D21]/95 via-[#1A1D21]/80 to-transparent"></div>
+<div class="relative h-full flex flex-col justify-center z-10">
+<div class="mb-6">
+<div class="inline-block px-4 py-2 bg-[#E07A5F]/20 border border-[#E07A5F] rounded-full">
+<span class="text-[#E07A5F] text-base font-medium">PART 01</span>
+</div>
+</div>
+<h2 class="font-heading-cn text-6xl font-bold text-[#EDF2F4] mb-6">入门基础</h2>
+<div class="w-24 h-1 bg-[#E07A5F] mb-6"></div>
+<p class="text-2xl text-[#8D99AE] mb-8">0-30分钟 | 建立专业认知，学会评估客户数据资产</p>
+<div class="flex gap-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-brain text-[#E07A5F]"></i>
+</div>
+<span class="text-[#EDF2F4]">数据本质</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-project-diagram text-[#E07A5F]"></i>
+</div>
+<span class="text-[#EDF2F4]">商业图谱</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-clipboard-check text-[#E07A5F]"></i>
+</div>
+<span class="text-[#EDF2F4]">资产评估</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 4: 大模型数据的本质 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">FUNDAMENTALS</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">大模型数据的本质</h2>
+</div>
+<div class="flex-1 flex gap-6">
+<div class="flex-1 flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-lightbulb text-[#E07A5F] text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">核心比喻</h3>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-5 border-l-4 border-[#E07A5F]">
+<p class="text-xl text-[#EDF2F4] leading-relaxed mb-3">
+                                大模型是<span class="text-[#E07A5F] font-bold">"实习生"</span>
+</p>
+<p class="text-xl text-[#EDF2F4] leading-relaxed">
+                                数据是<span class="text-[#E07A5F] font-bold">"教材"</span>
+</p>
+<p class="text-base text-[#8D99AE] mt-3 italic">— 教材质量决定实习生水平</p>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-graduation-cap text-[#E07A5F] text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">三类数据对应三种培训场景</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">1</span>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-1">预训练数据 <span class="text-[#8D99AE] text-base font-normal">(Pre-training)</span></p>
+<p class="text-base text-[#8D99AE]">通识教育：百科、书籍、网页 → <span class="text-[#E07A5F]">决定基础智商</span></p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">2</span>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-1">微调数据 <span class="text-[#8D99AE] text-base font-normal">(SFT/RLHF)</span></p>
+<p class="text-base text-[#8D99AE]">岗前培训：专业问答、人类偏好 → <span class="text-[#E07A5F]">决定服务态度和专业度</span></p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">3</span>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-1">RAG/知识库数据</p>
+<p class="text-base text-[#8D99AE]">工作手册：企业文档、实时资料 → <span class="text-[#E07A5F]">决定回答准确性</span></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="w-[420px] bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-5">
+<i class="fas fa-star text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">销售必备认知</h3>
+</div>
+<div class="space-y-4">
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-2 mb-2">
+<i class="fas fa-check-circle text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">质量 &gt; 数量</p>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed">1000条高质量医疗问答 &gt; 100万条低质量网页文本</p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-2 mb-2">
+<i class="fas fa-check-circle text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">垂直 &gt; 通用</p>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed">金融专业数据比通用新闻数据溢价<span class="text-[#E07A5F] font-bold">10-50倍</span></p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-2 mb-2">
+<i class="fas fa-check-circle text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">中文溢价</p>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed">中文高质量数据稀缺度是英文的<span class="text-[#E07A5F] font-bold">3-5倍</span></p>
+</div>
+</div>
+<div class="mt-5 bg-[#4A5C6A]/30 rounded-lg p-4 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#EDF2F4] italic leading-relaxed">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            理解数据本质是销售的第一步，只有明白"教材"如何培养"实习生"，才能准确评估客户数据的价值
+                        </p>
+</div>
+<div class="mt-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/50 rounded-lg p-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<i class="fas fa-play-circle text-blue-400 text-2xl"></i>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">交互式训练过程演示</p>
+<p class="text-sm text-[#8D99AE]">直观展示预训练、微调、RLHF等过程</p>
+</div>
+</div>
+<a href="ai_training_demos.html" target="_blank" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center gap-2">
+<i class="fas fa-external-link-alt"></i>
+<span>查看演示</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 5: 三类数据的培训场景对照 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">DATA TYPES COMPARISON</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">三类数据的培训场景对照</h2>
+</div>
+<div class="flex-1 flex flex-col gap-4">
+<div class="bg-[#4A5C6A]/20 border border-[#4A5C6A] rounded-xl overflow-hidden flex-1">
+<table class="w-full h-full">
+<thead>
+<tr class="bg-[#4A5C6A]/40">
+<th class="text-left p-4 text-[#E07A5F] font-bold text-lg border-b border-[#4A5C6A] w-[180px]">数据类型</th>
+<th class="text-left p-4 text-[#E07A5F] font-bold text-lg border-b border-[#4A5C6A] w-[160px]">培训场景</th>
+<th class="text-left p-4 text-[#E07A5F] font-bold text-lg border-b border-[#4A5C6A]">数据来源</th>
+<th class="text-left p-4 text-[#E07A5F] font-bold text-lg border-b border-[#4A5C6A] w-[200px]">核心价值</th>
+<th class="text-left p-4 text-[#E07A5F] font-bold text-lg border-b border-[#4A5C6A] w-[140px]">价值等级</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-[#4A5C6A]/30">
+<td class="p-4 align-middle">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-book text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">预训练数据</p>
+<p class="text-sm text-[#8D99AE]">Pre-training</p>
+</div>
+</div>
+</td>
+<td class="p-4 align-middle">
+<span class="inline-block px-3 py-1 bg-[#4A5C6A]/40 rounded-full text-sm text-[#EDF2F4]">通识教育</span>
+</td>
+<td class="p-4 align-middle">
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">百科</span>
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">书籍</span>
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">网页</span>
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">论文</span>
+</div>
+</td>
+<td class="p-4 align-middle">
+<p class="text-base text-[#EDF2F4]">决定模型的<span class="text-[#E07A5F] font-semibold">基础智商</span></p>
+<p class="text-sm text-[#8D99AE] mt-1">语言理解、常识推理</p>
+</td>
+<td class="p-4 align-middle">
+<div class="flex gap-1">
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+</div>
+</td>
+</tr>
+<tr class="border-b border-[#4A5C6A]/30">
+<td class="p-4 align-middle">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-user-graduate text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">微调数据</p>
+<p class="text-sm text-[#8D99AE]">SFT/RLHF</p>
+</div>
+</div>
+</td>
+<td class="p-4 align-middle">
+<span class="inline-block px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">岗前培训</span>
+</td>
+<td class="p-4 align-middle">
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">专业问答</span>
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">人类偏好</span>
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">指令遵循</span>
+</div>
+</td>
+<td class="p-4 align-middle">
+<p class="text-base text-[#EDF2F4]">决定<span class="text-[#E07A5F] font-semibold">服务态度和专业度</span></p>
+<p class="text-sm text-[#8D99AE] mt-1">对话质量、领域专业</p>
+</td>
+<td class="p-4 align-middle">
+<div class="flex gap-1">
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+</div>
+</td>
+</tr>
+<tr>
+<td class="p-4 align-middle">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-book-open text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">RAG数据</p>
+<p class="text-sm text-[#8D99AE]">Knowledge Base</p>
+</div>
+</div>
+</td>
+<td class="p-4 align-middle">
+<span class="inline-block px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">工作手册</span>
+</td>
+<td class="p-4 align-middle">
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">企业文档</span>
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">实时资料</span>
+<span class="px-2 py-1 bg-[#1A1D21]/60 rounded text-sm text-[#8D99AE]">私有知识</span>
+</div>
+</td>
+<td class="p-4 align-middle">
+<p class="text-base text-[#EDF2F4]">决定<span class="text-[#E07A5F] font-semibold">回答准确性</span></p>
+<p class="text-sm text-[#8D99AE] mt-1">事实正确、时效性强</p>
+</td>
+<td class="p-4 align-middle">
+<div class="flex gap-1">
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="grid grid-cols-3 gap-4">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-database text-[#E07A5F] text-xl"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">预训练数据特点</p>
+</div>
+<ul class="space-y-2 text-base text-[#8D99AE]">
+<li class="flex items-start gap-2">
+<i class="fas fa-angle-right text-[#E07A5F] mt-1"></i>
+<span>规模大（TB-PB级）</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-angle-right text-[#E07A5F] mt-1"></i>
+<span>成本低（公开爬取）</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-angle-right text-[#E07A5F] mt-1"></i>
+<span>同质化严重</span>
+</li>
+</ul>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-cogs text-[#E07A5F] text-xl"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">微调数据特点</p>
+</div>
+<ul class="space-y-2 text-base text-[#8D99AE]">
+<li class="flex items-start gap-2">
+<i class="fas fa-angle-right text-[#E07A5F] mt-1"></i>
+<span>规模适中（万-百万级）</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-angle-right text-[#E07A5F] mt-1"></i>
+<span>需人工标注（成本高）</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-angle-right text-[#E07A5F] mt-1"></i>
+<span>垂直领域溢价高</span>
+</li>
+</ul>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-shield-alt text-[#E07A5F] text-xl"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">RAG数据特点</p>
+</div>
+<ul class="space-y-2 text-base text-[#8D99AE]">
+<li class="flex items-start gap-2">
+<i class="fas fa-angle-right text-[#E07A5F] mt-1"></i>
+<span>规模灵活（企业级）</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-angle-right text-[#E07A5F] mt-1"></i>
+<span>私有数据（需脱敏）</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-angle-right text-[#E07A5F] mt-1"></i>
+<span>实时更新需求</span>
+</li>
+</ul>
+</div>
+</div>
+<div class="mt-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/50 rounded-lg p-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<i class="fas fa-play-circle text-blue-400 text-2xl"></i>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">交互式训练过程演示</p>
+<p class="text-sm text-[#8D99AE]">点击查看预训练、微调、RLHF的可视化过程</p>
+</div>
+</div>
+<a href="ai_training_demos.html" target="_blank" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center gap-2">
+<i class="fas fa-external-link-alt"></i>
+<span>查看演示</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 6: 数据类型商业图谱：按形态分类 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">BUSINESS LANDSCAPE</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">数据类型商业图谱：按形态分类</h2>
+</div>
+<div class="flex-1 grid grid-cols-2 gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-file-alt text-[#8D99AE] text-2xl"></i>
+</div>
+<div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">文本语料</h3>
+<p class="text-base text-[#8D99AE]">商业名称：原始教材</p>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base text-[#8D99AE] mb-3">典型来源</p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">书籍</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">论文</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">网页</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">新闻</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#4A5C6A]/30">
+<span class="text-base text-[#8D99AE]">价值等级</span>
+<div class="flex gap-1">
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-comments text-[#8D99AE] text-2xl"></i>
+</div>
+<div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">问答对</h3>
+<p class="text-base text-[#8D99AE]">商业名称：习题集</p>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base text-[#8D99AE] mb-3">典型来源</p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">客服记录</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">专家问答</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">论坛</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#4A5C6A]/30">
+<span class="text-base text-[#8D99AE]">价值等级</span>
+<div class="flex gap-1">
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-images text-[#E07A5F] text-2xl"></i>
+</div>
+<div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">多模态对</h3>
+<p class="text-base text-[#8D99AE]">商业名称：图文教材</p>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base text-[#8D99AE] mb-3">典型来源</p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">电商图</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">医学影像</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#EDF2F4]">视频字幕</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#4A5C6A]/30">
+<span class="text-base text-[#8D99AE]">价值等级</span>
+<div class="flex gap-1">
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="far fa-star text-[#4A5C6A]"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-brain text-white text-2xl"></i>
+</div>
+<div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">思维链</h3>
+<p class="text-base text-[#8D99AE]">商业名称：解题草稿</p>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base text-[#8D99AE] mb-3">典型来源</p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">专家思考过程</span>
+<span class="px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">推理轨迹</span>
+<span class="px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">Debug记录</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#E07A5F]/30">
+<span class="text-base text-[#8D99AE]">价值等级</span>
+<div class="flex gap-1">
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+<i class="fas fa-star text-[#E07A5F]"></i>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-4 bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4 flex items-center gap-4">
+<i class="fas fa-lightbulb text-[#E07A5F] text-2xl"></i>
+<p class="text-base text-[#EDF2F4]">
+<strong class="text-[#E07A5F]">销售提示：</strong>思维链数据是当前市场最紧缺的类型，溢价可达标准数据的10倍以上，重点挖掘医疗、法律、教育等垂直领域的专家资源
+                </p>
+</div>
+</div>
+</div>
+<!-- Slide 7: 数据类型商业图谱：按来源分类 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">DATA SOURCES</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">数据类型商业图谱：按来源分类</h2>
+</div>
+<div class="flex-1 flex gap-6">
+<div class="flex-1 flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-globe text-[#8D99AE] text-2xl"></i>
+</div>
+<div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">公开数据</h3>
+<p class="text-base text-[#8D99AE]">Open Data</p>
+</div>
+</div>
+<div class="space-y-3">
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-2">典型来源</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#8D99AE]">Common Crawl</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#8D99AE]">开源数据集</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#8D99AE]">维基百科</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">成本结构</p>
+<p class="text-base text-[#EDF2F4]"><span class="text-green-400">低</span>（免费/低成本）</p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">价值特点</p>
+<p class="text-base text-[#EDF2F4]"><span class="text-[#E07A5F]">同质化严重</span></p>
+</div>
+</div>
+<div class="bg-green-400/10 border border-green-400/30 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">合规边界</p>
+<p class="text-base text-[#EDF2F4]">✓ 低风险，但需注意开源协议</p>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-building text-white text-2xl"></i>
+</div>
+<div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">私有数据</h3>
+<p class="text-base text-[#8D99AE]">Private Data</p>
+</div>
+</div>
+<div class="space-y-3">
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-2">典型来源</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">企业文档</span>
+<span class="px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">业务记录</span>
+<span class="px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">客服录音</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">成本结构</p>
+<p class="text-base text-[#EDF2F4]"><span class="text-[#E07A5F]">高</span>（需脱敏加工）</p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">价值特点</p>
+<p class="text-base text-[#EDF2F4]"><span class="text-green-400">高价值稀缺</span></p>
+</div>
+</div>
+<div class="bg-[#E07A5F]/20 border border-[#E07A5F] rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">合规边界</p>
+<p class="text-base text-[#EDF2F4]">⚠ 需脱敏处理，确保无隐私泄露</p>
+</div>
+</div>
+</div>
+</div>
+<div class="w-[480px] flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-robot text-[#8D99AE] text-2xl"></i>
+</div>
+<div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">合成数据</h3>
+<p class="text-base text-[#8D99AE]">Synthetic Data</p>
+</div>
+</div>
+<div class="space-y-3">
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-2">典型来源</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#8D99AE]">AI生成</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#8D99AE]">模拟仿真</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">成本结构</p>
+<p class="text-base text-[#EDF2F4]">中等（算力成本）</p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">价值特点</p>
+<p class="text-base text-[#EDF2F4]"><span class="text-green-400">解决隐私瓶颈</span></p>
+</div>
+</div>
+<div class="bg-yellow-400/10 border border-yellow-400/30 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">合规边界</p>
+<p class="text-base text-[#EDF2F4]">△ 新兴领域，法律归属待明确</p>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-exclamation-triangle text-[#E07A5F] text-xl"></i>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">合规红线（绝不可碰）</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-start gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-ban text-red-400"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-1">爬虫数据</p>
+<p class="text-sm text-[#8D99AE]">高风险，可能涉及版权侵权</p>
+</div>
+</div>
+<div class="flex items-start gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-user-lock text-red-400"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-1">个人隐私数据</p>
+<p class="text-sm text-[#8D99AE]">绝不可碰，违反数据保护法</p>
+</div>
+</div>
+<div class="flex items-start gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-copyright text-red-400"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-1">盗版内容</p>
+<p class="text-sm text-[#8D99AE]">书籍、影视、音乐等盗版资源</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 8: 客户数据资产评估实战 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">ASSESSMENT FRAMEWORK</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">客户数据资产评估实战：黄金评估法</h2>
+<p class="text-base text-[#8D99AE] mt-2">5分钟快速诊断，四步锁定高价值数据资产</p>
+</div>
+<div class="flex-1 grid grid-cols-2 gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-2xl font-bold">1</span>
+</div>
+<div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">问存量</h3>
+<p class="text-base text-[#8D99AE]">有没有矿？</p>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#EDF2F4] italic leading-relaxed">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            "贵司积累了多少非结构化数据？比如10年的客服录音、维修手册、病例记录？"
+                        </p>
+</div>
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-check-circle text-green-400"></i>
+<p class="text-base text-[#8D99AE]"><span class="text-[#EDF2F4] font-semibold">TB级文本/视频</span> + 5年以上积累</p>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-arrow-right text-[#E07A5F]"></i>
+<p class="text-base text-[#E07A5F] font-semibold">= 优质矿源</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-2xl font-bold">2</span>
+</div>
+<div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">问质量</h3>
+<p class="text-base text-[#8D99AE]">矿石品位如何？</p>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#EDF2F4] italic leading-relaxed">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            "这些数据有人整理标注过吗？准确率大概多少？"
+                        </p>
+</div>
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-check-circle text-green-400"></i>
+<p class="text-base text-[#8D99AE]"><span class="text-[#EDF2F4] font-semibold">已有基础标注</span> &gt; 原始数据</p>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check-circle text-green-400"></i>
+<p class="text-base text-[#8D99AE]"><span class="text-[#EDF2F4] font-semibold">专家标注</span> &gt; 众包标注</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-2xl font-bold">3</span>
+</div>
+<div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">问权属</h3>
+<p class="text-base text-[#8D99AE]">有采矿证吗？</p>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#EDF2F4] italic leading-relaxed">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            "这些数据贵司拥有完整知识产权吗？没有版权争议吧？"
+                        </p>
+</div>
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-times-circle text-red-400"></i>
+<p class="text-base text-[#8D99AE]"><span class="text-red-400">爬虫数据</span>（高风险）</p>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-times-circle text-red-400"></i>
+<p class="text-base text-[#8D99AE]"><span class="text-red-400">个人隐私数据</span>（绝不可碰）</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-2xl font-bold">4</span>
+</div>
+<div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">问场景</h3>
+<p class="text-base text-[#8D99AE]">谁来买？</p>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#EDF2F4] italic leading-relaxed">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            "是想自用训练模型，还是考虑对外授权变现？"
+                        </p>
+</div>
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-arrow-right text-[#E07A5F]"></i>
+<p class="text-base text-[#8D99AE]"><span class="text-[#EDF2F4] font-semibold">自用：</span>卖"数据加工服务"</p>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-arrow-right text-[#E07A5F]"></i>
+<p class="text-base text-[#8D99AE]"><span class="text-[#EDF2F4] font-semibold">变现：</span>卖"数据产品授权"</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 9: 销售工具包与合规红线 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">SALES TOOLKIT</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">销售工具包与合规红线</h2>
+</div>
+<div class="flex-1 flex gap-6">
+<div class="flex-1 flex flex-col gap-5">
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-toolbox text-white text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">销售必备工具包</h3>
+</div>
+<div class="space-y-4">
+<div class="bg-[#1A1D21]/60 rounded-lg p-5">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-clipboard-list text-[#E07A5F] text-xl"></i>
+</div>
+<div class="flex-1">
+<p class="text-lg font-semibold text-[#EDF2F4] mb-2">《数据资产自查表》</p>
+<p class="text-base text-[#8D99AE] mb-3">一页纸清单，随身携带，快速评估客户数据资产</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#EDF2F4]">存量评估</span>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#EDF2F4]">质量检查</span>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#EDF2F4]">权属确认</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-5">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-shield-alt text-[#E07A5F] text-xl"></i>
+</div>
+<div class="flex-1">
+<p class="text-lg font-semibold text-[#EDF2F4] mb-2">《合规红线速查图》</p>
+<p class="text-base text-[#8D99AE] mb-3">手机保存，客户尽调时快速核对合规风险</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-red-500/20 rounded text-sm text-red-400">爬虫风险</span>
+<span class="px-2 py-1 bg-red-500/20 rounded text-sm text-red-400">隐私红线</span>
+<span class="px-2 py-1 bg-red-500/20 rounded text-sm text-red-400">版权问题</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-5">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-user-tie text-[#E07A5F] text-xl"></i>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">专业形象塑造</h3>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F]"></i>
+<p class="text-base text-[#8D99AE]">随身携带纸质版自查表</p>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F]"></i>
+<p class="text-base text-[#8D99AE]">手机存好合规速查图</p>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F]"></i>
+<p class="text-base text-[#8D99AE]">准备数据脱敏工具演示</p>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F]"></i>
+<p class="text-base text-[#8D99AE]">熟悉行业数据案例</p>
+</div>
+</div>
+</div>
+</div>
+<div class="w-[520px] bg-red-500/10 border border-red-500/30 rounded-xl p-6">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-14 h-14 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-exclamation-triangle text-red-400 text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-2xl font-bold text-red-400">合规红线（绝不可碰）</h3>
+</div>
+<div class="space-y-4">
+<div class="bg-[#1A1D21]/60 rounded-lg p-5 border-l-4 border-red-400">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-spider text-red-400 text-xl"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-2">爬虫数据</p>
+<p class="text-base text-[#8D99AE] leading-relaxed">未经授权爬取网站数据，可能涉及版权侵权、违反服务协议，法律风险极高</p>
+<div class="mt-3 flex gap-2">
+<span class="px-3 py-1 bg-red-500/20 rounded-full text-sm text-red-400">高风险</span>
+<span class="px-3 py-1 bg-red-500/20 rounded-full text-sm text-red-400">法律诉讼</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-5 border-l-4 border-red-400">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-user-lock text-red-400 text-xl"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-2">个人隐私数据</p>
+<p class="text-base text-[#8D99AE] leading-relaxed">包含个人身份信息、医疗记录、金融数据等，违反《数据安全法》《个人信息保护法》</p>
+<div class="mt-3 flex gap-2">
+<span class="px-3 py-1 bg-red-500/20 rounded-full text-sm text-red-400">绝不可碰</span>
+<span class="px-3 py-1 bg-red-500/20 rounded-full text-sm text-red-400">刑事责任</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-5 border-l-4 border-red-400">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-copyright text-red-400 text-xl"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-2">盗版内容</p>
+<p class="text-base text-[#8D99AE] leading-relaxed">盗版书籍、影视、音乐、软件等资源，侵犯知识产权，面临巨额赔偿</p>
+<div class="mt-3 flex gap-2">
+<span class="px-3 py-1 bg-red-500/20 rounded-full text-sm text-red-400">版权侵权</span>
+<span class="px-3 py-1 bg-red-500/20 rounded-full text-sm text-red-400">高额赔偿</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-4 bg-red-500/20 border border-red-400 rounded-lg p-4">
+<p class="text-base text-[#EDF2F4] text-center">
+<i class="fas fa-shield-alt text-red-400 mr-2"></i>
+<strong>合规是底线，一次违规可能毁掉整个职业生涯</strong>
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 10: Chapter 2 -->
+<div class="ppt-slide" type="chapter">
+<img alt="" class="absolute inset-0 w-full h-full object-cover opacity-50" src="chapter2_bg.png"/>
+<div class="absolute inset-0 bg-gradient-to-r from-[#1A1D21]/95 via-[#1A1D21]/80 to-transparent"></div>
+<div class="relative h-full flex flex-col justify-center z-10">
+<div class="mb-6">
+<div class="inline-block px-4 py-2 bg-[#E07A5F]/20 border border-[#E07A5F] rounded-full">
+<span class="text-[#E07A5F] text-base font-medium">PART 02</span>
+</div>
+</div>
+<h2 class="font-heading-cn text-6xl font-bold text-[#EDF2F4] mb-6">当下热点</h2>
+<div class="w-24 h-1 bg-[#E07A5F] mb-6"></div>
+<p class="text-2xl text-[#8D99AE] mb-8">30-60分钟 | 把握2026年市场红利，精准定位高价值客户</p>
+<div class="flex gap-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-chart-line text-[#E07A5F]"></i>
+</div>
+<span class="text-[#EDF2F4]">市场剧变</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-fire text-[#E07A5F]"></i>
+</div>
+<span class="text-[#EDF2F4]">紧缺数据</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-user-tie text-[#E07A5F]"></i>
+</div>
+<span class="text-[#EDF2F4]">客户画像</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 11: 2026年市场格局剧变 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">MARKET TRENDS 2026</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">2026年市场格局剧变：三大趋势</h2>
+<p class="text-base text-[#8D99AE] mt-2">颠覆性技术浪潮重塑数据需求格局</p>
+</div>
+<div class="flex-1 flex flex-col gap-5">
+<div class="grid grid-cols-3 gap-5 flex-1">
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-brain text-white text-2xl"></i>
+</div>
+<div>
+<p class="text-sm text-[#E07A5F] font-semibold">趋势一</p>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">DeepSeek-R1<br/>引爆"推理革命"</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-3">
+<p class="text-base text-[#8D99AE] mb-2">旧需求</p>
+<p class="text-lg text-[#EDF2F4] font-semibold">标准答案（What）</p>
+</div>
+<div class="bg-[#E07A5F]/20 rounded-lg p-4 mb-3">
+<p class="text-base text-[#E07A5F] mb-2">新需求</p>
+<p class="text-lg text-[#EDF2F4] font-semibold">思考过程（How/Why）</p>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#EDF2F4]">
+<i class="fas fa-rocket text-[#E07A5F] mr-2"></i>
+                                    思维链数据溢价<span class="text-[#E07A5F] font-bold text-xl">10倍</span>
+</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-robot text-[#E07A5F] text-2xl"></i>
+</div>
+<div>
+<p class="text-sm text-[#E07A5F] font-semibold">趋势二</p>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">Agent元年<br/>全面爆发</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base text-[#8D99AE] mb-3">代表性产品</p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">Manus</span>
+<span class="px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">Genspark</span>
+<span class="px-3 py-1 bg-[#E07A5F]/20 rounded-full text-sm text-[#E07A5F]">通用Agent</span>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#EDF2F4] mb-2">
+<i class="fas fa-bullseye text-[#E07A5F] mr-2"></i>
+                                    新需求
+                                </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">任务执行轨迹：规划→工具调用→验证→纠错</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-hand-rock text-[#E07A5F] text-2xl"></i>
+</div>
+<div>
+<p class="text-sm text-[#E07A5F] font-semibold">趋势三</p>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">具身智能<br/>加速落地</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base text-[#8D99AE] mb-3">应用场景</p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#8D99AE]">人形机器人</span>
+<span class="px-3 py-1 bg-[#1A1D21]/60 rounded-full text-sm text-[#8D99AE]">工厂自动化</span>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#EDF2F4] mb-2">
+<i class="fas fa-bullseye text-[#E07A5F] mr-2"></i>
+                                    新需求
+                                </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">物理交互数据：视觉+力控+动作对齐</p>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-lightbulb text-[#E07A5F] text-xl"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">销售洞察</p>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed">三大趋势共同推动数据需求从"答案"向"过程"、从"虚拟"向"物理"转变</p>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-dollar-sign text-[#E07A5F] text-xl"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">溢价机会</p>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed">推理数据、Agent轨迹、物理交互数据成为三大高溢价品类</p>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-clock text-[#E07A5F] text-xl"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">时间窗口</p>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed">2026年是布局关键期，抢先锁定客户数据资源</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 12: 紧缺数据类型一：推理过程数据 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<div class="flex items-center gap-3 mb-2">
+<span class="px-3 py-1 bg-[#E07A5F] rounded-full text-sm text-white font-semibold">TYPE 01</span>
+<span class="px-3 py-1 bg-red-500/20 border border-red-400 rounded-full text-sm text-red-400 font-semibold">HOTTEST</span>
+</div>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">紧缺数据类型一：推理过程数据</h2>
+</div>
+<div class="flex-1 flex gap-6">
+<div class="flex-1 flex flex-col gap-5">
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-fire text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">为什么紧缺？</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">1</span>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed"><span class="text-[#EDF2F4] font-semibold">o1/R1类模型需要"慢思考"数据</span>，而非即时答案</p>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">2</span>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed"><span class="text-[#EDF2F4] font-semibold">人类专家"如何做决策"的过程极少被记录</span>，稀缺性极高</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-shapes text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">具体形态</h3>
+</div>
+<div class="space-y-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-2">
+<i class="fas fa-user-md text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">医生诊断</p>
+</div>
+<p class="text-base text-[#8D99AE]">从症状→排除疾病→确诊的<span class="text-[#E07A5F]">完整推理链</span></p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-2">
+<i class="fas fa-balance-scale text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">律师分析</p>
+</div>
+<p class="text-base text-[#8D99AE]">案情→法条检索→论证→结论的<span class="text-[#E07A5F]">步骤记录</span></p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-2">
+<i class="fas fa-code text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">程序员Debug</p>
+</div>
+<p class="text-base text-[#8D99AE]">报错→查文档→尝试→解决的<span class="text-[#E07A5F]">循环过程</span></p>
+</div>
+</div>
+</div>
+</div>
+<div class="w-[480px] flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-users text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">目标客户</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-graduation-cap text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">在线教育</p>
+<p class="text-sm text-[#8D99AE]">K12解题步骤、思维训练</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-briefcase text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">专业服务机构</p>
+<p class="text-sm text-[#8D99AE]">律所、会计师事务所</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-heartbeat text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">医疗AI公司</p>
+<p class="text-sm text-[#8D99AE]">辅助诊断、病例分析</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-comment-dots text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">销售话术</h3>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-5 border-l-4 border-[#E07A5F]">
+<p class="text-lg text-[#EDF2F4] leading-relaxed italic">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            现在卖标准答案只能赚1块钱，卖'草稿纸'（思考过程）能赚10块。您专家做决策时的中间步骤，是最值钱的AI燃料。
+                        </p>
+</div>
+<div class="mt-4 grid grid-cols-2 gap-3">
+<div class="bg-[#4A5C6A]/30 rounded-lg p-3 text-center">
+<p class="text-sm text-[#8D99AE] mb-1">标准答案</p>
+<p class="text-2xl font-bold text-[#8D99AE]">1x</p>
+</div>
+<div class="bg-[#E07A5F]/20 rounded-lg p-3 text-center">
+<p class="text-sm text-[#E07A5F] mb-1">思考过程</p>
+<p class="text-2xl font-bold text-[#E07A5F]">10x</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-4 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border border-cyan-500/50 rounded-lg p-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<i class="fas fa-play-circle text-cyan-400 text-2xl"></i>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">思维链(CoT)交互演示</p>
+<p class="text-sm text-[#8D99AE]">直观对比传统回答 vs 逐步推理过程</p>
+</div>
+</div>
+<a href="ai_training_demos.html#cot" target="_blank" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition flex items-center gap-2">
+<i class="fas fa-external-link-alt"></i>
+<span>查看演示</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 13: 紧缺数据类型二：Agent执行轨迹数据 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<div class="flex items-center gap-3 mb-2">
+<span class="px-3 py-1 bg-[#E07A5F] rounded-full text-sm text-white font-semibold">TYPE 02</span>
+<span class="px-3 py-1 bg-yellow-500/20 border border-yellow-400 rounded-full text-sm text-yellow-400 font-semibold">EMERGING</span>
+</div>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">紧缺数据类型二：Agent执行轨迹数据</h2>
+</div>
+<div class="flex-1 flex gap-6">
+<div class="flex-1 flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-question-circle text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">为什么紧缺？</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">1</span>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed"><span class="text-[#EDF2F4] font-semibold">Agent需要学习"如何拆解任务+调用工具+处理异常"</span></p>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">2</span>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed"><span class="text-[#EDF2F4] font-semibold">现有数据都是单轮问答，缺多轮闭环</span>的任务执行记录</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-project-diagram text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">具体形态</h3>
+</div>
+<div class="space-y-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-headset text-[#E07A5F] text-lg"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">销售Agent</p>
+</div>
+<div class="flex items-center gap-2 flex-wrap">
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">接到线索</span>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xs"></i>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">查CRM</span>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xs"></i>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">写邮件</span>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xs"></i>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">预约</span>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xs"></i>
+<span class="px-2 py-1 bg-[#E07A5F]/20 rounded text-sm text-[#E07A5F]">记录反馈</span>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-shopping-cart text-[#E07A5F] text-lg"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">采购Agent</p>
+</div>
+<div class="flex items-center gap-2 flex-wrap">
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">需求分析</span>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xs"></i>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">比价</span>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xs"></i>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">询价</span>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xs"></i>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">合同审查</span>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xs"></i>
+<span class="px-2 py-1 bg-[#E07A5F]/20 rounded text-sm text-[#E07A5F]">下单</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="w-[480px] flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-users text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">目标客户</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-sitemap text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">有复杂SOP的企业</p>
+<p class="text-sm text-[#8D99AE]">采购、HR、财务共享中心</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-robot text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">RPA厂商</p>
+<p class="text-sm text-[#8D99AE]">需要升级为AI Agent</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-comment-dots text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">销售话术</h3>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-5 border-l-4 border-[#E07A5F]">
+<p class="text-lg text-[#EDF2F4] leading-relaxed italic">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            您的员工每天的操作日志，就是训练AI员工的教材。现在Agent公司愿意为'一个成功完成报销流程的完整操作记录'付5-10元。
+                        </p>
+</div>
+<div class="mt-4 bg-[#4A5C6A]/30 rounded-lg p-4">
+<div class="flex items-center justify-between">
+<span class="text-base text-[#8D99AE]">单条成功轨迹价值</span>
+<span class="text-3xl font-bold text-[#E07A5F]">5-10元</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-4 bg-gradient-to-r from-pink-600/20 to-purple-600/20 border border-pink-500/50 rounded-lg p-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<i class="fas fa-play-circle text-pink-400 text-2xl"></i>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">工具调用(Tool Calling)交互演示</p>
+<p class="text-sm text-[#8D99AE]">直观展示Agent如何规划→调用工具→生成回复</p>
+</div>
+</div>
+<a href="ai_training_demos.html#tools" target="_blank" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition flex items-center gap-2">
+<i class="fas fa-external-link-alt"></i>
+<span>查看演示</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 14: 紧缺数据类型三：多模态时序对齐数据 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<div class="flex items-center gap-3 mb-2">
+<span class="px-3 py-1 bg-[#E07A5F] rounded-full text-sm text-white font-semibold">TYPE 03</span>
+<span class="px-3 py-1 bg-green-500/20 border border-green-400 rounded-full text-sm text-green-400 font-semibold">HIGH PREMIUM</span>
+</div>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">紧缺数据类型三：多模态时序对齐数据</h2>
+</div>
+<div class="flex-1 flex gap-6">
+<div class="flex-1 flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-question-circle text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">为什么紧缺？</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">1</span>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed"><span class="text-[#EDF2F4] font-semibold">Sora、机器人需要"视觉-语言-动作"毫秒级对齐</span></p>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">2</span>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed"><span class="text-[#EDF2F4] font-semibold">现有图文对是静态的，缺时序逻辑</span>和动作连贯性</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-cubes text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">具体形态</h3>
+</div>
+<div class="space-y-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-industry text-[#E07A5F] text-lg"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">工业机器人</p>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-sm text-[#8D99AE]">"拿起零件"指令</span>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-sm text-[#8D99AE]">摄像头画面</span>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-sm text-[#8D99AE]">机械臂轨迹</span>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-sm text-[#8D99AE]">力反馈数据</span>
+</div>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-car text-[#E07A5F] text-lg"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">自动驾驶</p>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-sm text-[#8D99AE]">"转弯"指令</span>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-sm text-[#8D99AE]">激光雷达点云</span>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-sm text-[#8D99AE]">摄像头画面</span>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-sm text-[#8D99AE]">方向盘角度</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="w-[480px] flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-users text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">目标客户</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-industry text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">汽车工厂</p>
+<p class="text-sm text-[#8D99AE]">智能制造、机械臂厂商</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-warehouse text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">物流仓储</p>
+<p class="text-sm text-[#8D99AE]">自动化分拣、AGV调度</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-procedures text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">手术机器人公司</p>
+<p class="text-sm text-[#8D99AE]">精准操作、力反馈控制</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-comment-dots text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">销售话术</h3>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-5 border-l-4 border-[#E07A5F]">
+<p class="text-lg text-[#EDF2F4] leading-relaxed italic">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            文本数据是过去的石油，物理交互数据是未来的锂矿。您的工厂每天都在产生最稀缺的'动作数据'，机器人公司买不到，只能向制造业买。
+                        </p>
+</div>
+<div class="mt-4 grid grid-cols-2 gap-3">
+<div class="bg-[#4A5C6A]/30 rounded-lg p-3 text-center">
+<p class="text-sm text-[#8D99AE] mb-1">过去</p>
+<p class="text-lg font-bold text-[#8D99AE]">文本数据</p>
+<p class="text-xs text-[#8D99AE]">= 石油</p>
+</div>
+<div class="bg-[#E07A5F]/20 rounded-lg p-3 text-center">
+<p class="text-sm text-[#E07A5F] mb-1">未来</p>
+<p class="text-lg font-bold text-[#E07A5F]">物理交互</p>
+<p class="text-xs text-[#E07A5F]">= 锂矿</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 15: 紧缺数据类型四：领域负样本/安全数据 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<div class="flex items-center gap-3 mb-2">
+<span class="px-3 py-1 bg-[#E07A5F] rounded-full text-sm text-white font-semibold">TYPE 04</span>
+<span class="px-3 py-1 bg-blue-500/20 border border-blue-400 rounded-full text-sm text-blue-400 font-semibold">SAFETY CRITICAL</span>
+</div>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">紧缺数据类型四：领域负样本/安全数据</h2>
+</div>
+<div class="flex-1 flex gap-6">
+<div class="flex-1 flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-question-circle text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">为什么紧缺？</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">1</span>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed"><span class="text-[#EDF2F4] font-semibold">AI安全要求"什么不能做"</span>（拒答、纠错）</p>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<span class="text-[#E07A5F] font-bold">2</span>
+</div>
+<p class="text-base text-[#8D99AE] leading-relaxed"><span class="text-[#EDF2F4] font-semibold">金融、医疗监管要求模型"知道边界"</span></p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-shield-alt text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">具体形态</h3>
+</div>
+<div class="space-y-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-2">
+<i class="fas fa-university text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">金融</p>
+</div>
+<p class="text-base text-[#8D99AE]">违规话术、高风险投资建议的<span class="text-[#E07A5F]">识别与拒绝</span></p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-2">
+<i class="fas fa-heartbeat text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">医疗</p>
+</div>
+<p class="text-base text-[#8D99AE]">超说明书用药的<span class="text-[#E07A5F]">警示对话</span></p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-2">
+<i class="fas fa-globe text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">通用</p>
+</div>
+<p class="text-base text-[#8D99AE]">诱导诈骗、政治敏感问题的<span class="text-[#E07A5F]">安全回复</span></p>
+</div>
+</div>
+</div>
+</div>
+<div class="w-[480px] flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-users text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">目标客户</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-university text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">金融合规部门</p>
+<p class="text-sm text-[#8D99AE]">银行、证券、保险</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-filter text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">内容审核平台</p>
+<p class="text-sm text-[#8D99AE]">社交平台、直播平台</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-[#1A1D21]/60 rounded-lg p-3">
+<div class="w-10 h-10 rounded-lg bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-landmark text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">政务AI项目</p>
+<p class="text-sm text-[#8D99AE]">政府智能客服、政策咨询</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-comment-dots text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">销售话术</h3>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-5 border-l-4 border-[#E07A5F]">
+<p class="text-lg text-[#EDF2F4] leading-relaxed italic">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            教会AI做什么值1块，教会AI不做什么值10块。您的合规案例和边界经验，是AI安全公司的刚需。
+                        </p>
+</div>
+<div class="mt-4 grid grid-cols-2 gap-3">
+<div class="bg-[#4A5C6A]/30 rounded-lg p-3 text-center">
+<p class="text-sm text-[#8D99AE] mb-1">教会AI做</p>
+<p class="text-2xl font-bold text-[#8D99AE]">1x</p>
+</div>
+<div class="bg-[#E07A5F]/20 rounded-lg p-3 text-center">
+<p class="text-sm text-[#E07A5F] mb-1">教会AI不做</p>
+<p class="text-2xl font-bold text-[#E07A5F]">10x</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 16: 2026年新贵客户地图（上） -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">CUSTOMER SEGMENTS 2026</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">2026年新贵客户地图（上）</h2>
+<p class="text-base text-[#8D99AE] mt-2">精准定位高价值客户群体</p>
+</div>
+<div class="flex-1 grid grid-cols-2 gap-6">
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-16 h-16 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-3xl font-bold">A</span>
+</div>
+<div>
+<p class="text-sm text-[#E07A5F] font-semibold">当下最急</p>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">推理模型微调商</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="mb-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-fingerprint text-[#E07A5F]"></i>
+                                    客户特征
+                                </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">基于DeepSeek-R1做行业适配的AI公司，急需行业专属推理数据提升模型专业度</p>
+</div>
+<div class="mb-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-bullseye text-[#E07A5F]"></i>
+                                    核心痛点
+                                </p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-3 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#8D99AE]">缺行业专家思维链数据，通用推理模型在专业领域表现不佳</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 rounded-lg p-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-rocket text-[#E07A5F]"></i>
+                                切入策略
+                            </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">提供<span class="text-[#E07A5F] font-semibold">"专家演示+过程录音"</span>服务，帮助采集行业专家的思维过程</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-16 h-16 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<span class="text-[#E07A5F] text-3xl font-bold">B</span>
+</div>
+<div>
+<p class="text-sm text-[#E07A5F] font-semibold">未来6个月</p>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">Agent应用开发商</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="mb-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-fingerprint text-[#E07A5F]"></i>
+                                    客户特征
+                                </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">开发AI员工替代初级白领的创业公司，产品覆盖销售、采购、HR等场景</p>
+</div>
+<div class="mb-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-bullseye text-[#E07A5F]"></i>
+                                    核心痛点
+                                </p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-3 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#8D99AE]">缺任务执行数据训练规划能力，Agent无法完成复杂多步骤任务</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 rounded-lg p-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-rocket text-[#E07A5F]"></i>
+                                切入策略
+                            </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">出售<span class="text-[#E07A5F] font-semibold">"业务流程轨迹数据"</span>或提供驻场采集服务</p>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-5 grid grid-cols-4 gap-4">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4 text-center">
+<i class="fas fa-fire text-[#E07A5F] text-2xl mb-2"></i>
+<p class="text-base text-[#8D99AE] mb-1">紧迫程度</p>
+<p class="text-xl font-bold text-[#E07A5F]">极高</p>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4 text-center">
+<i class="fas fa-dollar-sign text-[#E07A5F] text-2xl mb-2"></i>
+<p class="text-base text-[#8D99AE] mb-1">付费意愿</p>
+<p class="text-xl font-bold text-[#E07A5F]">强</p>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4 text-center">
+<i class="fas fa-chart-line text-[#E07A5F] text-2xl mb-2"></i>
+<p class="text-base text-[#8D99AE] mb-1">数据溢价</p>
+<p class="text-xl font-bold text-[#E07A5F]">5-10x</p>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-4 text-center">
+<i class="fas fa-clock text-[#E07A5F] text-2xl mb-2"></i>
+<p class="text-base text-[#8D99AE] mb-1">时间窗口</p>
+<p class="text-xl font-bold text-[#E07A5F]">现在</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 17: 2026年新贵客户地图（下） -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">CUSTOMER SEGMENTS 2026</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">2026年新贵客户地图（下）</h2>
+<p class="text-base text-[#8D99AE] mt-2">高溢价与政策红利客户类型</p>
+</div>
+<div class="flex-1 grid grid-cols-2 gap-6">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-16 h-16 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<span class="text-[#E07A5F] text-3xl font-bold">C</span>
+</div>
+<div>
+<p class="text-sm text-green-400 font-semibold">高溢价</p>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">具身智能公司</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="mb-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-fingerprint text-[#E07A5F]"></i>
+                                    客户特征
+                                </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">做人形机器人、灵巧手的硬科技公司，产品应用于工厂、物流、家庭服务场景</p>
+</div>
+<div class="mb-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-bullseye text-[#E07A5F]"></i>
+                                    核心痛点
+                                </p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-3 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#8D99AE]">缺物理世界交互数据，机器人无法完成精细操作</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 rounded-lg p-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-rocket text-[#E07A5F]"></i>
+                                切入策略
+                            </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">与制造业客户撮合，做<span class="text-[#E07A5F] font-semibold">数据掮客</span>，连接数据供需双方</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-16 h-16 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<span class="text-[#E07A5F] text-3xl font-bold">D</span>
+</div>
+<div>
+<p class="text-sm text-blue-400 font-semibold">政策红利</p>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">数据要素运营商</h3>
+</div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="mb-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-fingerprint text-[#E07A5F]"></i>
+                                    客户特征
+                                </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">地方政府数据局、数据交易所，负责公共数据资源的运营和交易</p>
+</div>
+<div class="mb-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-bullseye text-[#E07A5F]"></i>
+                                    核心痛点
+                                </p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-3 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#8D99AE]">公共数据需脱敏加工才能交易，缺专业数据加工能力</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 rounded-lg p-4">
+<p class="text-base font-semibold text-[#EDF2F4] mb-2 flex items-center gap-2">
+<i class="fas fa-rocket text-[#E07A5F]"></i>
+                                切入策略
+                            </p>
+<p class="text-base text-[#8D99AE] leading-relaxed">提供<span class="text-[#E07A5F] font-semibold">数据资产入表+加工服务</span>，帮助公共数据合规交易</p>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-5 grid grid-cols-2 gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-5">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-gem text-green-400 text-xl"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">C类客户特点</p>
+</div>
+<ul class="space-y-2 text-base text-[#8D99AE]">
+<li class="flex items-start gap-2">
+<i class="fas fa-check text-green-400 mt-1"></i>
+<span>数据溢价最高（物理交互数据稀缺）</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-check text-green-400 mt-1"></i>
+<span>需撮合制造业客户，做数据中介</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-check text-green-400 mt-1"></i>
+<span>长期合作潜力大，技术壁垒高</span>
+</li>
+</ul>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-lg p-5">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-landmark text-blue-400 text-xl"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">D类客户特点</p>
+</div>
+<ul class="space-y-2 text-base text-[#8D99AE]">
+<li class="flex items-start gap-2">
+<i class="fas fa-check text-blue-400 mt-1"></i>
+<span>政策红利期，政府预算充足</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-check text-blue-400 mt-1"></i>
+<span>需具备数据脱敏、合规加工能力</span>
+</li>
+<li class="flex items-start gap-2">
+<i class="fas fa-check text-blue-400 mt-1"></i>
+<span>关注数据交易所会员资格</span>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 18: 实战演练：客户画像分析 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">PRACTICE</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">实战演练：客户画像分析</h2>
+<p class="text-base text-[#8D99AE] mt-2">以"某三甲医院信息科主任"为例，分组讨论分析</p>
+</div>
+<div class="flex-1 flex gap-6">
+<div class="flex-1 flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-12 h-12 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-xl font-bold">1</span>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">他们有什么数据？</h3>
+</div>
+<div class="space-y-3">
+<div class="flex items-start gap-3">
+<i class="fas fa-database text-[#E07A5F] mt-1"></i>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">病历数据</p>
+<p class="text-sm text-[#8D99AE]">10年+电子病历，含诊断过程、治疗方案</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<i class="fas fa-database text-[#E07A5F] mt-1"></i>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">医学影像</p>
+<p class="text-sm text-[#8D99AE]">CT、MRI、X光片及诊断报告</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<i class="fas fa-database text-[#E07A5F] mt-1"></i>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">医生问诊记录</p>
+<p class="text-sm text-[#8D99AE]">专家诊断思路、医患对话</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<i class="fas fa-database text-[#E07A5F] mt-1"></i>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4]">药品使用数据</p>
+<p class="text-sm text-[#8D99AE]">处方记录、用药反馈</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-12 h-12 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-xl font-bold">2</span>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">Hottest的数据类型是什么？</h3>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 border-l-4 border-[#E07A5F] mb-3">
+<p class="text-lg font-semibold text-[#E07A5F] mb-2">思维链数据（诊断推理过程）</p>
+<p class="text-base text-[#8D99AE]">医生从症状→检查→诊断→治疗的完整思考链条</p>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-[#4A5C6A]/30 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">价值等级</p>
+<p class="text-xl font-bold text-[#E07A5F]">⭐⭐⭐⭐⭐</p>
+</div>
+<div class="bg-[#4A5C6A]/30 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">溢价倍数</p>
+<p class="text-xl font-bold text-[#E07A5F]">10x+</p>
+</div>
+</div>
+</div>
+</div>
+<div class="w-[520px] flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex-1">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-12 h-12 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-xl font-bold">3</span>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">怎么开场白？</h3>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-5 border-l-4 border-[#E07A5F]">
+<p class="text-base text-[#8D99AE] mb-3">推荐话术：</p>
+<p class="text-lg text-[#EDF2F4] leading-relaxed italic">
+<i class="fas fa-quote-left text-[#E07A5F] mr-2"></i>
+                            "主任，贵院积累的10年病历数据是训练医疗AI的宝贵资产。现在市场上最缺的不是标准诊断结果，而是专家做诊断时的思考过程。我们希望能帮助将专家的'诊断思路'数字化，既能为医院创造收益，又能推动医疗AI的发展。"
+                        </p>
+</div>
+<div class="mt-4 space-y-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-check-circle text-green-400"></i>
+<p class="text-base text-[#8D99AE]">强调数据资产价值</p>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check-circle text-green-400"></i>
+<p class="text-base text-[#8D99AE]">点明市场紧缺类型</p>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check-circle text-green-400"></i>
+<p class="text-base text-[#8D99AE]">突出双赢模式</p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-5">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-users text-[#E07A5F] text-xl"></i>
+<h3 class="font-heading-cn text-lg font-bold text-[#EDF2F4]">分组讨论框架</h3>
+</div>
+<div class="grid grid-cols-3 gap-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-3 text-center">
+<p class="text-sm text-[#8D99AE] mb-1">讨论时间</p>
+<p class="text-xl font-bold text-[#E07A5F]">5分钟</p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-3 text-center">
+<p class="text-sm text-[#8D99AE] mb-1">小组人数</p>
+<p class="text-xl font-bold text-[#E07A5F]">3-4人</p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-3 text-center">
+<p class="text-sm text-[#8D99AE] mb-1">汇报时间</p>
+<p class="text-xl font-bold text-[#E07A5F]">2分钟</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 19: Chapter 3 -->
+<div class="ppt-slide" type="chapter">
+<img alt="" class="absolute inset-0 w-full h-full object-cover opacity-50" src="chapter3_bg.png"/>
+<div class="absolute inset-0 bg-gradient-to-r from-[#1A1D21]/95 via-[#1A1D21]/80 to-transparent"></div>
+<div class="relative h-full flex flex-col justify-center z-10">
+<div class="mb-6">
+<div class="inline-block px-4 py-2 bg-[#E07A5F]/20 border border-[#E07A5F] rounded-full">
+<span class="text-[#E07A5F] text-base font-medium">PART 03</span>
+</div>
+</div>
+<h2 class="font-heading-cn text-6xl font-bold text-[#EDF2F4] mb-6">未来方向</h2>
+<div class="w-24 h-1 bg-[#E07A5F] mb-6"></div>
+<p class="text-2xl text-[#8D99AE] mb-8">60-90分钟 | 布局5年战略，建立长期竞争壁垒</p>
+<div class="flex gap-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-telescope text-[#E07A5F]"></i>
+</div>
+<span class="text-[#EDF2F4]">技术演进</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-gem text-[#E07A5F]"></i>
+</div>
+<span class="text-[#EDF2F4]">紧缺预测</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-[#4A5C6A] flex items-center justify-center">
+<i class="fas fa-level-up-alt text-[#E07A5F]"></i>
+</div>
+<span class="text-[#EDF2F4]">能力升级</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 20: 技术演进与数据需求变迁 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">FUTURE TRENDS 2026-2031</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">技术演进与数据需求变迁</h2>
+<p class="text-base text-[#8D99AE] mt-2">未来5年数据趋势预测与技术范式转移</p>
+</div>
+<div class="flex-1 flex flex-col gap-5">
+<div class="grid grid-cols-3 gap-5 flex-1">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-12 h-12 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-xl font-bold">Y1-2</span>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">推理数据精细化</h3>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">演进方向</p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4">
+<p class="text-base text-[#8D99AE] mb-2">从"简单思维链"到</p>
+<p class="text-lg text-[#E07A5F] font-semibold">"多路径探索"</p>
+<p class="text-sm text-[#8D99AE] mt-1">(Tree of Thoughts)</p>
+</div>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">数据需求</p>
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-base text-[#8D99AE]">专家级试错过程</span>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-base text-[#8D99AE]">辩论式思维记录</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-12 h-12 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-xl font-bold">Y2-3</span>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">物理世界数据爆发</h3>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">演进方向</p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4">
+<p class="text-base text-[#8D99AE] mb-2">具身智能普及</p>
+<p class="text-lg text-[#E07A5F] font-semibold">机器人进万家</p>
+<p class="text-sm text-[#8D99AE] mt-1">工业+家庭场景</p>
+</div>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">数据需求</p>
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-base text-[#8D99AE]">家庭服务机器人交互</span>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-base text-[#8D99AE]">触觉反馈数据</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-12 h-12 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-xl font-bold">Y3-5</span>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">个性化记忆数据</h3>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">演进方向</p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4">
+<p class="text-base text-[#8D99AE] mb-2">每人有专属AI Agent</p>
+<p class="text-lg text-[#E07A5F] font-semibold">需终身学习</p>
+<p class="text-sm text-[#8D99AE] mt-1">跨会话记忆</p>
+</div>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">数据需求</p>
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-base text-[#8D99AE]">个人数字足迹</span>
+</div>
+<div class="flex items-center gap-2">
+<i class="fas fa-check text-[#E07A5F] text-sm"></i>
+<span class="text-base text-[#8D99AE]">长期记忆构建</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4">
+<i class="fas fa-exchange-alt text-[#E07A5F] text-2xl"></i>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">技术范式转移</h3>
+</div>
+<div class="grid grid-cols-3 gap-5">
+<div class="text-center">
+<div class="bg-[#4A5C6A]/30 rounded-lg p-4 mb-3">
+<p class="text-sm text-[#8D99AE] mb-2">From</p>
+<p class="text-xl font-bold text-[#EDF2F4]">互联网文本</p>
+<p class="text-sm text-[#8D99AE] mt-1">人类写给人类看</p>
+</div>
+</div>
+<div class="flex items-center justify-center">
+<div class="text-center">
+<i class="fas fa-arrow-right text-[#E07A5F] text-3xl mb-2"></i>
+<p class="text-base text-[#E07A5F] font-semibold">To</p>
+</div>
+</div>
+<div class="text-center">
+<div class="bg-[#4A5C6A]/30 rounded-lg p-4 mb-3">
+<p class="text-sm text-[#8D99AE] mb-2">过渡阶段</p>
+<p class="text-xl font-bold text-[#EDF2F4]">机器交互语料</p>
+<p class="text-sm text-[#8D99AE] mt-1">人类/机器写给AI学</p>
+</div>
+</div>
+<div class="flex items-center justify-center">
+<div class="text-center">
+<i class="fas fa-arrow-right text-[#E07A5F] text-3xl mb-2"></i>
+<p class="text-base text-[#E07A5F] font-semibold">终极</p>
+</div>
+</div>
+<div class="text-center">
+<div class="bg-[#E07A5F]/20 rounded-lg p-4 mb-3 border border-[#E07A5F]">
+<p class="text-sm text-[#E07A5F] mb-2">终极形态</p>
+<p class="text-xl font-bold text-[#E07A5F]">AI与AI对话数据</p>
+<p class="text-sm text-[#E07A5F] mt-1">合成数据为主</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 21: 未来5年战略级紧缺数据预测 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">STRATEGIC RESOURCES</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">未来5年战略级紧缺数据预测</h2>
+<p class="text-base text-[#8D99AE] mt-2">现在就要布局的四大战略级数据类型</p>
+</div>
+<div class="flex-1 flex flex-col gap-5">
+<div class="grid grid-cols-2 gap-5 flex-1">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-project-diagram text-[#E07A5F] text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">跨模态因果数据</h3>
+</div>
+<div class="space-y-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-base text-[#8D99AE] leading-relaxed">不仅是"图+文"，而是<span class="text-[#E07A5F] font-semibold">"动作A导致结果B"</span>的因果关系</p>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-2">应用场景</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-[#4A5C6A]/40 rounded-full text-sm text-[#8D99AE]">科学发现AI</span>
+<span class="px-3 py-1 bg-[#4A5C6A]/40 rounded-full text-sm text-[#8D99AE]">制药</span>
+<span class="px-3 py-1 bg-[#4A5C6A]/40 rounded-full text-sm text-[#8D99AE]">材料科学</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-user-clock text-[#E07A5F] text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">长周期个性化数据</h3>
+</div>
+<div class="space-y-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-base text-[#8D99AE] leading-relaxed">同一用户<span class="text-[#E07A5F] font-semibold">3-5年的交互记录</span>（跨会话记忆）</p>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-2">应用场景</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-[#4A5C6A]/40 rounded-full text-sm text-[#8D99AE]">终身AI助手</span>
+<span class="px-3 py-1 bg-[#4A5C6A]/40 rounded-full text-sm text-[#8D99AE]">心理健康陪伴</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-exclamation-triangle text-[#E07A5F] text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">边缘案例</h3>
+</div>
+<div class="space-y-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-base text-[#8D99AE] leading-relaxed"><span class="text-[#E07A5F] font-semibold">罕见事件、极端场景</span>（自动驾驶险情、医疗疑难杂症）</p>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-2">价值</p>
+<div class="bg-[#E07A5F]/20 rounded-lg p-3 border border-[#E07A5F]">
+<p class="text-base text-[#E07A5F]">解决AI"长尾问题"，溢价极高</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F]/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-globe-americas text-[#E07A5F] text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">文化/价值观对齐数据</h3>
+</div>
+<div class="space-y-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-3">
+<p class="text-base text-[#8D99AE] leading-relaxed">不同地域、亚文化的<span class="text-[#E07A5F] font-semibold">伦理偏好数据</span></p>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-2">价值</p>
+<div class="bg-[#E07A5F]/20 rounded-lg p-3 border border-[#E07A5F]">
+<p class="text-base text-[#E07A5F]">全球化AI的本地化适配</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-5">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-chart-line text-[#E07A5F] text-xl"></i>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">商业模式演进</h3>
+</div>
+<div class="flex items-center justify-between">
+<div class="text-center flex-1">
+<div class="bg-[#4A5C6A]/30 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">现在</p>
+<p class="text-lg font-bold text-[#EDF2F4]">卖数据本身</p>
+<p class="text-xs text-[#8D99AE]">一次性交易</p>
+</div>
+</div>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xl mx-4"></i>
+<div class="text-center flex-1">
+<div class="bg-[#4A5C6A]/30 rounded-lg p-3">
+<p class="text-sm text-[#8D99AE] mb-1">未来</p>
+<p class="text-lg font-bold text-[#EDF2F4]">卖数据服务</p>
+<p class="text-xs text-[#8D99AE]">持续更新流</p>
+</div>
+</div>
+<i class="fas fa-arrow-right text-[#E07A5F] text-xl mx-4"></i>
+<div class="text-center flex-1">
+<div class="bg-[#E07A5F]/20 rounded-lg p-3 border border-[#E07A5F]">
+<p class="text-sm text-[#E07A5F] mb-1">终极</p>
+<p class="text-lg font-bold text-[#E07A5F]">卖数据权益</p>
+<p class="text-xs text-[#E07A5F]">Token化分成</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 22: 销售能力升级 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">CAPABILITY UPGRADE</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">销售能力升级：从数据贩子到AI数据战略顾问</h2>
+</div>
+<div class="flex-1 flex gap-6">
+<div class="flex-1 flex flex-col gap-5">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-14 h-14 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-user-graduate text-white text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">个人IP打造</h3>
+</div>
+<div class="space-y-3">
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-2">
+<i class="fas fa-brain text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">基础AI原理</p>
+</div>
+<p class="text-base text-[#8D99AE]">理解大模型训练流程、数据作用机制</p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-2">
+<i class="fas fa-clipboard-check text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">数据资产评估</p>
+</div>
+<p class="text-base text-[#8D99AE]">掌握黄金评估法，快速诊断客户数据</p>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4">
+<div class="flex items-center gap-3 mb-2">
+<i class="fas fa-shield-alt text-[#E07A5F]"></i>
+<p class="text-lg font-semibold text-[#EDF2F4]">隐私计算概念</p>
+</div>
+<p class="text-base text-[#8D99AE]">了解联邦学习、差分隐私等技术</p>
+</div>
+</div>
+</div>
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-5">
+<div class="flex items-center gap-3 mb-3">
+<i class="fas fa-star text-[#E07A5F] text-xl"></i>
+<h3 class="font-heading-cn text-xl font-bold text-[#EDF2F4]">转型目标</h3>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 border-l-4 border-[#E07A5F]">
+<p class="text-xl text-[#EDF2F4] font-bold mb-2">从"数据贩子"到"AI数据战略顾问"</p>
+<p class="text-base text-[#8D99AE]">不再只是卖数据，而是帮助客户规划数据战略，实现数据资产价值最大化</p>
+</div>
+</div>
+</div>
+<div class="w-[520px] bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-14 h-14 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<i class="fas fa-sitemap text-[#E07A5F] text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">客户结构升级</h3>
+</div>
+<div class="space-y-4">
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 border-l-4 border-[#E07A5F]">
+<div class="flex items-center gap-3 mb-3">
+<span class="px-3 py-1 bg-[#E07A5F] rounded text-sm text-white font-semibold">短期</span>
+<p class="text-lg font-semibold text-[#EDF2F4]">今年</p>
+</div>
+<p class="text-base text-[#8D99AE] mb-2">抓Agent开发商（快钱）</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">推理模型微调商</span>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">Agent开发商</span>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 border-l-4 border-[#E07A5F]">
+<div class="flex items-center gap-3 mb-3">
+<span class="px-3 py-1 bg-[#E07A5F] rounded text-sm text-white font-semibold">中期</span>
+<p class="text-lg font-semibold text-[#EDF2F4]">2-3年</p>
+</div>
+<p class="text-base text-[#8D99AE] mb-2">绑定制造业（物理数据壁垒）</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">具身智能公司</span>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">智能制造企业</span>
+</div>
+</div>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 border-l-4 border-[#E07A5F]">
+<div class="flex items-center gap-3 mb-3">
+<span class="px-3 py-1 bg-[#E07A5F] rounded text-sm text-white font-semibold">长期</span>
+<p class="text-lg font-semibold text-[#EDF2F4]">5年</p>
+</div>
+<p class="text-base text-[#8D99AE] mb-2">卡位数据交易所/数据信托（基础设施）</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">数据要素运营商</span>
+<span class="px-2 py-1 bg-[#4A5C6A]/40 rounded text-sm text-[#8D99AE]">数据信托机构</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 23: 风险预警与规避 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">RISK MANAGEMENT</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">风险预警与规避</h2>
+<p class="text-base text-[#8D99AE] mt-2">提前识别潜在风险，确保业务可持续发展</p>
+</div>
+<div class="flex-1 grid grid-cols-3 gap-5">
+<div class="bg-red-500/10 border border-red-500/30 rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-14 h-14 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-copyright text-red-400 text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-red-400">版权陷阱</h3>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">风险描述</p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4">
+<p class="text-base text-[#8D99AE] leading-relaxed">AI生成数据训练新模型的归属权目前<span class="text-red-400 font-semibold">法律模糊</span>，存在版权争议风险</p>
+</div>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">规避建议</p>
+<div class="space-y-2">
+<div class="flex items-start gap-2">
+<i class="fas fa-check-circle text-green-400 mt-1"></i>
+<p class="text-base text-[#8D99AE]">明确数据使用协议</p>
+</div>
+<div class="flex items-start gap-2">
+<i class="fas fa-check-circle text-green-400 mt-1"></i>
+<p class="text-base text-[#8D99AE]">关注法律动态</p>
+</div>
+<div class="flex items-start gap-2">
+<i class="fas fa-check-circle text-green-400 mt-1"></i>
+<p class="text-base text-[#8D99AE]">优先使用自有数据</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-14 h-14 rounded-xl bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-balance-scale text-yellow-400 text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-yellow-400">伦理风险</h3>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">风险描述</p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4">
+<p class="text-base text-[#8D99AE] leading-relaxed">情感陪伴AI的数据涉及<span class="text-yellow-400 font-semibold">心理操控争议</span>，可能引发伦理问题</p>
+</div>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">规避建议</p>
+<div class="space-y-2">
+<div class="flex items-start gap-2">
+<i class="fas fa-check-circle text-green-400 mt-1"></i>
+<p class="text-base text-[#8D99AE]">建立伦理审查机制</p>
+</div>
+<div class="flex items-start gap-2">
+<i class="fas fa-check-circle text-green-400 mt-1"></i>
+<p class="text-base text-[#8D99AE]">透明数据使用边界</p>
+</div>
+<div class="flex items-start gap-2">
+<i class="fas fa-check-circle text-green-400 mt-1"></i>
+<p class="text-base text-[#8D99AE]">用户知情同意</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-14 h-14 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+<i class="fas fa-robot text-blue-400 text-2xl"></i>
+</div>
+<h3 class="font-heading-cn text-xl font-bold text-blue-400">技术替代</h3>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">风险描述</p>
+<div class="bg-[#1A1D21]/60 rounded-lg p-4 mb-4">
+<p class="text-base text-[#8D99AE] leading-relaxed">自动标注技术可能<span class="text-blue-400 font-semibold">消灭低端标注市场</span></p>
+</div>
+</div>
+<div>
+<p class="text-base font-semibold text-[#EDF2F4] mb-3">规避建议</p>
+<div class="space-y-2">
+<div class="flex items-start gap-2">
+<i class="fas fa-check-circle text-green-400 mt-1"></i>
+<p class="text-base text-[#8D99AE]">向高端领域转型</p>
+</div>
+<div class="flex items-start gap-2">
+<i class="fas fa-check-circle text-green-400 mt-1"></i>
+<p class="text-base text-[#8D99AE]">专家数据服务</p>
+</div>
+<div class="flex items-start gap-2">
+<i class="fas fa-check-circle text-green-400 mt-1"></i>
+<p class="text-base text-[#8D99AE]">增值咨询服务</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-5 bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-5">
+<div class="flex items-center gap-4">
+<i class="fas fa-shield-alt text-[#E07A5F] text-3xl"></i>
+<div class="flex-1">
+<p class="text-xl font-bold text-[#EDF2F4] mb-2">风险管控核心原则</p>
+<p class="text-base text-[#8D99AE]">合规是底线，伦理是红线，技术迭代是常态。建立风险预警机制，定期评估业务风险，及时调整战略方向，确保在快速变化的市场中稳健发展。</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 24: 结课行动清单 -->
+<div class="ppt-slide" type="content">
+<div class="h-full flex flex-col">
+<div class="mb-5">
+<p class="text-[#E07A5F] text-sm font-semibold tracking-wider mb-2">ACTION PLAN</p>
+<h2 class="font-heading-cn text-4xl font-bold text-[#EDF2F4]">结课行动清单：30-60-90天</h2>
+<p class="text-base text-[#8D99AE] mt-2">清晰的行动计划，确保学习成果落地</p>
+</div>
+<div class="flex-1 grid grid-cols-3 gap-5">
+<div class="bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-16 h-16 rounded-xl bg-[#E07A5F] flex items-center justify-center flex-shrink-0">
+<span class="text-white text-2xl font-bold">30天</span>
+</div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">短期目标</h3>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div class="space-y-4">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<i class="fas fa-check text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-1">建立推理数据客户名单</p>
+<p class="text-base text-[#8D99AE]">教育、法律、医疗三大垂直领域</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<i class="fas fa-check text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-1">学会演示数据脱敏工具</p>
+<p class="text-base text-[#8D99AE]">给客户展示如何安全处理数据</p>
+</div>
+</div>
+</div>
+<div class="mt-4 bg-[#4A5C6A]/30 rounded-lg p-4">
+<p class="text-base text-[#8D99AE] text-center">
+<i class="fas fa-bullseye text-[#E07A5F] mr-2"></i>
+                                完成标准：建立20+潜在客户名单
+                            </p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-16 h-16 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<span class="text-[#E07A5F] text-2xl font-bold">60天</span>
+</div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">中期目标</h3>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div class="space-y-4">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<i class="fas fa-check text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-1">拜访1家制造业客户</p>
+<p class="text-base text-[#8D99AE]">探询"老师傅经验数字化"需求</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<i class="fas fa-check text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-1">关注本地数据交易所政策</p>
+<p class="text-base text-[#8D99AE]">注册会员，了解交易规则</p>
+</div>
+</div>
+</div>
+<div class="mt-4 bg-[#4A5C6A]/30 rounded-lg p-4">
+<p class="text-base text-[#8D99AE] text-center">
+<i class="fas fa-bullseye text-[#E07A5F] mr-2"></i>
+                                完成标准：完成3+客户深度拜访
+                            </p>
+</div>
+</div>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6 flex flex-col">
+<div class="flex items-center gap-4 mb-5">
+<div class="w-16 h-16 rounded-xl bg-[#4A5C6A] flex items-center justify-center flex-shrink-0">
+<span class="text-[#E07A5F] text-2xl font-bold">90天</span>
+</div>
+<h3 class="font-heading-cn text-2xl font-bold text-[#EDF2F4]">长期目标</h3>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div class="space-y-4">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<i class="fas fa-check text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-1">完成首单高价值数据交易</p>
+<p class="text-base text-[#8D99AE]">思维链数据或Agent轨迹数据</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#4A5C6A] flex items-center justify-center flex-shrink-0 mt-1">
+<i class="fas fa-check text-[#E07A5F]"></i>
+</div>
+<div>
+<p class="text-lg font-semibold text-[#EDF2F4] mb-1">建立跨行业数据撮合能力</p>
+<p class="text-base text-[#8D99AE]">左手制造业数据，右手AI公司需求</p>
+</div>
+</div>
+</div>
+<div class="mt-4 bg-[#E07A5F]/20 rounded-lg p-4 border border-[#E07A5F]">
+<p class="text-base text-[#E07A5F] text-center font-semibold">
+<i class="fas fa-trophy mr-2"></i>
+                                完成标准：首单成交金额≥10万
+                            </p>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-5 bg-[#E07A5F]/10 border border-[#E07A5F] rounded-xl p-5">
+<div class="flex items-center gap-4">
+<i class="fas fa-rocket text-[#E07A5F] text-3xl"></i>
+<div class="flex-1">
+<p class="text-xl font-bold text-[#EDF2F4] mb-2">立即行动，抢占先机</p>
+<p class="text-base text-[#8D99AE]">2026年是AI数据销售的黄金窗口期，越早布局，越能建立竞争壁垒。不要等待完美时机，现在就开始行动！</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slide 25: Final -->
+<div class="ppt-slide" type="final">
+<img alt="" class="absolute inset-0 w-full h-full object-cover opacity-50" src="final_bg.png"/>
+<div class="absolute inset-0 bg-gradient-to-br from-[#1A1D21]/90 via-[#4A5C6A]/70 to-[#1A1D21]/95"></div>
+<div class="relative h-full flex flex-col justify-center items-center z-10 text-center">
+<div class="mb-8">
+<div class="inline-block px-6 py-3 bg-[#E07A5F]/20 border border-[#E07A5F] rounded-full mb-6">
+<span class="text-[#E07A5F] text-lg font-medium tracking-wider">CORE MESSAGE</span>
+</div>
+</div>
+<h2 class="font-heading-cn text-5xl font-bold text-[#EDF2F4] mb-8 leading-tight max-w-4xl">
+                过去卖数据是卖"答案书"<br/>
+                现在卖"草稿纸"<br/>
+                未来卖"肌肉记忆"
+            </h2>
+<div class="w-32 h-1 bg-[#E07A5F] mb-8"></div>
+<p class="text-2xl text-[#8D99AE] max-w-3xl leading-relaxed mb-12">
+                越早理解数据形态的升级<br/>
+                越能在AI淘金热中卖出铲子
+            </p>
+<div class="grid grid-cols-3 gap-8 max-w-4xl">
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<i class="fas fa-book text-[#E07A5F] text-4xl mb-4"></i>
+<p class="text-xl font-bold text-[#EDF2F4] mb-2">过去</p>
+<p class="text-base text-[#8D99AE]">答案书<br/>标准结果</p>
+</div>
+<div class="bg-[#E07A5F]/20 border border-[#E07A5F] rounded-xl p-6">
+<i class="fas fa-edit text-[#E07A5F] text-4xl mb-4"></i>
+<p class="text-xl font-bold text-[#E07A5F] mb-2">现在</p>
+<p class="text-base text-[#E07A5F]">草稿纸<br/>思考过程</p>
+</div>
+<div class="bg-[#4A5C6A]/30 border border-[#4A5C6A] rounded-xl p-6">
+<i class="fas fa-hand-rock text-[#E07A5F] text-4xl mb-4"></i>
+<p class="text-xl font-bold text-[#EDF2F4] mb-2">未来</p>
+<p class="text-base text-[#8D99AE]">肌肉记忆<br/>物理交互</p>
+</div>
+</div>
+<div class="mt-12">
+<p class="text-xl text-[#8D99AE] italic">
+<i class="fas fa-graduation-cap text-[#E07A5F] mr-2"></i>
+                    感谢参与大模型数据销售特训营
+                </p>
+</div>
+</div>
+</div>
+</body>
+</html>
