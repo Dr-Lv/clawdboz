@@ -30,6 +30,25 @@ from .handlers import (
 )
 from .main import main
 
+# 导出新的内核管理模块
+from .kernel_manager import (
+    Kernel,
+    KernelConfig,
+    KernelInfo,
+    KernelManager,
+    KernelRegistry,
+    KernelType,
+    get_default_kernel_manager,
+)
+from .kernel_commands import KernelCommandHandler, create_kernel_commands
+
+# 导出 Claude Code 配置模块
+from .claude_config import (
+    ClaudeCodeConfig,
+    ClaudeCodeConfigurator,
+    setup_dashscope_claude,
+)
+
 # 延迟导入简化 API，避免循环依赖
 def __getattr__(name):
     if name == 'Bot':
@@ -52,4 +71,18 @@ __all__ = [
     'do_bot_p2p_chat_create',
     'do_message_read',
     'main',
+    # 新的内核管理模块
+    'Kernel',
+    'KernelConfig',
+    'KernelInfo',
+    'KernelManager',
+    'KernelRegistry',
+    'KernelType',
+    'get_default_kernel_manager',
+    'KernelCommandHandler',
+    'create_kernel_commands',
+    # Claude Code 配置模块
+    'ClaudeCodeConfig',
+    'ClaudeCodeConfigurator',
+    'setup_dashscope_claude',
 ]

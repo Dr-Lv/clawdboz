@@ -1,24 +1,46 @@
 {
-  "project_root": "/path/to/your/project",
-  "feishu": {
-    "app_id": "${FEISHU_APP_ID}",
-    "app_secret": "${FEISHU_APP_SECRET}"
-  },
-  "qveris": {
-    "api_key": "${QVERIS_API_KEY}"
-  },
-  "logs": {
-    "main_log": "logs/main.log",
-    "debug_log": "logs/bot_debug.log",
-    "feishu_api_log": "logs/feishu_api.log",
-    "ops_log": "logs/ops_check.log"
+  "kernels": {
+    "default": "kimi",
+    "available": {
+      "kimi": {
+        "name": "Kimi Code",
+        "type": "kimi-code",
+        "command": "kimi",
+        "args": ["--mcp", "stdio"],
+        "env": {
+          "KIMI_API_KEY": "${KIMI_API_KEY}"
+        },
+        "description": "Moonshot Kimi Code CLI - 优秀的代码助手，擅长中文和代码任务"
+      },
+      "claude": {
+        "name": "Claude Code",
+        "type": "claude-code-acp",
+        "command": "npx",
+        "args": ["@zed-industries/claude-code-acp"],
+        "env": {
+          "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+          "ACP_PERMISSION_MODE": "acceptEdits",
+          "CLYDE_ENABLED": "false"
+        },
+        "description": "Anthropic Claude Code - 强大的 AI 编程助手，200K 上下文"
+      },
+      "claude-legacy": {
+        "name": "Claude Code (Legacy)",
+        "type": "claude-code",
+        "command": "claude",
+        "args": ["--mcp", "stdio"],
+        "env": {
+          "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
+        },
+        "description": "Claude Code CLI 原生模式"
+      }
+    }
   },
   "paths": {
     "workplace": "WORKPLACE",
-    "user_images": "WORKPLACE/user_images",
-    "user_files": "WORKPLACE/user_files",
-    "mcp_config": ".kimi/mcp.json",
-    "skills_dir": ".kimi/skills"
+    "logs": "logs"
   },
-  "start_script": "test_cancel.py"
+  "scheduler": {
+    "heart_beat": 60
+  }
 }

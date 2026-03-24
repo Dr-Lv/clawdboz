@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""ACP 客户端模块 - Kimi Code CLI ACP 协议通信"""
+"""ACP 客户端模块 - Kimi Code CLI ACP 协议通信
+
+注意: 此模块已兼容新的内核管理器架构。
+为了向后兼容，ACPClient 现在作为 KernelManager 的包装器。
+"""
 import json
 import os
 import subprocess
@@ -10,11 +14,35 @@ import uuid
 
 from .config import CONFIG, get_absolute_path, PROJECT_ROOT
 
+# 导入新的内核管理器
+from .kernel_manager import KernelManager, Kernel
+
 
 class ACPClient:
-    """Kimi Code CLI ACP 客户端"""
+    """ACP 客户端 - 兼容层
     
     def __init__(self, bot_ref=None, session_work_dir=None, bot_work_dir=None, system_prompt=None):
+    此类现在作为 KernelManager 的包装器，保持向后兼容。
+    新代码建议直接使用 KernelManager。
+    """
+    
+    def __init__(self, bot_ref=None, kernel_name: str = None):
+        """初始化 ACP 客户端
+        
+        Args:
+            bot_ref: Bot 实例引用
+            kernel_name: 指定内核名称（默认从配置读取）
+        """
+        self._bot_ref = bot_ref
+        self._kernel_manager = KernelManager(bot_ref)
+        
+        # 使用指定的内核或默认内核
+        if kernel_name:
+            self._kernel_manager.switch_kernel(kernel_name)
+        
+        self._cancelled = False
+        
+        # 保持向后兼容的属性
         self.process = None
         self.response_map = {}
         self.notifications = []
@@ -29,6 +57,28 @@ class ACPClient:
         self._custom_system_prompt = system_prompt  # 自定义系统提示词
         
         self._initialize()
+
+    @property
+    def _current_kernel(self) -> Kernel:
+        """获取当前内核"""
+        return self._kernel_manager.current_kernel
+
+    def _log(self, message):
+        """通过 bot 写入日志"""
+        if self._bot_ref:
+            self._bot_ref._log(f"[ACP] {message}")
+        else:
+            print(f"[ACP] {message}")
+
+    def _initialize(self):
+        """初始化 ACP 连接（向后兼容方法）"""
+        # 确保内核已启动
+        kernel = self._current_kernel
+        if kernel and kernel.is_running:
+            self.process = kernel.process
+            self._log(f"[ACP] 使用内核: {self._kernel_manager.current_kernel_name}")
+        else:
+            self._log("[ACP] 警告: 内核未启动")
 
     def _log(self, message):
         """通过 bot 写入日志"""

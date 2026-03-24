@@ -1,0 +1,83 @@
+{
+  "kernels": {
+    "default": "kimi",
+    "available": {
+      "kimi": {
+        "name": "Kimi Code",
+        "type": "kimi-code",
+        "command": "kimi",
+        "args": ["--mcp", "stdio"],
+        "env": {
+          "KIMI_API_KEY": "${KIMI_API_KEY}"
+        },
+        "description": "Moonshot Kimi Code CLI - 优秀的代码助手"
+      },
+      "qwen35": {
+        "name": "Claude Code (通义千问3.5)",
+        "type": "claude-code-acp",
+        "command": "npx",
+        "args": ["@zed-industries/claude-code-acp"],
+        "env": {
+          "ANTHROPIC_AUTH_TOKEN": "${DASHSCOPE_API_KEY}",
+          "ANTHROPIC_BASE_URL": "https://dashscope.aliyuncs.com/apps/anthropic",
+          "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.5-plus",
+          "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.5-plus",
+          "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.5-plus",
+          "ANTHROPIC_MODEL": "qwen3.5-plus",
+          "ANTHROPIC_REASONING_MODEL": "qwen3.5-plus"
+        },
+        "description": "基于阿里云 DashScope 的 Claude Code，使用通义千问3.5模型"
+      },
+      "qwen-max": {
+        "name": "Claude Code (通义千问Max)",
+        "type": "claude-code-acp",
+        "command": "npx",
+        "args": ["@zed-industries/claude-code-acp"],
+        "env": {
+          "ANTHROPIC_AUTH_TOKEN": "${DASHSCOPE_API_KEY}",
+          "ANTHROPIC_BASE_URL": "https://dashscope.aliyuncs.com/apps/anthropic",
+          "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen-max",
+          "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen-max",
+          "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen-max",
+          "ANTHROPIC_MODEL": "qwen-max",
+          "ANTHROPIC_REASONING_MODEL": "qwen-max"
+        },
+        "description": "基于阿里云 DashScope 的 Claude Code，使用通义千问Max模型"
+      },
+      "qwen-turbo": {
+        "name": "Claude Code (通义千问Turbo)",
+        "type": "claude-code-acp",
+        "command": "npx",
+        "args": ["@zed-industries/claude-code-acp"],
+        "env": {
+          "ANTHROPIC_AUTH_TOKEN": "${DASHSCOPE_API_KEY}",
+          "ANTHROPIC_BASE_URL": "https://dashscope.aliyuncs.com/apps/anthropic",
+          "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen-turbo",
+          "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen-turbo",
+          "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen-turbo",
+          "ANTHROPIC_MODEL": "qwen-turbo",
+          "ANTHROPIC_REASONING_MODEL": "qwen-turbo"
+        },
+        "description": "基于阿里云 DashScope 的 Claude Code，使用通义千问Turbo模型（更快更便宜）"
+      },
+      "claude-official": {
+        "name": "Claude Code (官方)",
+        "type": "claude-code-acp",
+        "command": "npx",
+        "args": ["@zed-industries/claude-code-acp"],
+        "env": {
+          "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+          "ACP_PERMISSION_MODE": "acceptEdits"
+        },
+        "description": "官方 Claude Code（需要 Anthropic API Key）"
+      }
+    }
+  },
+  "paths": {
+    "workplace": "WORKPLACE",
+    "logs": "logs"
+  },
+  "scheduler": {
+    "heart_beat": 60
+  }
+}
