@@ -256,14 +256,13 @@ clawdboz/                       # 主包
 └── .kimi/                      # 内置 Skills 模板
     └── skills/
         ├── auto-test/
+        ├── feishu-api-sender/  # 飞书消息/文件发送
         ├── find-skills/
         ├── local-memory/
         └── scheduler/
 
-feishu_tools/                   # 飞书 MCP 工具
-├── mcp_feishu_file_server.py
-├── mcp_feishu_msg_server.py
-└── notify_feishu.py
+feishu_tools/                   # 飞书工具
+└── notify_feishu.py            # 运维通知脚本
 ```
 
 ## 飞书应用配置

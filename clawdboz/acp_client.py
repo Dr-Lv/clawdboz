@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""ACP 客户端模块 - Kimi Code CLI ACP 协议通信"""
+"""ACP 客户端模块 - Kimi Code CLI ACP 协议通信
+
+注意: 此模块已兼容新的内核管理器架构。
+为了向后兼容，ACPClient 现在作为 KernelManager 的包装器。
+"""
 import json
 import os
 import subprocess
@@ -10,11 +14,35 @@ import uuid
 
 from .config import CONFIG, get_absolute_path, PROJECT_ROOT
 
+# 导入新的内核管理器
+from .kernel_manager import KernelManager, Kernel
+
 
 class ACPClient:
-    """Kimi Code CLI ACP 客户端"""
+    """ACP 客户端 - 兼容层
     
-    def __init__(self, bot_ref=None):
+    def __init__(self, bot_ref=None, session_work_dir=None, bot_work_dir=None, system_prompt=None):
+    此类现在作为 KernelManager 的包装器，保持向后兼容。
+    新代码建议直接使用 KernelManager。
+    """
+    
+    def __init__(self, bot_ref=None, kernel_name: str = None):
+        """初始化 ACP 客户端
+        
+        Args:
+            bot_ref: Bot 实例引用
+            kernel_name: 指定内核名称（默认从配置读取）
+        """
+        self._bot_ref = bot_ref
+        self._kernel_manager = KernelManager(bot_ref)
+        
+        # 使用指定的内核或默认内核
+        if kernel_name:
+            self._kernel_manager.switch_kernel(kernel_name)
+        
+        self._cancelled = False
+        
+        # 保持向后兼容的属性
         self.process = None
         self.response_map = {}
         self.notifications = []
@@ -22,7 +50,35 @@ class ACPClient:
         self._reader_thread = None
         self._bot_ref = bot_ref  # 保存 bot 引用，用于日志
         self._cancelled = False  # 取消标志
+        
+        # Web 界面支持的可选参数
+        self._session_work_dir = session_work_dir  # 会话级工作目录
+        self._bot_work_dir = bot_work_dir  # Bot 级工作目录（用于加载 skills 和 .bots.md）
+        self._custom_system_prompt = system_prompt  # 自定义系统提示词
+        
         self._initialize()
+
+    @property
+    def _current_kernel(self) -> Kernel:
+        """获取当前内核"""
+        return self._kernel_manager.current_kernel
+
+    def _log(self, message):
+        """通过 bot 写入日志"""
+        if self._bot_ref:
+            self._bot_ref._log(f"[ACP] {message}")
+        else:
+            print(f"[ACP] {message}")
+
+    def _initialize(self):
+        """初始化 ACP 连接（向后兼容方法）"""
+        # 确保内核已启动
+        kernel = self._current_kernel
+        if kernel and kernel.is_running:
+            self.process = kernel.process
+            self._log(f"[ACP] 使用内核: {self._kernel_manager.current_kernel_name}")
+        else:
+            self._log("[ACP] 警告: 内核未启动")
 
     def _log(self, message):
         """通过 bot 写入日志"""
@@ -61,14 +117,26 @@ class ACPClient:
         # 加载项目目录下的 MCP 配置
         mcp_servers = self._load_mcp_config()
         
-        # 加载项目目录下的 skills
-        skills = self._load_skills()
+        # 加载 skills（优先使用 bot_work_dir）
+        skills = self._load_skills(self._bot_work_dir)
         
-        # 加载项目目录下的 .bots.md 规则文件（传入 skills 列表）
-        system_prompt = self._load_bots_md(skills)
+        # 加载系统提示词（优先使用自定义的，否则从 .bots.md 加载）
+        if self._custom_system_prompt:
+            system_prompt = self._custom_system_prompt
+            # 追加 skills 描述
+            skills_section = self._build_skills_section(skills)
+            if skills_section:
+                system_prompt = system_prompt + "\n\n" + skills_section if system_prompt else skills_section
+        else:
+            # 从 .bots.md 加载（优先使用 bot_work_dir）
+            system_prompt = self._load_bots_md(skills, self._bot_work_dir)
         
-        # 创建新会话，使用 WORKPLACE 作为工作目录
-        workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+        # 确定工作目录（优先使用 session_work_dir）
+        if self._session_work_dir:
+            workplace_path = self._session_work_dir
+        else:
+            workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+        
         session_params = {
             'cwd': workplace_path,
             'mcpServers': mcp_servers
@@ -92,64 +160,11 @@ class ACPClient:
         """获取内置的 MCP 配置（基于包安装位置）
         
         当项目目录没有 MCP 配置时，使用包自带的配置
-        同时传递飞书应用凭证给 MCP server
+        
+        注：MCP 模式已弃用，改用 feishu-api-sender skill 直接调用飞书 API
+        返回空配置，飞书发送功能通过 skill 实现
         """
-        import sys
-        from pathlib import Path
-        
-        # 获取包安装目录
-        package_dir = Path(__file__).parent.resolve()
-        feishu_tools_dir = package_dir.parent / 'feishu_tools'
-        
-        # 获取 Python 解释器路径
-        python_exe = sys.executable
-        
-        # 构建 MCP server 路径
-        feishu_file_server = feishu_tools_dir / 'mcp_feishu_file_server.py'
-        feishu_msg_server = feishu_tools_dir / 'mcp_feishu_msg_server.py'
-        
-        if not feishu_file_server.exists():
-            self._log(f"[ACP] 内置 MCP 工具不存在: {feishu_file_server}")
-            return {}
-        
-        # 从 CONFIG 获取飞书凭证
-        feishu_config = CONFIG.get('feishu', {})
-        app_id = feishu_config.get('app_id', '')
-        app_secret = feishu_config.get('app_secret', '')
-        
-        if not app_id or not app_secret:
-            self._log(f"[ACP] 警告: 飞书凭证未配置，MCP server 可能无法正常工作")
-        
-        self._log(f"[ACP] 使用内置 MCP 配置")
-        self._log(f"[ACP]   Python: {python_exe}")
-        self._log(f"[ACP]   FeishuFileSender: {feishu_file_server}")
-        self._log(f"[ACP]   FeishuMessageSender: {feishu_msg_server}")
-        
-        mcp_servers = {
-            'FeishuFileSender': {
-                'type': 'stdio',
-                'command': python_exe,
-                'args': [str(feishu_file_server)],
-                'env': {
-                    'FEISHU_APP_ID': app_id,
-                    'FEISHU_APP_SECRET': app_secret
-                }
-            }
-        }
-        
-        # 添加消息发送 MCP（如果文件存在）
-        if feishu_msg_server.exists():
-            mcp_servers['FeishuMessageSender'] = {
-                'type': 'stdio',
-                'command': python_exe,
-                'args': [str(feishu_msg_server)],
-                'env': {
-                    'FEISHU_APP_ID': app_id,
-                    'FEISHU_APP_SECRET': app_secret
-                }
-            }
-        
-        return mcp_servers
+        return {}
     
     def _load_mcp_config(self):
         """加载项目目录下的 MCP 配置文件 (.kimi/mcp.json)
@@ -214,12 +229,19 @@ class ACPClient:
             self._log(f"[ACP] 加载 MCP 配置失败: {e}")
             return []
     
-    def _load_skills(self):
-        """加载 skills（用户目录 + 内置 skills）"""
+    def _load_skills(self, skills_dir=None):
+        """加载 skills（用户目录 + 内置 skills）
+        
+        Args:
+            skills_dir: 可选，自定义 skills 目录路径
+        """
         skills = []
         
-        # 1. 加载用户项目目录下的 skills
-        user_skills_dir = get_absolute_path('.kimi/skills')
+        # 1. 加载用户项目目录下的 skills（优先使用指定的目录）
+        if skills_dir:
+            user_skills_dir = os.path.join(skills_dir, '.kimi', 'skills')
+        else:
+            user_skills_dir = get_absolute_path('.kimi/skills')
         if os.path.exists(user_skills_dir):
             try:
                 for item in os.listdir(user_skills_dir):
@@ -290,13 +312,17 @@ class ACPClient:
         self._log(f"[ACP] 总共加载 Skills: {len(skills)} 个")
         return skills
     
-    def _load_bots_md(self, skills=None):
+    def _load_bots_md(self, skills=None, bots_dir=None):
         """加载项目目录下的 .bots.md 规则文件作为系统提示词
         
         Args:
             skills: 已加载的 skills 列表，会追加到 system prompt 中
+            bots_dir: 可选，自定义 .bots.md 所在目录
         """
-        bots_md_path = get_absolute_path('.bots.md')
+        if bots_dir:
+            bots_md_path = os.path.join(bots_dir, '.bots.md')
+        else:
+            bots_md_path = get_absolute_path('.bots.md')
         
         content = ""
         
@@ -400,6 +426,66 @@ class ACPClient:
             content = content + skills_section if content else skills_section
         
         return content if content.strip() else None
+
+    def _build_skills_section(self, skills):
+        """构建 skills 描述部分（用于自定义 system prompt）
+        
+        Args:
+            skills: 已加载的 skills 列表
+            
+        Returns:
+            skills 描述字符串，如果没有 skills 则返回空字符串
+        """
+        if not skills:
+            return ""
+        
+        section = "\n\n## 可用 Skills（功能模块）\n\n"
+        section += "**重要：当用户询问你有什么功能、技能、能做什么、支持什么时，必须主动详细介绍以下内容：**\n\n"
+        
+        for skill in skills:
+            skill_name = skill['name']
+            skill_path = skill.get('path', '')
+            skill_md_path = os.path.join(skill_path, 'SKILL.md') if skill_path else ''
+            
+            # 获取 skill 内容
+            skill_content = skill.get('content', '')
+            if not skill_content and skill_md_path and os.path.exists(skill_md_path):
+                try:
+                    with open(skill_md_path, 'r', encoding='utf-8') as f:
+                        skill_content = f.read()
+                except:
+                    pass
+            
+            if skill_content:
+                # 解析 SKILL.md 内容
+                lines = skill_content.split('\n')
+                description = ""
+                title = skill_name
+                
+                # 处理 frontmatter
+                content_start = 0
+                if lines and lines[0].strip() == '---':
+                    for i in range(1, len(lines)):
+                        if lines[i].strip() == '---':
+                            content_start = i + 1
+                            break
+                        if lines[i].startswith('description:'):
+                            description = lines[i].split(':', 1)[1].strip()
+                
+                # 获取标题
+                for i in range(content_start, len(lines)):
+                    if lines[i].strip().startswith('#'):
+                        title = lines[i].strip().lstrip('#').strip()
+                        break
+                
+                section += f"### {skill_name} - {title}\n"
+                section += f"- **功能**：{description if description else '暂无描述'}\n\n"
+            else:
+                section += f"### {skill_name}\n"
+                section += f"- 功能：暂无描述\n\n"
+        
+        section += "**规则**：当用户问\"你有什么技能\"、\"你能做什么\"、\"你有什么功能\"时，必须主动、详细地介绍以上所有 skills 的功能和使用方法。\n"
+        return section
 
     def _read_responses(self):
         """持续读取响应"""

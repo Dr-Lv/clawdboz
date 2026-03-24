@@ -928,40 +928,29 @@ check() {
         check_results="${check_results}\n[SKIP] 日志检查: 调试日志不存在"
     fi
     
-    # 5. 检查 MCP 配置
-    info "检查 MCP 配置..."
-    if [ -f "$PROJECT_ROOT/.kimi/mcp.json" ]; then
-        if grep -q "mcp_feishu_file_server.py" "$PROJECT_ROOT/.kimi/mcp.json" 2>/dev/null; then
-            success "✓ MCP 配置文件存在"
-            log_ops "INFO" "MCP 配置文件存在"
-            check_results="${check_results}\n[OK] MCP 配置: 存在"
-            
-            # 检查路径是否正确
-            local mcp_path=$(grep -o '/[^"]*mcp_feishu_file_server.py' "$PROJECT_ROOT/.kimi/mcp.json" 2>/dev/null)
-            if [ -f "$mcp_path" ]; then
-                success "✓ MCP Server 脚本存在"
-                log_ops "INFO" "MCP Server 脚本存在: $mcp_path"
-                check_results="${check_results}\n[OK] MCP 脚本: 存在"
-            else
-                error "✗ MCP Server 脚本不存在: $mcp_path"
-                has_error=1
-                error_details="${error_details}\n- MCP Server 脚本路径错误: $mcp_path"
-                log_ops "ERROR" "MCP Server 脚本不存在: $mcp_path"
-                check_results="${check_results}\n[FAIL] MCP 脚本: 不存在"
-            fi
+    # 5. 检查 feishu-api-sender skill（替代原有的 MCP server）
+    info "检查飞书发送技能..."
+    if [ -d "$PROJECT_ROOT/.kimi/skills/feishu-api-sender" ]; then
+        success "✓ feishu-api-sender skill 存在"
+        log_ops "INFO" "feishu-api-sender skill 存在"
+        check_results="${check_results}\n[OK] 飞书技能: 存在"
+        
+        # 检查核心文件
+        if [ -f "$PROJECT_ROOT/.kimi/skills/feishu-api-sender/feishu_sender.py" ]; then
+            success "✓ feishu_sender.py 脚本存在"
+            log_ops "INFO" "feishu_sender.py 脚本存在"
+            check_results="${check_results}\n[OK] 飞书脚本: 存在"
         else
-            error "✗ MCP 配置中找不到 send_feishu_file"
-            has_error=1
-            error_details="${error_details}\n- MCP 配置不完整"
-            log_ops "ERROR" "MCP 配置不完整"
-            check_results="${check_results}\n[FAIL] MCP 配置: 不完整"
+            warn "⚠ feishu_sender.py 脚本不存在"
+            log_ops "WARN" "feishu_sender.py 脚本不存在"
+            check_results="${check_results}\n[WARN] 飞书脚本: 缺失"
         fi
     else
-        error "✗ MCP 配置文件不存在"
+        error "✗ feishu-api-sender skill 不存在"
         has_error=1
-        error_details="${error_details}\n- MCP 配置文件缺失"
-        log_ops "ERROR" "MCP 配置文件缺失"
-        check_results="${check_results}\n[FAIL] MCP 配置: 缺失"
+        error_details="${error_details}\n- feishu-api-sender skill 缺失"
+        log_ops "ERROR" "feishu-api-sender skill 缺失"
+        check_results="${check_results}\n[FAIL] 飞书技能: 缺失"
     fi
     
     # 6. 检查 Skills

@@ -1,0 +1,3900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clawdboz Web Chat v2.7.6-fix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 飞书官方配色 */
+        :root {
+            --sidebar-bg: #1e222d;
+            --sidebar-hover: rgba(255,255,255,0.08);
+            --sidebar-active: rgba(255,255,255,0.12);
+            --primary: #3370ff;
+            --primary-light: #e8f0ff;
+            --border: #dee0e3;
+            --text: #1f2329;
+            --text-secondary: #4e5969;
+            --text-tertiary: #8f959e;
+            --bg: #f5f6f7;
+            --msg-hover: rgba(31,35,41,0.03);
+            --user-msg-bg: #e8f0ff;
+            --bot-msg-bg: #f5f6f7;
+            --white: #ffffff;
+        }
+        
+        * { box-sizing: border-box; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #c9cdd4; border-radius: 3px; }
+        
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+        }
+        
+        /* 侧边栏 - 飞书深蓝 */
+        .sidebar {
+            background: var(--sidebar-bg);
+            width: 300px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: rgba(255,255,255,0.9);
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .sidebar-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .sidebar-search {
+            margin: 0 12px 8px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255,255,255,0.5);
+            font-size: 13px;
+            cursor: pointer;
+        }
+        
+        .sidebar-search:hover { background: rgba(255,255,255,0.15); }
+        
+        .sidebar-section-title {
+            padding: 12px 16px 8px;
+            color: rgba(255,255,255,0.4);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .sidebar-item {
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: pan-y;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        
+        .sidebar-item:hover { background: var(--sidebar-hover); }
+        .sidebar-item.active { 
+            background: var(--sidebar-active);
+            border-left-color: var(--primary);
+        }
+        
+        /* 滑动删除相关样式 */
+        .sidebar-item-content {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            transition: transform 0.2s ease-out;
+            background: inherit;
+            z-index: 2;
+        }
+        
+        .sidebar-item.swiping .sidebar-item-content {
+            transition: none;
+        }
+        
+        .sidebar-delete-btn {
+            position: absolute;
+            right: -80px;  /* 平时隐藏在右侧外面 */
+            top: 0;
+            bottom: 0;
+            width: 80px;
+            background: #f54a45;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1;
+            cursor: pointer;
+            transition: right 0.2s ease-out;
+        }
+        
+        .sidebar-item.swiped .sidebar-delete-btn {
+            right: 0;  /* 左滑时显示 */
+        }
+        
+        .sidebar-delete-btn:hover {
+            background: #e04a40;
+        }
+        
+        .sidebar-avatar {
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%;
+            margin-right: 12px;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-info { flex: 1; min-width: 0; }
+        .sidebar-title { 
+            color: rgba(255,255,255,0.9); 
+            font-size: 14px; 
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sidebar-subtitle { 
+            color: rgba(255,255,255,0.5); 
+            font-size: 12px; 
+            margin-top: 2px;
+        }
+        .bot-tag { 
+            padding: 1px 6px; 
+            background: var(--primary); 
+            color: #fff; 
+            font-size: 11px; 
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .sidebar-meta { margin-left: auto; text-align: right; }
+        .sidebar-time { color: rgba(255,255,255,0.4); font-size: 11px; }
+        
+        /* 主聊天区 */
+        .main { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            min-width: 0; 
+            background: var(--bg);
+            position: relative;
+        }
+        
+        /* 头部 - 浅灰背景 */
+        .chat-header {
+            height: 60px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+        
+        .header-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .header-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .header-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 4px;
+        }
+        
+        .header-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .header-btn:hover { background: rgba(0,0,0,0.05); color: var(--text); }
+        
+        /* 消息区域 - 浅灰背景 */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            background: var(--bg);
+            padding: 16px 0;
+        }
+        
+        /* 时间分隔线 */
+        .message-time-divider {
+            text-align: center;
+            padding: 16px 0 8px;
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+        
+        /* 消息项 - 飞书结构 */
+        .message-item-wrapper {
+            position: relative;
+            padding: 2px 0;
+        }
+        
+        .message-item-wrapper:hover { background: var(--msg-hover); }
+        
+        .message-container {
+            display: flex;
+            padding: 0 20px;
+        }
+        
+        .message-item {
+            display: flex;
+            width: 100%;
+            padding: 4px 0;
+        }
+        
+        /* 左侧 - 头像区 */
+        .message-left {
+            width: 40px;
+            flex-shrink: 0;
+            padding-top: 4px;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        /* 右侧 - 内容区 */
+        .message-right {
+            flex: 1;
+            min-width: 0;
+            padding-left: 12px;
+            max-width: calc(100% - 52px);
+        }
+        
+        .message-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        
+        .message-sender {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .message-timestamp {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            user-select: none;
+        }
+        
+        /* 消息气泡 */
+        .message-section {
+            background: var(--white);
+            border-radius: 8px;
+            padding: 10px 14px;
+            display: inline-block;
+            max-width: 100%;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        
+        .message-content {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text);
+            word-break: break-word;
+        }
+        
+        /* 自己的消息 */
+        .message-self { flex-direction: row-reverse; }
+        .message-self .message-left { padding-left: 0; }
+        .message-self .message-right { 
+            padding-left: 0; 
+            padding-right: 12px; 
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .message-self .message-section { 
+            background: var(--user-msg-bg);
+        }
+        
+        /* Markdown 样式 */
+        .markdown-body { color: var(--text); line-height: 1.6; }
+        .markdown-body p { margin: 0; }
+        .markdown-body p + p { margin-top: 8px; }
+        
+        .markdown-body pre {
+            background: #f5f5f5;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+            border: 1px solid #e8e8e8;
+        }
+        
+        .markdown-body pre code {
+            display: block;
+            padding: 12px;
+            color: #1f2329;
+            font-size: 13px;
+            font-family: 'SF Mono', Monaco, monospace;
+            background: transparent !important;
+        }
+        
+        /* 确保 highlight.js 不会覆盖 */
+        .message-content pre,
+        .message-content pre code,
+        .message-content .hljs {
+            background: #f5f5f5 !important;
+            color: #1f2329 !important;
+        }
+        
+        .markdown-body code:not(pre code) {
+            background: rgba(0,0,0,0.06);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #d92b2b;
+            font-family: monospace;
+        }
+        
+        .markdown-body blockquote {
+            border-left: 3px solid var(--primary);
+            padding-left: 12px;
+            margin: 8px 0;
+            color: var(--text-secondary);
+        }
+        
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+            margin: 12px 0 8px;
+            font-weight: 600;
+        }
+        .markdown-body h1 { font-size: 18px; }
+        .markdown-body h2 { font-size: 16px; }
+        .markdown-body h3 { font-size: 14px; }
+        
+        .markdown-body ul, .markdown-body ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+        .markdown-body li { margin: 4px 0; }
+        
+        .markdown-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin: 8px 0;
+        }
+        .markdown-body th, .markdown-body td {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            text-align: left;
+        }
+        .markdown-body th { background: #f7f8fa; font-weight: 600; }
+        
+        /* 输入区 - 白色背景 */
+        .input-area {
+            border-top: 1px solid var(--border);
+            padding: 12px 20px 20px;
+            background: var(--white);
+            flex-shrink: 0;
+        }
+        
+        .input-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .toolbar-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .toolbar-btn:hover { background: var(--bg); color: var(--text); }
+        
+        .input-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+        
+        .input-wrapper:focus-within {
+            background: var(--white);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(51, 112, 255, 0.1);
+        }
+        
+        .input-field {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            min-height: 24px;
+            max-height: 120px;
+            padding: 2px 0;
+        }
+        
+        .input-field::placeholder { color: var(--text-tertiary); }
+        
+        .send-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .send-btn:hover { background: #2860d9; }
+        
+        /* 空状态 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-tertiary);
+        }
+        
+        .empty-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-light);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+        
+        /* 代码复制按钮 */
+        .code-block-wrapper { position: relative; }
+        .code-copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 4px 10px;
+            background: #3d3d3d;
+            color: #e5e7eb;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .code-block-wrapper:hover .code-copy-btn { opacity: 1; }
+        
+        /* @ 提及下拉菜单 */
+        .mention-dropdown {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 8px 0;
+            min-width: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+        .mention-dropdown.show { display: block; }
+        .mention-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .mention-item:hover { background: var(--bg); }
+        .mention-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 14px;
+        }
+        .mention-name { font-size: 14px; color: var(--text); font-weight: 500; }
+        .mention-id { font-size: 12px; color: var(--text-tertiary); }
+        
+        /* 被@的Bot样式 */
+        .mention-highlight {
+            color: var(--primary);
+            font-weight: 600;
+            background: var(--primary-light);
+            padding: 0 4px;
+            border-radius: 4px;
+        }
+        
+        /* 搜索框 */
+        .search-overlay {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: none;
+            z-index: 50;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .search-overlay.show { display: block; }
+        .search-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+        .search-input-wrapper:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(51, 112, 255, 0.1);
+        }
+        .search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            background: transparent;
+        }
+        .search-input::placeholder { color: var(--text-tertiary); }
+        .search-count {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            white-space: nowrap;
+        }
+        .search-nav {
+            display: flex;
+            gap: 4px;
+        }
+        .search-nav-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            border: none;
+            background: transparent;
+        }
+        .search-nav-btn:hover { background: var(--bg); }
+        .search-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .search-close {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }
+        .search-close:hover { background: var(--bg); color: var(--text); }
+        
+        /* 搜索结果高亮 */
+        .search-highlight {
+            background: #ffeb3b !important;
+            color: #000 !important;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        .search-current {
+            background: #ff9800 !important;
+            color: #fff !important;
+        }
+        
+        /* 会话右键菜单 */
+        .context-menu {
+            position: fixed;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 6px 0;
+            min-width: 140px;
+            z-index: 150;
+            display: none;
+        }
+        .context-menu.show { display: block; }
+        .context-menu-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .context-menu-item:hover { background: var(--bg); }
+        .context-menu-item.delete { color: #f54a45; }
+        .context-menu-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 6px 0;
+        }
+        
+        /* 更多菜单下拉 */
+        .more-menu {
+            position: absolute;
+            top: 52px;
+            right: 12px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 8px 0;
+            min-width: 160px;
+            z-index: 100;
+            display: none;
+        }
+        .more-menu.show { display: block; }
+        .more-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text);
+            transition: background 0.15s;
+        }
+        .more-menu-item:hover { background: var(--bg); }
+        .more-menu-item i {
+            width: 18px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+        .more-menu-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 6px 0;
+        }
+        
+        /* 添加 Bot 弹窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-content {
+            background: var(--white);
+            border-radius: 12px;
+            width: 400px;
+            max-width: 90vw;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .modal-close {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-tertiary);
+        }
+        .modal-close:hover { background: var(--bg); color: var(--text); }
+        .modal-body {
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .bot-select-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s;
+            margin-bottom: 4px;
+        }
+        .bot-select-item:hover { background: var(--bg); }
+        .bot-select-item.selected { background: var(--primary-light); }
+        .bot-select-item.disabled { opacity: 0.5; cursor: not-allowed; }
+        .bot-select-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+        .bot-select-info { flex: 1; }
+        .bot-select-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .bot-select-id {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+        }
+        .bot-select-check {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 8px;
+        }
+        .bot-select-item.selected .bot-select-check {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        .modal-footer {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .modal-btn {
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
+        }
+        .modal-btn-secondary {
+            background: var(--bg);
+            color: var(--text);
+        }
+        .modal-btn-secondary:hover { background: var(--border); }
+        .modal-btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .modal-btn-primary:hover { background: #2860d9; }
+        .modal-btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body style="height: 100vh; display: flex; overflow: hidden;">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-header-left">
+                <div class="user-avatar"><i class="fas fa-user"></i></div>
+                <span>消息</span>
+            </div>
+            <i class="fas fa-plus" style="cursor: pointer; opacity: 0.7;" onclick="showAddBotModal()" title="新建群聊"></i>
+        </div>
+        <div class="sidebar-search">
+            <i class="fas fa-search"></i>
+            <span>搜索 (⌘+K)</span>
+        </div>
+        <div class="sidebar-section-title">机器人</div>
+        <div id="botList"></div>
+    </aside>
+
+    <!-- 主聊天区 -->
+    <div class="main">
+        <header class="chat-header">
+            <div id="headerAvatar" class="header-avatar bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="header-title">
+                <span id="headerTitle">选择一个 Bot</span>
+                <span class="bot-tag">机器人</span>
+            </div>
+            <div class="header-actions">
+                <div class="header-btn" onclick="toggleSearch()" title="搜索聊天记录 (⌘+K)"><i class="fas fa-search"></i></div>
+                <div class="header-btn" onclick="toggleMoreMenu(event)" title="更多"><i class="fas fa-ellipsis-h"></i></div>
+            </div>
+        </header>
+        
+        <!-- 搜索框 -->
+        <div id="searchOverlay" class="search-overlay">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search" style="color: var(--text-tertiary);"></i>
+                <input type="text" id="searchInput" class="search-input" placeholder="搜索聊天记录..." oninput="performSearch()">
+                <span id="searchCount" class="search-count"></span>
+                <div class="search-nav">
+                    <button class="search-nav-btn" onclick="prevSearchResult()" title="上一个 (Shift+Enter)">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                    <button class="search-nav-btn" onclick="nextSearchResult()" title="下一个 (Enter)">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="search-close" onclick="closeSearch()" title="关闭 (Esc)">
+                    <i class="fas fa-times"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 更多菜单 -->
+        <div id="moreMenu" class="more-menu">
+            <div class="more-menu-item" onclick="showAddBotModal()">
+                <i class="fas fa-plus-circle"></i>
+                <span>新建群聊</span>
+            </div>
+            <div class="more-menu-divider"></div>
+            <div class="more-menu-item" onclick="exportChat()">
+                <i class="fas fa-download"></i>
+                <span>导出聊天记录</span>
+            </div>
+            <div class="more-menu-item" onclick="clearCurrentChat()">
+                <i class="fas fa-broom" style="color: #f54a45;"></i>
+                <span style="color: #f54a45;">清空当前会话</span>
+            </div>
+        </div>
+        
+        <div id="messages" class="messages-container">
+            <div class="empty-state">
+                <div class="empty-icon">🤖</div>
+                <div>选择一个 Bot 开始对话</div>
+            </div>
+        </div>
+        
+        <div class="input-area" style="position: relative;">
+            <div class="input-toolbar">
+                <div class="toolbar-btn" onclick="selectImage()" title="发送图片"><i class="fas fa-image"></i></div>
+                <div class="toolbar-btn" onclick="selectFile()" title="发送文件"><i class="fas fa-folder"></i></div>
+                <div class="toolbar-btn" onclick="showMentionDropdown()" title="@ Bot"><i class="fas fa-at"></i></div>
+                <div class="toolbar-btn" onclick="clearChat()" title="清空对话 (/clear)"><i class="fas fa-trash-alt"></i></div>
+                <div class="toolbar-btn" id="stopBtn" onclick="stopGeneration()" title="停止回复 (/stop)" style="display:none; color:#f54a45;"><i class="fas fa-stop-circle"></i></div>
+            </div>
+            <div class="input-wrapper">
+                <textarea id="messageInput" class="input-field" rows="1" placeholder="发送消息..."></textarea>
+                <button class="send-btn" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <!-- @ 提及下拉菜单 -->
+            <div id="mentionDropdown" class="mention-dropdown"></div>
+        </div>
+    </div>
+    
+    <!-- 隐藏的文件选择器 -->
+    <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
+    <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)">
+    
+    <!-- 添加 Bot 弹窗 -->
+    <div id="addBotModal" class="modal-overlay" onclick="closeAddBotModalOnOverlay(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">新建群聊</span>
+                <div class="modal-close" onclick="closeAddBotModal()">
+                    <i class="fas fa-times"></i>
+                </div>
+            </div>
+            <div class="modal-body" id="addBotList">
+                <!-- Bot 列表将动态生成 -->
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="closeAddBotModal()">取消</button>
+                <button class="modal-btn modal-btn-primary" id="confirmAddBotBtn" onclick="confirmAddBots()" disabled>创建群聊</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 会话右键菜单 -->
+    <div id="sessionContextMenu" class="context-menu">
+        <div class="context-menu-item" onclick="renameSession()">
+            <i class="fas fa-edit"></i>
+            <span>重命名</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item delete" onclick="deleteSession()">
+            <i class="fas fa-trash-alt"></i>
+            <span>删除会话</span>
+        </div>
+    </div>
+    
+    <!-- 重命名会话弹窗 -->
+    <div id="renameModal" class="modal-overlay" onclick="closeRenameModalOnOverlay(event)">
+        <div class="modal-content" style="width: 320px;">
+            <div class="modal-header">
+                <span class="modal-title">重命名会话</span>
+                <div class="modal-close" onclick="closeRenameModal()">
+                    <i class="fas fa-times"></i>
+                </div>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <input type="text" id="renameInput" class="search-input" style="padding: 10px; border: 1px solid var(--border); border-radius: 6px;" placeholder="输入新名称">
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="closeRenameModal()">取消</button>
+                <button class="modal-btn modal-btn-primary" onclick="confirmRename()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        let ws = null, bots = [], selectedBots = new Set();
+        let isConnected = false;
+        const streamingMessages = new Map();
+        let lastMsgTime = null;
+        
+        // 会话管理
+        let sessions = []; // 所有会话列表
+        let currentSessionId = null; // 当前会话ID
+        let currentBotId = null; // 当前Bot ID（兼容旧代码）
+        
+        // 聊天记录数据库
+        const DB_NAME = 'ClawdbozChatDB';
+        const DB_VERSION = 2; // 升级版本以支持会话存储
+        let db = null;
+        
+        // 搜索相关
+        let searchResults = [];
+        let currentSearchIndex = -1;
+        let isSearchOpen = false;
+        
+        // 更多菜单和添加 Bot
+        let isMoreMenuOpen = false;
+        let tempSelectedBots = new Set(); // 用于添加 Bot 弹窗的临时选择
+        let isCreatingNewSession = false; // 是否正在创建新会话
+        
+        // 停止生成功能
+        let activeStreams = new Set();
+        
+        const botConfigs = [
+            { color: 'bg-gradient-to-br from-blue-500 to-blue-600', icon: 'fa-code' },
+            { color: 'bg-gradient-to-br from-green-500 to-green-600', icon: 'fa-pen-nib' },
+            { color: 'bg-gradient-to-br from-purple-500 to-purple-600', icon: 'fa-server' },
+        ];
+        
+        // ========== IndexedDB 聊天记录存储 ==========
+        
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+                
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    
+                    // 创建聊天记录存储
+                    if (!db.objectStoreNames.contains('messages')) {
+                        const store = db.createObjectStore('messages', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('botId', 'botId', { unique: false });
+                        store.createIndex('timestamp', 'timestamp', { unique: false });
+                        store.createIndex('sessionId', 'sessionId', { unique: false });
+                    }
+                    
+                    // 创建会话存储
+                    if (!db.objectStoreNames.contains('sessions')) {
+                        const sessionStore = db.createObjectStore('sessions', { keyPath: 'id' });
+                        sessionStore.createIndex('timestamp', 'timestamp', { unique: false });
+                    }
+                };
+            });
+        }
+        
+        // ========== 会话管理 ==========
+        
+        function generateSessionId() {
+            return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        function generateMessageId() {
+            return 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        async function loadSessionsFromDB() {
+            if (!db) return [];
+            
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['sessions'], 'readonly');
+                const store = transaction.objectStore('sessions');
+                
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    const sessions = request.result.sort((a, b) => b.timestamp - a.timestamp);
+                    resolve(sessions);
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+        
+        async function saveSessionToDB(session) {
+            if (!db) return;
+            
+            const transaction = db.transaction(['sessions'], 'readwrite');
+            const store = transaction.objectStore('sessions');
+            
+            const record = {
+                ...session,
+                timestamp: Date.now()
+            };
+            
+            store.put(record);
+        }
+        
+        async function deleteSessionFromDB(sessionId) {
+            console.log(`[删除会话] 开始删除: ${sessionId}`);
+            
+            // 1. 先调用后端 API 删除服务器上的会话文件
+            try {
+                console.log(`[删除会话] 调用后端 API...`);
+                const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}?token=${token}`, {
+                    method: 'DELETE'
+                });
+                if (!res.ok) {
+                    console.error('[删除会话] 后端删除失败:', await res.text());
+                    return false;
+                } else {
+                    const result = await res.json();
+                    console.log('[删除会话] 后端删除成功:', result);
+                }
+            } catch (e) {
+                console.error('[删除会话] 调用后端 API 失败:', e);
+                return false;
+            }
+            
+            // 2. 删除本地 IndexedDB 中的会话
+            if (!db) {
+                console.log('[删除会话] 无本地数据库，跳过本地删除');
+                return true;
+            }
+            
+            try {
+                const transaction = db.transaction(['sessions', 'messages'], 'readwrite');
+                const sessionStore = transaction.objectStore('sessions');
+                const messageStore = transaction.objectStore('messages');
+                
+                await new Promise((resolve, reject) => {
+                    const request = sessionStore.delete(sessionId);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+                console.log('[删除会话] 本地会话已删除');
+                
+                // 删除相关消息
+                const index = messageStore.index('sessionId');
+                const cursorRequest = index.openCursor(IDBKeyRange.only(sessionId));
+                
+                await new Promise((resolve, reject) => {
+                    cursorRequest.onsuccess = (event) => {
+                        const cursor = event.target.result;
+                        if (cursor) {
+                            cursor.delete();
+                            cursor.continue();
+                        } else {
+                            resolve();
+                        }
+                    };
+                    cursorRequest.onerror = () => reject(cursorRequest.error);
+                });
+                console.log('[删除会话] 本地消息已删除');
+            } catch (e) {
+                console.error('[删除会话] 本地删除失败:', e);
+            }
+            
+            return true;
+        }
+        
+        function createSession(botIds, name = null) {
+            const id = generateSessionId();
+            const botList = bots.filter(b => botIds.includes(b.id));
+            const sessionName = name || botList.map(b => b.name || b.id).join(', ');
+            
+            return {
+                id: id,
+                name: sessionName,
+                botIds: Array.from(botIds),
+                createdAt: Date.now()
+            };
+        }
+        
+        function saveMessageToDB(messageData) {
+            if (!db || !currentSessionId) return;
+            
+            const transaction = db.transaction(['messages'], 'readwrite');
+            const store = transaction.objectStore('messages');
+            
+            const record = {
+                ...messageData,
+                timestamp: Date.now(),
+                sessionId: currentSessionId
+            };
+            
+            store.add(record);
+        }
+        
+        async function loadMessagesFromDB(sessionId) {
+            if (!db || !sessionId) return [];
+            
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['messages'], 'readonly');
+                const store = transaction.objectStore('messages');
+                const index = store.index('sessionId');
+                
+                const request = index.getAll(sessionId);
+                request.onsuccess = () => {
+                    const messages = request.result.sort((a, b) => a.timestamp - b.timestamp);
+                    resolve(messages);
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+        
+        // 防止 loadChatHistory 重复调用
+        let isLoadingChatHistory = false;
+        
+        async function loadChatHistory(sessionId = null) {
+            const sid = sessionId || currentSessionId;
+            if (!sid) {
+                isLoadingChatHistory = false;
+                return;
+            }
+            
+            // 防止重复调用
+            if (isLoadingChatHistory) {
+                console.log(`[loadChatHistory] 正在加载中，跳过重复调用: ${sid}`);
+                return;
+            }
+            isLoadingChatHistory = true;
+            
+            // 优先从后端加载聊天记录（跨浏览器同步）
+            let messages = await loadMessagesFromServer(sid);
+            
+            // 后端没有，则尝试本地缓存
+            if (messages.length === 0) {
+                messages = await loadMessagesFromDB(sid);
+            } else {
+                // 同步到本地缓存
+                for (const msg of messages) {
+                    await saveMessageToDB({...msg, sessionId: sid});
+                }
+            }
+            
+            // 清空现有消息
+            document.getElementById('messages').innerHTML = '';
+            lastMsgTime = null;
+            
+            if (messages.length === 0) {
+                // 显示空状态
+                document.getElementById('messages').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🤖</div>
+                        <div>开始新的对话</div>
+                    </div>
+                `;
+                isLoadingChatHistory = false;
+                return;
+            }
+            
+            // 恢复历史消息
+            messages.forEach(msg => {
+                if (msg.type === 'user') {
+                    restoreUserMessage(msg.content, msg.timestamp);
+                } else if (msg.type === 'bot') {
+                    restoreBotMessage(msg);
+                }
+            });
+            
+            scrollBottom();
+            
+            // 清理所有残留的 loading 元素（历史消息不应该有 loading）
+            const loadingElements = document.querySelectorAll('.message-loading');
+            loadingElements.forEach(el => {
+                console.log(`[loadChatHistory] 移除残留的 loading 元素: ${el.id}`);
+                el.remove();
+            });
+            
+            isLoadingChatHistory = false;
+        }
+        
+        function restoreUserMessage(content, timestamp) {
+            const time = new Date(timestamp);
+            const timeStr = `${time.getMonth()+1}月${time.getDate()}日 ${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
+            
+            // 检查是否需要显示时间分隔线
+            if (!lastMsgTime || timestamp - lastMsgTime > 5 * 60 * 1000) {
+                const div = document.createElement('div');
+                div.className = 'message-time-divider';
+                div.textContent = timeStr;
+                document.getElementById('messages').appendChild(div);
+            }
+            lastMsgTime = timestamp;
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item message-self">
+                        <div class="message-left">
+                            <div class="message-avatar bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                                <i class="fas fa-user" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-section">
+                                <div class="message-content markdown-body">${marked.parse(content)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+        }
+        
+        function restoreBotMessage(msg) {
+            const bot = bots.find(b => b.id === msg.botId);
+            const botIdx = bots.findIndex(b => b.id === msg.botId);
+            const cfg = botConfigs[botIdx % botConfigs.length];
+            
+            const time = new Date(msg.timestamp);
+            const timeStr = `${time.getMonth()+1}月${time.getDate()}日 ${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
+            
+            if (!lastMsgTime || msg.timestamp - lastMsgTime > 5 * 60 * 1000) {
+                const div = document.createElement('div');
+                div.className = 'message-time-divider';
+                div.textContent = timeStr;
+                document.getElementById('messages').appendChild(div);
+            }
+            lastMsgTime = msg.timestamp;
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            if (msg.msgId) {
+                wrapper.id = `msg-${msg.msgId}`;
+            }
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item">
+                        <div class="message-left">
+                            <div class="message-avatar ${cfg.color} text-white">
+                                <i class="fas ${cfg.icon}" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-info">
+                                <span class="message-sender">${bot?.name || msg.botId}</span>
+                                <span class="message-timestamp">${timeStr}</span>
+                            </div>
+                            <div class="message-section">
+                                <div class="message-content markdown-body">${marked.parse(msg.content)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+        }
+        
+        // ========== 搜索功能 ==========
+        
+        function toggleSearch() {
+            isSearchOpen = !isSearchOpen;
+            const overlay = document.getElementById('searchOverlay');
+            if (isSearchOpen) {
+                overlay.classList.add('show');
+                document.getElementById('searchInput').focus();
+            } else {
+                overlay.classList.remove('show');
+                clearSearch();
+            }
+        }
+        
+        function closeSearch() {
+            isSearchOpen = false;
+            document.getElementById('searchOverlay').classList.remove('show');
+            clearSearch();
+        }
+        
+        function clearSearch() {
+            // 清除高亮
+            document.querySelectorAll('.search-highlight, .search-current').forEach(el => {
+                const parent = el.parentNode;
+                parent.replaceChild(document.createTextNode(el.textContent), el);
+                parent.normalize();
+            });
+            searchResults = [];
+            currentSearchIndex = -1;
+            updateSearchCount();
+        }
+        
+        function performSearch() {
+            clearSearch();
+            
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!query) {
+                updateSearchCount();
+                return;
+            }
+            
+            // 搜索所有消息内容
+            const messageContents = document.querySelectorAll('.message-content');
+            messageContents.forEach((contentEl, messageIndex) => {
+                const text = contentEl.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    highlightText(contentEl, query, messageIndex);
+                }
+            });
+            
+            updateSearchCount();
+            
+            // 自动跳到第一个结果
+            if (searchResults.length > 0) {
+                currentSearchIndex = 0;
+                highlightCurrentResult();
+            }
+        }
+        
+        function highlightText(element, query, messageIndex) {
+            const walker = document.createTreeWalker(
+                element,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            const textNodes = [];
+            let node;
+            while (node = walker.nextNode()) {
+                if (node.textContent.toLowerCase().includes(query)) {
+                    textNodes.push(node);
+                }
+            }
+            
+            textNodes.forEach(node => {
+                const text = node.textContent;
+                const lowerText = text.toLowerCase();
+                const parts = [];
+                let lastIndex = 0;
+                let index;
+                
+                while ((index = lowerText.indexOf(query, lastIndex)) !== -1) {
+                    if (index > lastIndex) {
+                        parts.push(document.createTextNode(text.substring(lastIndex, index)));
+                    }
+                    
+                    const highlight = document.createElement('span');
+                    highlight.className = 'search-highlight';
+                    highlight.textContent = text.substring(index, index + query.length);
+                    highlight.dataset.resultIndex = searchResults.length;
+                    parts.push(highlight);
+                    
+                    searchResults.push({
+                        element: highlight,
+                        messageIndex: messageIndex
+                    });
+                    
+                    lastIndex = index + query.length;
+                }
+                
+                if (lastIndex < text.length) {
+                    parts.push(document.createTextNode(text.substring(lastIndex)));
+                }
+                
+                const parent = node.parentNode;
+                parts.forEach(part => parent.insertBefore(part, node));
+                parent.removeChild(node);
+            });
+        }
+        
+        function updateSearchCount() {
+            const countEl = document.getElementById('searchCount');
+            if (searchResults.length === 0) {
+                countEl.textContent = '';
+            } else {
+                countEl.textContent = `${currentSearchIndex + 1}/${searchResults.length}`;
+            }
+            
+            // 更新导航按钮状态
+            const navBtns = document.querySelectorAll('.search-nav-btn');
+            navBtns.forEach(btn => btn.disabled = searchResults.length === 0);
+        }
+        
+        function highlightCurrentResult() {
+            // 移除之前的高亮
+            document.querySelectorAll('.search-current').forEach(el => {
+                el.classList.remove('search-current');
+            });
+            
+            if (currentSearchIndex >= 0 && currentSearchIndex < searchResults.length) {
+                const result = searchResults[currentSearchIndex];
+                result.element.classList.add('search-current');
+                result.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            updateSearchCount();
+        }
+        
+        function nextSearchResult() {
+            if (searchResults.length === 0) return;
+            currentSearchIndex = (currentSearchIndex + 1) % searchResults.length;
+            highlightCurrentResult();
+        }
+        
+        function prevSearchResult() {
+            if (searchResults.length === 0) return;
+            currentSearchIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+            highlightCurrentResult();
+        }
+        
+        async function init() {
+            await initDB();
+            await loadBots();
+            await loadSessions();
+            connectWebSocket();
+            setupEventListeners();
+            setupSearchListeners();
+        }
+        
+        async function loadBots() {
+            try {
+                const res = await fetch(`/api/bots`);
+                bots = (await res.json()).bots || [];
+            } catch (e) { console.error('加载 Bot 失败:', e); }
+        }
+        
+        async function loadSessions() {
+            try {
+                // 完全以后端为准，从服务器加载所有会话
+                console.log('[Init] 从服务器加载会话...');
+                const serverSessions = await loadSessionsFromServer();
+                
+                if (serverSessions.length > 0) {
+                    sessions = serverSessions;
+                    console.log(`[Init] 从服务器加载了 ${sessions.length} 个会话`);
+                    
+                    // 同步到本地 IndexedDB（作为本地缓存）
+                    for (const session of sessions) {
+                        await saveSessionToDB(session);
+                    }
+                } else {
+                    // 服务器没有会话，创建默认会话
+                    console.log('[Init] 服务器没有会话，创建默认会话');
+                    if (bots.length > 0) {
+                        const defaultSession = createSession([bots[0].id], bots[0].name || bots[0].id);
+                        sessions = [defaultSession];
+                        // 保存到本地和后端
+                        await saveSessionToDB(defaultSession);
+                        await saveSessionToServer(defaultSession);
+                    } else {
+                        sessions = [];
+                    }
+                }
+                
+                renderSessionList();
+                
+                // 自动选择第一个会话
+                if (sessions.length > 0) {
+                    await selectSession(sessions[0].id);
+                }
+            } catch (e) { 
+                console.error('从服务器加载会话失败:', e);
+                // 网络错误时，尝试从本地缓存加载（降级方案）
+                try {
+                    sessions = await loadSessionsFromDB();
+                    if (sessions.length > 0) {
+                        console.log(`[Init] 从本地缓存加载了 ${sessions.length} 个会话`);
+                        renderSessionList();
+                        await selectSession(sessions[0].id);
+                    }
+                } catch (e2) {
+                    console.error('本地缓存也失败:', e2);
+                }
+            }
+        }
+        
+        // 从服务器加载会话列表
+        async function loadSessionsFromServer() {
+            try {
+                console.log('[Session] 从服务器加载会话...');
+                const res = await fetch(`/api/sessions?token=${token}`);
+                if (!res.ok) throw new Error('服务器返回错误');
+                const data = await res.json();
+                
+                console.log('[Session] 服务器返回:', data);
+                
+                if (!data.sessions || data.sessions.length === 0) {
+                    console.log('[Session] 服务器没有会话');
+                    return [];
+                }
+                
+                // 将会话列表转换为前端格式
+                const serverSessions = [];
+                console.log(`[Session] 处理 ${data.sessions.length} 个会话...`);
+                
+                for (const s of data.sessions) {
+                    console.log(`[Session] 加载会话: ${s.id}`);
+                    
+                    // 获取完整聊天记录
+                    const messagesRes = await fetch(`/api/sessions/${encodeURIComponent(s.id)}?token=${token}`);
+                    if (!messagesRes.ok) {
+                        console.error(`[Session] 加载会话 ${s.id} 失败: ${messagesRes.status}`);
+                        continue;
+                    }
+                    const msgData = await messagesRes.json();
+                    console.log(`[Session] 会话 ${s.id} 有 ${msgData.messages?.length || 0} 条消息`);
+                    
+                    // 解析 Bot IDs（从消息中提取）
+                    const botIds = [...new Set(msgData.messages
+                        .filter(m => m.sender !== 'user')
+                        .map(m => m.sender))];
+                    
+                    // 如果没有 Bot，使用默认
+                    if (botIds.length === 0 && bots.length > 0) {
+                        botIds.push(bots[0].id);
+                    }
+                    
+                    // 注意：不再把 messages 保存到 session 对象中，避免重复
+                    // 消息只通过 loadChatHistory 加载一次
+                    serverSessions.push({
+                        id: s.id,
+                        name: `会话 ${new Date(s.updated_at * 1000).toLocaleDateString()}`,
+                        botIds: botIds,
+                        createdAt: s.updated_at * 1000,
+                        timestamp: s.updated_at * 1000
+                    });
+                }
+                
+                return serverSessions;
+            } catch (e) {
+                console.error('从服务器加载会话失败:', e);
+                return [];
+            }
+        }
+        
+        // 保存会话到服务器（用于新创建的会话）
+        async function saveSessionToServer(session) {
+            try {
+                console.log(`[Session] 保存新会话到服务器: ${session.id}`);
+                const res = await fetch(`/api/sessions?token=${token}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id: session.id,
+                        bot_ids: session.botIds
+                    })
+                });
+                if (!res.ok) {
+                    console.error('[Session] 保存会话失败:', await res.text());
+                    return false;
+                }
+                const result = await res.json();
+                console.log('[Session] 保存会话成功:', result);
+                return true;
+            } catch (e) {
+                console.error('[Session] 保存会话出错:', e);
+                return false;
+            }
+        }
+        
+        // 从服务器加载指定会话的聊天记录
+        async function loadMessagesFromServer(sessionId) {
+            try {
+                console.log(`[Session] 从服务器加载聊天记录: ${sessionId}`);
+                const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}?token=${token}`);
+                if (!res.ok) throw new Error('服务器返回错误');
+                
+                const data = await res.json();
+                if (!data.messages || data.messages.length === 0) {
+                    return [];
+                }
+                
+                // 转换为前端格式
+                return data.messages.map(m => ({
+                    type: m.sender === 'user' ? 'user' : 'bot',
+                    content: m.content,
+                    timestamp: m.time * 1000,
+                    botId: m.sender === 'user' ? null : m.sender
+                }));
+            } catch (e) {
+                console.error('从服务器加载聊天记录失败:', e);
+                return [];
+            }
+        }
+        
+        function renderSessionList() {
+            console.log(`[renderSessionList] 渲染会话列表, sessions数量: ${sessions.length}`);
+            const container = document.getElementById('botList');
+            if (sessions.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.4);padding:20px;">点击右上角"..."创建会话</div>';
+                return;
+            }
+            
+            console.log(`[renderSessionList] 将要渲染的sessions:`, sessions.map(s => s.id));
+            container.innerHTML = sessions.map((session, i) => {
+                const isActive = session.id === currentSessionId;
+                const botCount = session.botIds.length;
+                
+                // 生成头像组 HTML
+                const avatarGroupHtml = generateAvatarGroup(session.botIds);
+                
+                return `
+                    <div class="sidebar-item ${isActive ? 'active' : ''}" data-session-id="${session.id}" oncontextmenu="showSessionContextMenu(event, '${session.id}')">
+                        <div class="sidebar-delete-btn" onclick="event.stopPropagation(); confirmDeleteSession('${session.id}', event);">
+                            <i class="fas fa-trash-alt"></i> 删除
+                        </div>
+                        <div class="sidebar-item-content" onclick="selectSession('${session.id}')">
+                            ${avatarGroupHtml}
+                            <div class="sidebar-info" style="overflow:hidden;">
+                                <div class="sidebar-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${session.name}">${session.name}<span class="bot-tag">会话</span></div>
+                                <div class="sidebar-subtitle">${session.botIds.length} 个 Bot</div>
+                            </div>
+                            <div class="sidebar-meta"><div class="sidebar-time">${formatTime(session.createdAt)}</div></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // 绑定滑动事件
+            bindSwipeEvents();
+        }
+        
+        // 滑动删除相关变量
+        let swipeItem = null;
+        let swipeStartX = 0;
+        let swipeCurrentX = 0;
+        let swipeOffset = 0;
+        const SWIPE_THRESHOLD = -80; // 滑动阈值（显示删除按钮）
+        const MAX_SWIPE = -100; // 最大滑动距离
+        
+        function bindSwipeEvents() {
+            const items = document.querySelectorAll('.sidebar-item');
+            
+            items.forEach(item => {
+                // 触摸事件
+                item.addEventListener('touchstart', handleSwipeStart, { passive: true });
+                item.addEventListener('touchmove', handleSwipeMove, { passive: true });
+                item.addEventListener('touchend', handleSwipeEnd);
+                item.addEventListener('touchcancel', handleSwipeEnd);
+                
+                // 鼠标事件（桌面端支持）
+                item.addEventListener('mousedown', handleSwipeStart);
+            });
+        }
+        
+        function handleSwipeStart(e) {
+            // 如果点击的是删除按钮，不处理
+            if (e.target.closest('.sidebar-delete-btn')) return;
+            
+            const item = e.currentTarget;
+            
+            // 关闭其他已滑开的项
+            document.querySelectorAll('.sidebar-item.swiped').forEach(el => {
+                if (el !== item) {
+                    resetSwipe(el);
+                }
+            });
+            
+            swipeItem = item;
+            swipeStartX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            swipeItem.classList.add('swiping');
+        }
+        
+        function handleSwipeMove(e) {
+            if (!swipeItem) return;
+            
+            const currentX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const diff = currentX - swipeStartX;
+            
+            // 只允许向左滑动
+            if (diff < 0) {
+                swipeOffset = Math.max(diff, MAX_SWIPE);
+                const content = swipeItem.querySelector('.sidebar-item-content');
+                content.style.transform = `translateX(${swipeOffset}px)`;
+            }
+        }
+        
+        function handleSwipeEnd(e) {
+            if (!swipeItem) return;
+            
+            swipeItem.classList.remove('swiping');
+            const content = swipeItem.querySelector('.sidebar-item-content');
+            
+            // 判断是否超过阈值
+            if (swipeOffset <= SWIPE_THRESHOLD) {
+                // 显示删除按钮
+                content.style.transform = `translateX(-80px)`;
+                swipeItem.classList.add('swiped');
+            } else {
+                // 恢复原位
+                resetSwipe(swipeItem);
+            }
+            
+            swipeItem = null;
+            swipeStartX = 0;
+            swipeCurrentX = 0;
+            swipeOffset = 0;
+        }
+        
+        function resetSwipe(item) {
+            const content = item.querySelector('.sidebar-item-content');
+            content.style.transform = '';
+            item.classList.remove('swiped');
+        }
+        
+        // 全局点击关闭已滑开的项
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.sidebar-item')) {
+                document.querySelectorAll('.sidebar-item.swiped').forEach(resetSwipe);
+            }
+        });
+        
+        // 确认删除会话
+        async function confirmDeleteSession(sessionId, event) {
+            event.stopPropagation();
+            
+            console.log(`[confirmDeleteSession] 开始删除流程: ${sessionId}`);
+            
+            try {
+                const session = sessions.find(s => s.id === sessionId);
+                const sessionName = session ? session.name : '这个会话';
+                
+                // 检查 confirm 是否可用
+                let confirmed = false;
+                try {
+                    confirmed = confirm(`确定要删除"${sessionName}"吗？\n\n聊天记录将无法恢复。`);
+                } catch (e) {
+                    console.error('[confirmDeleteSession] confirm() 调用失败:', e);
+                }
+                
+                if (!confirmed) {
+                    console.log('[confirmDeleteSession] 用户取消删除或confirm被阻止');
+                    return;
+                }
+                
+                console.log('[confirmDeleteSession] 用户确认删除，开始执行');
+                // 执行删除
+                await deleteSessionById(sessionId);
+                console.log('[confirmDeleteSession] 删除流程完成');
+            } catch (e) {
+                console.error('[confirmDeleteSession] 删除失败:', e);
+                alert('删除失败: ' + e.message);
+            }
+        }
+        
+        // 根据ID删除会话（复用原有逻辑）
+        async function deleteSessionById(sessionId) {
+            console.log(`[deleteSessionById] 开始删除会话: ${sessionId}, 当前sessions数量: ${sessions.length}`);
+            
+            try {
+                // 从数据库删除
+                const success = await deleteSessionFromDB(sessionId);
+                if (!success) {
+                    console.error('[deleteSessionById] 删除失败，不从列表移除');
+                    alert('删除失败，请重试');
+                    return;
+                }
+                
+                // 从列表移除
+                console.log(`[deleteSessionById] 从列表移除会话: ${sessionId}, 删除前sessions数量: ${sessions.length}`);
+                const beforeCount = sessions.length;
+                sessions = sessions.filter(s => s.id !== sessionId);
+                console.log(`[deleteSessionById] 删除后sessions数量: ${sessions.length} (从 ${beforeCount} 减少)`);
+                
+                // 如果删除的是当前会话，切换到第一个
+                if (currentSessionId === sessionId) {
+                    currentSessionId = null;
+                    if (sessions.length > 0) {
+                        console.log(`[deleteSessionById] 删除的是当前会话，切换到: ${sessions[0].id}`);
+                        await selectSession(sessions[0].id);
+                        // selectSession 已经调用了 renderSessionList，所以直接返回
+                        console.log('[deleteSessionById] 切换完成，直接返回');
+                        return;
+                    } else {
+                        // 没有会话了，显示空状态
+                        document.getElementById('messages').innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-icon">🤖</div>
+                                <div>点击右上角"..."创建新会话</div>
+                            </div>
+                        `;
+                        document.getElementById('headerTitle').textContent = '选择一个 Bot';
+                        document.getElementById('headerAvatar').className = 'header-avatar bg-gradient-to-br from-blue-500 to-blue-600 text-white';
+                        document.getElementById('headerAvatar').innerHTML = '<i class="fas fa-robot"></i>';
+                        selectedBots.clear();
+                        updatePlaceholder();
+                    }
+                }
+                
+                // 重新渲染列表（无论是否删除当前会话都要执行）
+                console.log('[deleteSessionById] 调用 renderSessionList');
+                renderSessionList();
+                
+                // 强制刷新 DOM - 使用 requestAnimationFrame 确保在下一帧执行
+                requestAnimationFrame(() => {
+                    const container = document.getElementById('botList');
+                    if (container) {
+                        const originalDisplay = container.style.display;
+                        container.style.display = 'none';
+                        // 强制读取 layout 属性触发重排
+                        void container.offsetHeight;
+                        container.style.display = originalDisplay || '';
+                        console.log('[deleteSessionById] DOM 强制刷新完成');
+                    }
+                });
+            } catch (e) {
+                console.error('[deleteSessionById] 删除过程中发生错误:', e);
+                alert('删除过程中发生错误: ' + e.message);
+            }
+        }
+        
+        // 生成头像组
+        // - 单聊（1个Bot）：只显示Bot头像
+        // - 群聊（多个Bot）：显示用户头像 + Bot头像（最多3个）
+        function generateAvatarGroup(botIds) {
+            // 防御：如果 botIds 为空或 bots 未加载，返回默认头像
+            if (!botIds || botIds.length === 0 || bots.length === 0) {
+                return `
+                    <div class="group-avatar" style="display:flex;align-items:center;margin-right:12px;flex-shrink:0;">
+                        <div class="sidebar-avatar bg-gradient-to-br from-gray-400 to-gray-600 text-white" style="width:40px;height:40px;">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 单聊：只显示第一个Bot的头像
+            if (botIds.length === 1) {
+                const bot = bots.find(b => b.id === botIds[0]);
+                if (!bot) {
+                    // Bot 未找到，返回默认头像
+                    return `
+                        <div class="group-avatar" style="display:flex;align-items:center;margin-right:12px;flex-shrink:0;">
+                            <div class="sidebar-avatar bg-gradient-to-br from-blue-400 to-blue-600 text-white" style="width:40px;height:40px;">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                        </div>
+                    `;
+                }
+                const botIdx = bots.findIndex(b => b.id === botIds[0]);
+                const cfg = botConfigs[botIdx % botConfigs.length];
+                
+                return `
+                    <div class="group-avatar" style="display:flex;align-items:center;margin-right:12px;flex-shrink:0;">
+                        <div class="sidebar-avatar ${cfg.color} text-white" style="width:40px;height:40px;">
+                            <i class="fas ${cfg.icon}"></i>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 群聊：显示用户 + Bot头像
+            const maxDisplay = 2; // 最多显示2个Bot头像（加上用户共3个）
+            const displayBots = botIds.slice(0, maxDisplay);
+            const remainingCount = botIds.length - maxDisplay;
+            
+            // 用户头像（固定渐变色，在最前面）
+            const userAvatar = `
+                <div class="group-avatar-item" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;border:2px solid #1e222d;z-index:10;flex-shrink:0;">
+                    <i class="fas fa-user"></i>
+                </div>
+            `;
+            
+            // Bot头像
+            const botAvatars = displayBots.map((botId, idx) => {
+                const bot = bots.find(b => b.id === botId);
+                if (!bot) return '';
+                const botIdx = bots.findIndex(b => b.id === botId);
+                const cfg = botConfigs[botIdx % botConfigs.length];
+                const zIndex = 9 - idx;
+                const marginLeft = '-10px';
+                
+                // 提取渐变背景色
+                let bgStyle = '';
+                if (cfg.color.includes('from-blue')) {
+                    bgStyle = 'background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+                } else if (cfg.color.includes('from-green')) {
+                    bgStyle = 'background:linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
+                } else if (cfg.color.includes('from-purple')) {
+                    bgStyle = 'background:linear-gradient(135deg, #a855f7 0%, #9333ea 100%)';
+                } else {
+                    bgStyle = 'background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+                }
+                
+                return `
+                    <div class="group-avatar-item" style="width:28px;height:28px;border-radius:50%;${bgStyle};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;border:2px solid #1e222d;z-index:${zIndex};margin-left:${marginLeft};flex-shrink:0;">
+                        <i class="fas ${cfg.icon}"></i>
+                    </div>
+                `;
+            }).join('');
+            
+            // 更多数量提示
+            const moreBadge = remainingCount > 0 ? `
+                <div style="width:28px;height:28px;border-radius:50%;background:#3370ff;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;border:2px solid #1e222d;z-index:1;margin-left:-10px;flex-shrink:0;">
+                    +${remainingCount}
+                </div>
+            ` : '';
+            
+            return `
+                <div class="group-avatar" style="display:flex;align-items:center;margin-right:12px;flex-shrink:0;min-width:28px;">
+                    ${userAvatar}
+                    ${botAvatars}
+                    ${moreBadge}
+                </div>
+            `;
+        }
+        
+        function formatTime(timestamp) {
+            const now = Date.now();
+            const diff = now - timestamp;
+            
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+            const date = new Date(timestamp);
+            return `${date.getMonth() + 1}月${date.getDate()}日`;
+        }
+        
+        // 待处理消息记录（用于切换会话后恢复）
+        const pendingMessages = new Map(); // {msgId: {sessionId, botId, content, timestamp}}
+        
+        async function selectSession(sessionId) {
+            // 在切换会话前，记录正在生成的消息信息（包括当前内容）
+            if (currentSessionId && streamingMessages.size > 0) {
+                console.log(`[切换会话] 记录 ${streamingMessages.size} 个正在生成的消息`);
+                
+                for (const [msgId, stream] of streamingMessages) {
+                    if (stream.isStreaming) {
+                        // 获取当前消息内容（从 content 元素中）
+                        const contentEl = document.getElementById(`content-${msgId}`);
+                        const currentContent = contentEl ? contentEl.innerHTML : '';
+                        
+                        // 记录完整信息，包括当前内容
+                        pendingMessages.set(msgId, {
+                            sessionId: stream.sessionId,
+                            botId: stream.botId,
+                            content: currentContent,
+                            timestamp: stream.timestamp || Date.now(),
+                            botName: stream.botName || stream.botId
+                        });
+                        
+                        console.log(`[切换会话] 保存消息 ${msgId} 的内容，长度: ${currentContent.length}`);
+                    }
+                }
+            }
+            
+            currentSessionId = sessionId;
+            const session = sessions.find(s => s.id === sessionId);
+            
+            if (session) {
+                selectedBots = new Set(session.botIds);
+                updateHeader(session);
+                await loadChatHistory(sessionId);
+                
+                // 获取加载后的消息容器中的所有 bot 消息
+                const loadedBotMessages = document.querySelectorAll('#messages .message-item:not(.message-self)');
+                const lastBotMessage = loadedBotMessages.length > 0 ? loadedBotMessages[loadedBotMessages.length - 1] : null;
+                
+                // 恢复当前会话的 pending 消息
+                let hasPendingMessage = false;
+                for (const [msgId, pending] of pendingMessages) {
+                    if (pending.sessionId === sessionId) {
+                        // 检查该消息是否已经完成（历史记录中是否有对应的 bot 回复）
+                        let isMessageCompleted = false;
+                        
+                        if (lastBotMessage) {
+                            const senderEl = lastBotMessage.querySelector('.message-sender');
+                            const contentEl = lastBotMessage.querySelector('.message-content');
+                            
+                            // 如果最后一条消息是同一个 bot 发送的，且内容与 pending 消息的前100字符匹配
+                            if (senderEl && senderEl.textContent === (pending.botName || pending.botId)) {
+                                if (contentEl && pending.content) {
+                                    const pendingText = pending.content.substring(0, 100);
+                                    const existingText = contentEl.textContent.substring(0, 100);
+                                    if (existingText.includes(pendingText) || pendingText.includes(existingText)) {
+                                        console.log(`[selectSession] Pending 消息 ${msgId} 已完成，跳过恢复`);
+                                        isMessageCompleted = true;
+                                        // 从历史记录中移除这个 pending 消息
+                                        pendingMessages.delete(msgId);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (!isMessageCompleted) {
+                            hasPendingMessage = true;
+                            // 恢复消息气泡
+                            restorePendingMessage(msgId, pending);
+                        }
+                    }
+                }
+                
+                if (hasPendingMessage) {
+                    showStopBtn();
+                }
+                
+                // 清理不属于当前 streamingMessages 的残留 loading 元素
+                setTimeout(() => {
+                    const allLoading = document.querySelectorAll('.message-loading');
+                    allLoading.forEach(el => {
+                        const msgId = el.id.replace('loading-', '');
+                        if (!streamingMessages.has(msgId)) {
+                            console.log(`[selectSession] 清理残留 loading: ${el.id}`);
+                            el.remove();
+                        }
+                    });
+                }, 100);
+            }
+            
+            renderSessionList();
+            
+            // 强制刷新 DOM
+            requestAnimationFrame(() => {
+                const container = document.getElementById('botList');
+                if (container) {
+                    const originalDisplay = container.style.display;
+                    container.style.display = 'none';
+                    void container.offsetHeight;
+                    container.style.display = originalDisplay || '';
+                }
+            });
+            
+            updatePlaceholder();
+        }
+        
+        // 从已完成的流创建消息气泡（当 finishMsg 发现流已完成但不在当前会话时）
+        function restoreBotMessageFromPending(msgId, botId, botName, content) {
+            // 检查消息是否已存在（通过 ID）
+            const existingWrapper = document.getElementById(`msg-${msgId}`);
+            if (existingWrapper) {
+                console.log(`[restoreBotMessageFromPending] 消息 ${msgId} 已存在，更新内容并移除loading`);
+                // 移除 loading 元素
+                const loadingEl = document.getElementById(`loading-${msgId}`);
+                if (loadingEl) {
+                    loadingEl.remove();
+                }
+                // 更新内容
+                const contentEl = existingWrapper.querySelector('.message-content');
+                if (contentEl && content) {
+                    let html = marked.parse(content);
+                    html = processCode(html);
+                    html = processImages(html);
+                    contentEl.innerHTML = html;
+                    contentEl.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+                }
+                return;
+            }
+            
+            // 检查消息是否已存在于历史记录中（通过内容匹配）
+            const messagesContainer = document.getElementById('messages');
+            const existingBotMessages = messagesContainer.querySelectorAll('.message-item:not(.message-self)');
+            for (const msg of existingBotMessages) {
+                const senderEl = msg.querySelector('.message-sender');
+                if (senderEl && senderEl.textContent === botName) {
+                    // 可能是同一个消息，检查内容
+                    const contentEl = msg.querySelector('.message-content');
+                    if (contentEl && content && contentEl.textContent.includes(content.substring(0, 100))) {
+                        console.log(`[restoreBotMessageFromPending] 消息内容已存在于历史记录中，跳过`);
+                        return;
+                    }
+                }
+            }
+            
+            const botIdx = bots.findIndex(b => b.id === botId);
+            const cfg = botConfigs[botIdx % botConfigs.length];
+            
+            addTimeDivider();
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.id = `msg-${msgId}`;
+            
+            let html = marked.parse(content);
+            html = processCode(html);
+            html = processImages(html);
+            
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item">
+                        <div class="message-left">
+                            <div class="message-avatar ${cfg.color} text-white">
+                                <i class="fas ${cfg.icon}" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-info">
+                                <span class="message-sender">${botName}</span>
+                                <span class="message-timestamp">${getTimeStr()}</span>
+                            </div>
+                            <div class="message-section">
+                                <div class="message-content markdown-body">${html}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            wrapper.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+            scrollBottom();
+        }
+        
+        // 恢复正在生成的消息气泡
+        function restorePendingMessage(msgId, pending) {
+            // 检查消息是否已存在
+            if (document.getElementById(`msg-${msgId}`)) {
+                console.log(`[恢复消息] 消息 ${msgId} 已存在，跳过`);
+                return; // 已存在，不重复添加
+            }
+            
+            // 检查该消息是否已经完成（从后端加载的历史中查找）
+            const messagesContainer = document.getElementById('messages');
+            const existingBotMessages = messagesContainer.querySelectorAll('.message-item:not(.message-self)');
+            for (const msg of existingBotMessages) {
+                const senderEl = msg.querySelector('.message-sender');
+                if (senderEl && senderEl.textContent === (pending.botName || pending.botId)) {
+                    // 可能是同一个消息，检查内容
+                    const contentEl = msg.querySelector('.message-content');
+                    // 如果内容匹配，或者 pending 内容为空（可能是已完成的消息），都跳过
+                    if (contentEl) {
+                        if (!pending.content || pending.content.length === 0) {
+                            console.log(`[恢复消息] 消息 ${msgId} 内容为空，可能已完成，跳过`);
+                            return;
+                        }
+                        if (contentEl.innerHTML.includes(pending.content.substring(0, 50))) {
+                            console.log(`[恢复消息] 消息 ${msgId} 已存在于历史记录中，跳过`);
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            const bot = bots.find(b => b.id === pending.botId);
+            const botIdx = bots.findIndex(b => b.id === pending.botId);
+            const cfg = botConfigs[botIdx % botConfigs.length];
+            
+            addTimeDivider();
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.id = `msg-${msgId}`;
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item">
+                        <div class="message-left">
+                            <div class="message-avatar ${cfg ? cfg.color : 'bg-gradient-to-br from-blue-500 to-blue-600'} text-white">
+                                <i class="fas ${cfg ? cfg.icon : 'fa-robot'}" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-info">
+                                <span class="message-sender">${pending.botName || pending.botId}</span>
+                                <span class="message-timestamp">${getTimeStr()}</span>
+                            </div>
+                            <div class="message-section">
+                                <div id="content-${msgId}" class="message-content markdown-body">${pending.content || ''}</div>
+                                <div id="loading-${msgId}" class="message-loading" style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e0e0e0;">
+                                    <span class="loading-indicator" style="color: #3370ff; font-size: 16px; display: inline-block; width: 20px; text-align: center;">${loadingSymbols[0]}</span>
+                                    <span style="color: #8f959e; font-size: 12px; margin-left: 4px;">生成中...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            
+            // 获取 content 元素（与 createBotMsg 保持一致）
+            const contentEl = document.getElementById(`content-${msgId}`);
+            
+            // 重新创建加载动画
+            const loadingInterval = setInterval(() => {
+                const loadingEl = document.getElementById(`loading-${msgId}`);
+                if (loadingEl) {
+                    const indicator = loadingEl.querySelector('.loading-indicator');
+                    if (indicator) {
+                        const currentSymbol = indicator.textContent;
+                        const nextIndex = (loadingSymbols.indexOf(currentSymbol) + 1) % loadingSymbols.length;
+                        indicator.textContent = loadingSymbols[nextIndex];
+                    }
+                } else {
+                    clearInterval(loadingInterval);
+                }
+            }, 300);
+            
+            // 更新 streamingMessages（element 应该是 contentEl，不是 wrapper）
+            streamingMessages.set(msgId, {
+                element: contentEl,  // 重要：与 createBotMsg 保持一致
+                isStreaming: true,
+                sessionId: pending.sessionId,
+                botId: pending.botId,
+                botName: pending.botName,
+                timestamp: pending.timestamp,
+                loadingInterval: loadingInterval
+            });
+            
+            activeStreams.add(msgId);
+            
+            scrollBottom();
+            console.log(`[恢复消息] 已恢复消息气泡: ${msgId}`);
+        }
+        
+        // 兼容旧代码
+        function renderBotList() {
+            renderSessionList();
+        }
+        
+        async function selectBot(id) {
+            // 查找或创建单 Bot 会话
+            let session = sessions.find(s => s.botIds.length === 1 && s.botIds[0] === id);
+            
+            if (!session) {
+                // 创建新会话
+                const bot = bots.find(b => b.id === id);
+                if (bot) {
+                    session = createSession([id], bot.name || bot.id);
+                    sessions.push(session);
+                    await saveSessionToDB(session);
+                }
+            }
+            
+            if (session) {
+                await selectSession(session.id);
+            }
+        }
+        
+        function updateHeader(session = null) {
+            if (!session) {
+                session = sessions.find(s => s.id === currentSessionId);
+            }
+            
+            if (!session || session.botIds.length === 0) {
+                document.getElementById('headerTitle').textContent = '选择一个会话';
+                document.getElementById('headerAvatar').className = 'header-avatar bg-gradient-to-br from-blue-500 to-blue-600 text-white';
+                document.getElementById('headerAvatar').innerHTML = '<i class="fas fa-robot"></i>';
+                return;
+            }
+            
+            // 使用第一个 Bot 的头像
+            const firstBotId = session.botIds[0];
+            const botIdx = bots.findIndex(b => b.id === firstBotId);
+            const cfg = botConfigs[botIdx % botConfigs.length];
+            
+            document.getElementById('headerTitle').textContent = session.name;
+            document.getElementById('headerAvatar').className = `header-avatar ${cfg.color} text-white`;
+            document.getElementById('headerAvatar').innerHTML = `<i class="fas ${cfg.icon}"></i>`;
+        }
+        
+        function updatePlaceholder() {
+            const input = document.getElementById('messageInput');
+            if (!currentSessionId || selectedBots.size === 0) {
+                input.placeholder = '请先选择一个会话';
+            } else {
+                input.placeholder = `发送给 ${selectedBots.size} 个 Bot`;
+            }
+        }
+        
+        function connectWebSocket() {
+            console.log('Connecting WebSocket...');
+            if (!token) {
+                console.error('No token found!');
+                return;
+            }
+            console.log('Token:', token);
+            ws = new WebSocket(`ws://${window.location.host}/ws/chat?token=${token}`);
+            ws.onopen = () => { 
+                console.log('WebSocket connected!');
+                isConnected = true; 
+            };
+            ws.onmessage = (e) => handleMsg(JSON.parse(e.data));
+            ws.onclose = (e) => { 
+                console.log('WebSocket closed:', e.code, e.reason);
+                isConnected = false;
+                setTimeout(connectWebSocket, 5000); 
+            };
+            ws.onerror = (e) => {
+                console.error('WebSocket error:', e);
+            };
+        }
+        
+        function handleMsg(data) {
+            switch(data.type) {
+                case 'start': createBotMsg(data); break;
+                case 'chunk': appendChunk(data); break;
+                case 'done': finishMsg(data); break;
+                case 'error': showError(data); break;
+                // MCP 消息类型（定时任务等场景）
+                case 'mcp_message': createMCPMessage(data); break;
+                case 'mcp_file': createMCPFile(data); break;
+                case 'mcp_notify': createMCPNotify(data); break;
+            }
+        }
+        
+        // MCP: 显示定时任务等发送的文本消息
+        function createMCPMessage(data) {
+            document.querySelector('.empty-state')?.remove();
+            addTimeDivider();
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item">
+                        <div class="message-left">
+                            <div class="message-avatar bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+                                <i class="fas fa-robot" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-info">
+                                <span class="message-sender">系统通知</span>
+                                <span class="message-timestamp">${getTimeStr()}</span>
+                            </div>
+                            <div class="message-section">
+                                <div class="message-content markdown-body">${marked.parse(data.content || '')}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            scrollBottom();
+        }
+        
+        // MCP: 显示定时任务等发送的文件
+        function createMCPFile(data) {
+            document.querySelector('.empty-state')?.remove();
+            addTimeDivider();
+            
+            const sizeStr = formatFileSize(data.file_size || 0);
+            const fileUrl = data.file_url || `/uploads/${data.file_id || ''}`;
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item">
+                        <div class="message-left">
+                            <div class="message-avatar bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+                                <i class="fas fa-file" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-info">
+                                <span class="message-sender">系统通知</span>
+                                <span class="message-timestamp">${getTimeStr()}</span>
+                            </div>
+                            <div class="message-section">
+                                <div class="message-content">
+                                    <div class="file-bubble" onclick="downloadFile('${fileUrl}', '${data.file_name || '文件'}')" 
+                                         style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f5f5f5; border-radius: 8px; cursor: pointer; min-width: 200px; max-width: 400px;">
+                                        <div style="width: 40px; height: 40px; background: #3370ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <i class="fas fa-file-alt" style="color: white; font-size: 18px;"></i>
+                                        </div>
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${data.file_name || '文件'}</div>
+                                            <div style="font-size: 12px; color: #8f959e; margin-top: 2px;">${sizeStr}</div>
+                                        </div>
+                                        <i class="fas fa-download" style="color: #8f959e; flex-shrink: 0;"></i>
+                                    </div>
+                                    ${data.file_path ? `<div style="margin-top: 8px; font-size: 12px; color: #8f959e;">路径: ${data.file_path}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            scrollBottom();
+        }
+        
+        // MCP: 显示通知
+        function createMCPNotify(data) {
+            document.querySelector('.empty-state')?.remove();
+            
+            const colors = {
+                'info': '#3370ff',
+                'success': '#00b42a',
+                'warning': '#ff9a2e',
+                'error': '#f54a45'
+            };
+            const icons = {
+                'info': 'fa-info-circle',
+                'success': 'fa-check-circle',
+                'warning': 'fa-exclamation-triangle',
+                'error': 'fa-times-circle'
+            };
+            const color = colors[data.notify_type] || colors.info;
+            const icon = icons[data.notify_type] || icons.info;
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div style="margin: 8px 20px; padding: 12px 16px; background: ${color}15; border-left: 3px solid ${color}; border-radius: 6px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <i class="fas ${icon}" style="color: ${color};"></i>
+                            <span style="font-weight: 600; color: ${color};">${data.title || '通知'}</span>
+                        </div>
+                        <div style="color: #4e5969; font-size: 13px;">${data.content || ''}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            scrollBottom();
+        }
+        
+        function getTimeStr() {
+            const now = new Date();
+            return `${now.getMonth()+1}月${now.getDate()}日 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        }
+        
+        function shouldShowTime() {
+            const now = Date.now();
+            if (!lastMsgTime || now - lastMsgTime > 5 * 60 * 1000) {
+                lastMsgTime = now;
+                return true;
+            }
+            return false;
+        }
+        
+        function addTimeDivider() {
+            if (!shouldShowTime()) return;
+            const div = document.createElement('div');
+            div.className = 'message-time-divider';
+            div.textContent = getTimeStr();
+            document.getElementById('messages').appendChild(div);
+        }
+        
+        function createUserMsg(text) {
+            document.querySelector('.empty-state')?.remove();
+            addTimeDivider();
+            
+            // 预处理 Markdown，将图片和文件链接转换为特定格式
+            let processedText = text;
+            
+            // 处理图片: ![alt](url) -> [IMG:url|alt]
+            processedText = processedText.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '[IMG:$2|$1]');
+            
+            // 处理文件链接: [text](url) 保留，后续处理
+            
+            // 生成 HTML
+            let html = marked.parse(processedText);
+            
+            // 处理图片占位符
+            html = html.replace(/\[IMG:([^|]+)\|([^\]]*)\]/g, (match, url, alt) => {
+                const fullUrl = url + (url.includes('?') ? '&' : '?') + 'token=' + token;
+                return `<img src="${fullUrl}" alt="${alt}" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="previewImage('${fullUrl}')">`;
+            });
+            
+            // 处理文件链接 - 将特定格式的链接转换为文件气泡
+            html = html.replace(/<a[^>]*href="(\/uploads\/[^"]+)"[^>]*>(.*?)<\/a>/gi, (match, href, fileName) => {
+                const fullUrl = href + (href.includes('?') ? '&' : '?') + 'token=' + token;
+                return `<div class="file-bubble" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f5f5f5; border-radius: 8px; cursor: pointer; min-width: 200px; max-width: 400px; margin: 4px 0;" onclick="event.preventDefault(); const a=document.createElement('a'); a.href='${fullUrl}'; a.download='${fileName}'; a.target='_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a);">
+                    <div style="width: 40px; height: 40px; background: #3370ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="fas fa-file" style="color: white; font-size: 18px;"></i>
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${fileName}</div>
+                        <div style="font-size: 12px; color: #8f959e; margin-top: 2px;">点击下载</div>
+                    </div>
+                    <i class="fas fa-download" style="color: #8f959e; flex-shrink: 0;"></i>
+                </div>`;
+            });
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item message-self">
+                        <div class="message-left">
+                            <div class="message-avatar bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                                <i class="fas fa-user" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-section">
+                                <div class="message-content markdown-body">${html}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            scrollBottom();
+            
+            // 保存到本地数据库
+            const botId = currentBotId || Array.from(selectedBots)[0];
+            if (botId) {
+                saveMessageToDB({
+                    type: 'user',
+                    botId: botId,
+                    content: text
+                });
+            }
+        }
+        
+        // 加载动画符号序列：空心圆、左白右黑、全黑圆、左黑右白
+        const loadingSymbols = ['○', '◐', '●', '◑'];
+        
+        function createBotMsg(data) {
+            const { msg_id, bot_id, bot_name } = data;
+            const botIdx = bots.findIndex(b => b.id === bot_id);
+            const cfg = botConfigs[botIdx % botConfigs.length];
+            
+            addTimeDivider();
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.id = `msg-${msg_id}`;
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item">
+                        <div class="message-left">
+                            <div class="message-avatar ${cfg.color} text-white">
+                                <i class="fas ${cfg.icon}" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-info">
+                                <span class="message-sender">${bot_name || bot_id}</span>
+                                <span class="message-timestamp">${getTimeStr()}</span>
+                            </div>
+                            <div class="message-section">
+                                <div id="content-${msg_id}" class="message-content markdown-body"></div>
+                                <div id="loading-${msg_id}" class="message-loading" style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e0e0e0;">
+                                    <span class="loading-indicator" style="color: #3370ff; font-size: 16px; display: inline-block; width: 20px; text-align: center;">${loadingSymbols[0]}</span>
+                                    <span style="color: #8f959e; font-size: 12px; margin-left: 4px;">生成中...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            scrollBottom();
+            
+            // 记录会话ID，用于切换会话时识别
+            const sessionId = currentSessionId;
+            const contentEl = document.getElementById(`content-${msg_id}`);
+            streamingMessages.set(msg_id, {
+                element: contentEl,
+                isStreaming: true,
+                sessionId: sessionId,
+                botId: bot_id
+            });
+            
+            // 启动加载动画
+            let symbolIndex = 0;
+            const loadingInterval = setInterval(() => {
+                const stream = streamingMessages.get(msg_id);
+                if (!stream || !stream.isStreaming) {
+                    clearInterval(loadingInterval);
+                    return;
+                }
+                
+                const loadingContainer = document.getElementById(`loading-${msg_id}`);
+                if (loadingContainer) {
+                    const loadingEl = loadingContainer.querySelector('.loading-indicator');
+                    if (loadingEl) {
+                        symbolIndex = (symbolIndex + 1) % loadingSymbols.length;
+                        loadingEl.textContent = loadingSymbols[symbolIndex];
+                    }
+                }
+            }, 300); // 每300ms切换一次
+            
+            // 保存interval以便清理
+            streamingMessages.get(msg_id).loadingInterval = loadingInterval;
+            
+            // 记录活跃的流并显示停止按钮
+            activeStreams.add(msg_id);
+            showStopBtn();
+        }
+        
+        function processCode(html) {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            temp.querySelectorAll('pre').forEach(pre => {
+                const code = pre.querySelector('code');
+                if (!code) return;
+                const codeText = code.textContent;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'code-block-wrapper';
+                wrapper.innerHTML = `<button class="code-copy-btn" onclick="copyCode(this,'${btoa(encodeURIComponent(codeText))}')">复制</button>`;
+                pre.parentNode.insertBefore(wrapper, pre);
+                wrapper.appendChild(pre);
+            });
+            return temp.innerHTML;
+        }
+        
+        window.copyCode = async function(btn, encoded) {
+            try {
+                await navigator.clipboard.writeText(decodeURIComponent(atob(encoded)));
+                btn.textContent = '已复制';
+                setTimeout(() => btn.textContent = '复制', 2000);
+            } catch(e) {}
+        };
+        
+        function appendChunk(data) {
+            const stream = streamingMessages.get(data.msg_id);
+            if (stream && stream.isStreaming) {
+                // 注意：不在这里隐藏loading，让它继续显示在底部
+                // loading只在finishMsg时隐藏
+                
+                let html = marked.parse(data.content);
+                html = processCode(html);
+                html = processImages(html);
+                stream.element.innerHTML = html;
+                stream.element.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+                scrollBottom();
+                
+                // 如果该消息在 pendingMessages 中，更新内容
+                if (pendingMessages.has(data.msg_id)) {
+                    const pending = pendingMessages.get(data.msg_id);
+                    pending.content = html;
+                    pendingMessages.set(data.msg_id, pending);
+                }
+            }
+        }
+        
+        function processImages(html) {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            
+            // 处理 Markdown 图片: ![alt](url)
+            temp.querySelectorAll('img').forEach(img => {
+                const src = img.getAttribute('src');
+                if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+                    // 添加 token 到本地图片 URL
+                    img.src = src + (src.includes('?') ? '&' : '?') + 'token=' + token;
+                }
+                img.style.maxWidth = '300px';
+                img.style.maxHeight = '300px';
+                img.style.borderRadius = '8px';
+                img.style.cursor = 'pointer';
+                img.onclick = () => previewImage(img.src);
+            });
+            
+            // 处理文件链接: [filename](url)
+            temp.querySelectorAll('a').forEach(link => {
+                const href = link.getAttribute('href') || '';
+                const text = link.textContent || '';
+                
+                // 检查是否是文件链接（非 http 开头或是 uploads 路径）
+                if ((href.includes('/uploads/') || href.includes('/api/file/')) && !link.classList.contains('processed')) {
+                    link.classList.add('processed');
+                    
+                    // 创建文件气泡元素
+                    const fileBubble = document.createElement('div');
+                    fileBubble.className = 'file-bubble';
+                    fileBubble.style.cssText = 'display: flex; align-items: center; gap: 12px; padding: 12px; background: #f5f5f5; border-radius: 8px; cursor: pointer; min-width: 200px; max-width: 400px; margin: 4px 0;';
+                    fileBubble.innerHTML = `
+                        <div style="width: 40px; height: 40px; background: #3370ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-file" style="color: white; font-size: 18px;"></i>
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${text}</div>
+                            <div style="font-size: 12px; color: #8f959e; margin-top: 2px;">点击下载</div>
+                        </div>
+                        <i class="fas fa-download" style="color: #8f959e; flex-shrink: 0;"></i>
+                    `;
+                    fileBubble.onclick = (e) => {
+                        e.preventDefault();
+                        downloadFile(href, text);
+                    };
+                    
+                    // 替换链接
+                    link.parentNode.replaceChild(fileBubble, link);
+                }
+            });
+            
+            return temp.innerHTML;
+        }
+        
+        function finishMsg(data) {
+            // 首先检查当前显示的流式消息
+            let stream = streamingMessages.get(data.msg_id);
+            let content = null;
+            let messageSessionId = currentSessionId;
+            
+            if (stream) {
+                // 立即移除加载动画（最先执行，避免延迟）
+                const loadingContainer = document.getElementById(`loading-${data.msg_id}`);
+                if (loadingContainer) {
+                    loadingContainer.remove();
+                }
+                // 强制浏览器重绘
+                if (stream.element) {
+                    stream.element.style.display = 'none';
+                    stream.element.offsetHeight; // 触发重排
+                    stream.element.style.display = '';
+                }
+                
+                stream.isStreaming = false;
+                streamingMessages.delete(data.msg_id);
+                activeStreams.delete(data.msg_id);
+                
+                // 清理加载动画interval
+                if (stream.loadingInterval) {
+                    clearInterval(stream.loadingInterval);
+                    delete stream.loadingInterval;
+                }
+                
+                content = data.final || stream.element.innerHTML;
+                messageSessionId = stream.sessionId || currentSessionId;
+                
+                // 更新 DOM（只有当前可见时才更新）
+                if (content) {
+                    let html = marked.parse(content);
+                    html = processCode(html);
+                    html = processImages(html);
+                    stream.element.innerHTML = html;
+                    stream.element.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+                    scrollBottom();
+                }
+            } else {
+                // 检查待处理消息记录
+                const pending = pendingMessages.get(data.msg_id);
+                if (pending) {
+                    messageSessionId = pending.sessionId;
+                    content = data.final || '';
+                    pendingMessages.delete(data.msg_id);
+                    
+                    // 移除可能存在的 loading 元素（来自 restorePendingMessage 创建的消息气泡）
+                    const loadingContainer = document.getElementById(`loading-${data.msg_id}`);
+                    if (loadingContainer) {
+                        console.log(`[finishMsg] 移除 pending 消息的 loading: ${data.msg_id}`);
+                        loadingContainer.remove();
+                    }
+                    
+                    // 如果当前会话就是消息所属的会话，创建消息气泡
+                    if (messageSessionId === currentSessionId && content) {
+                        console.log(`[finishMsg] 为已完成的流创建消息气泡: ${data.msg_id}`);
+                        restoreBotMessageFromPending(data.msg_id, data.bot_id, data.bot_name || data.bot_id, content);
+                    }
+                }
+            }
+            
+            // 统一保存到数据库（无论当前是否可见）
+            if (content) {
+                const botId = data.bot_id || (stream ? stream.botId : null);
+                
+                if (botId && messageSessionId && db) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = content;
+                    const textContent = tempDiv.textContent || tempDiv.innerText || content;
+                    
+                    const transaction = db.transaction(['messages'], 'readwrite');
+                    const store = transaction.objectStore('messages');
+                    const index = store.index('sessionId');
+                    const request = index.getAll(messageSessionId);
+                    
+                    request.onsuccess = (event) => {
+                        const records = event.target.result;
+                        const existingRecord = records.find(r => r.msgId === data.msg_id);
+                        
+                        if (existingRecord) {
+                            // 更新已有记录（理论上不应该有，但为了保险）
+                            existingRecord.content = textContent;
+                            existingRecord.timestamp = Date.now();
+                            store.put(existingRecord);
+                        } else {
+                            // 添加新记录
+                            store.add({
+                                type: 'bot',
+                                botId: botId,
+                                content: textContent,
+                                timestamp: Date.now(),
+                                sessionId: messageSessionId,
+                                msgId: data.msg_id
+                            });
+                        }
+                    };
+                }
+            }
+            
+            // 清理停止按钮
+            if (streamingMessages.size === 0 && pendingMessages.size === 0) {
+                hideStopBtn();
+            }
+        }
+        
+        function showError(data) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div style="padding: 12px 20px; color: #cf1322; background: #fff2f0; margin: 0 20px; border-radius: 6px;">
+                        [${data.bot_id}] 错误: ${data.error}
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            scrollBottom();
+            
+            // 清除活跃的流并隐藏停止按钮
+            activeStreams.delete(data.msg_id);
+            streamingMessages.delete(data.msg_id);
+            if (activeStreams.size === 0) {
+                hideStopBtn();
+            }
+        }
+        
+        // ========== 文件上传功能 ==========
+        
+        function selectImage() {
+            document.getElementById('imageInput').click();
+        }
+        
+        function selectFile() {
+            document.getElementById('fileInput').click();
+        }
+        
+        async function handleImageSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // 验证文件类型
+            if (!file.type.startsWith('image/')) {
+                alert('请选择图片文件');
+                return;
+            }
+            
+            // 验证文件大小 (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('图片大小不能超过10MB');
+                return;
+            }
+            
+            await uploadFile(file, true);
+            event.target.value = ''; // 清空选择器
+        }
+        
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // 验证文件大小 (50MB)
+            if (file.size > 50 * 1024 * 1024) {
+                alert('文件大小不能超过50MB');
+                return;
+            }
+            
+            await uploadFile(file, false);
+            event.target.value = ''; // 清空选择器
+        }
+        
+        // 保存待发送的文件信息
+        let pendingFile = null;
+        
+        async function uploadFile(file, isImage) {
+            if (selectedBots.size === 0) {
+                alert('请先选择一个 Bot');
+                return;
+            }
+            if (!isConnected) {
+                alert('网络未连接');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('token', token);
+            
+            try {
+                // 先显示上传中状态
+                const uploadingMsg = createUploadingMsg(isImage ? '图片' : '文件');
+                
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                // 移除上传中状态
+                uploadingMsg.remove();
+                
+                if (result.success) {
+                    // 显示用户消息（只显示文件，不发送）
+                    if (isImage) {
+                        createUserImageMsg(result.file_url, result.file_name);
+                    } else {
+                        createUserFileMsg(result);
+                    }
+                    
+                    // 保存文件信息，等待用户输入消息后一起发送
+                    pendingFile = {
+                        ...result,
+                        isImage: isImage
+                    };
+                    
+                    // 在输入框中显示文件已添加的提示
+                    const input = document.getElementById('messageInput');
+                    const fileTypeText = isImage ? '图片' : '文件';
+                    input.placeholder = `[已添加${fileTypeText}: ${result.file_name}] 请输入消息后发送...`;
+                    input.focus();
+                    
+                } else {
+                    alert('上传失败: ' + result.error);
+                }
+            } catch (error) {
+                console.error('上传错误:', error);
+                alert('上传失败');
+            }
+        }
+        
+        function createUploadingMsg(type) {
+            document.querySelector('.empty-state')?.remove();
+            addTimeDivider();
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper uploading-msg';
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item message-self">
+                        <div class="message-left">
+                            <div class="message-avatar bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                                <i class="fas fa-user" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-section">
+                                <div class="message-content" style="color: #8f959e;">
+                                    <i class="fas fa-spinner fa-spin"></i> 正在上传${type}...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            scrollBottom();
+            return wrapper;
+        }
+        
+        function createUserImageMsg(imageUrl, fileName) {
+            document.querySelector('.empty-state')?.remove();
+            addTimeDivider();
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item message-self">
+                        <div class="message-left">
+                            <div class="message-avatar bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                                <i class="fas fa-user" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-section">
+                                <div class="message-content">
+                                    <img src="${imageUrl}" alt="${fileName}" 
+                                         style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;"
+                                         onclick="previewImage('${imageUrl}')"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                    <div style="display: none; padding: 8px; background: #f5f5f5; border-radius: 6px;">
+                                        <i class="fas fa-image"></i> ${fileName}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            scrollBottom();
+        }
+        
+        function createUserFileMsg(fileData) {
+            document.querySelector('.empty-state')?.remove();
+            addTimeDivider();
+            
+            const sizeStr = formatFileSize(fileData.file_size);
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-item-wrapper';
+            wrapper.innerHTML = `
+                <div class="message-container">
+                    <div class="message-item message-self">
+                        <div class="message-left">
+                            <div class="message-avatar bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                                <i class="fas fa-user" style="color: white;"></i>
+                            </div>
+                        </div>
+                        <div class="message-right">
+                            <div class="message-section">
+                                <div class="message-content">
+                                    <div class="file-bubble" onclick="downloadFile('${fileData.file_url}', '${fileData.file_name}')" 
+                                         style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f5f5f5; border-radius: 8px; cursor: pointer; min-width: 200px; max-width: 400px;">
+                                        <div style="width: 40px; height: 40px; background: #3370ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <i class="fas fa-file" style="color: white; font-size: 18px;"></i>
+                                        </div>
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${fileData.file_name}</div>
+                                            <div style="font-size: 12px; color: #8f959e; margin-top: 2px;">${sizeStr}</div>
+                                        </div>
+                                        <i class="fas fa-download" style="color: #8f959e; flex-shrink: 0;"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messages').appendChild(wrapper);
+            scrollBottom();
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+        }
+        
+        function downloadFile(url, fileName) {
+            const a = document.createElement('a');
+            a.href = url + '?token=' + token;
+            a.download = fileName;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        function previewImage(url) {
+            // 创建模态框预览图片
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+                background: rgba(0,0,0,0.8); z-index: 9999; 
+                display: flex; align-items: center; justify-content: center;
+                cursor: zoom-out;
+            `;
+            modal.innerHTML = `
+                <img src="${url}?token=${token}" style="max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 4px;">
+            `;
+            modal.onclick = () => modal.remove();
+            document.body.appendChild(modal);
+        }
+        
+        function setupEventListeners() {
+            const input = document.getElementById('messageInput');
+            let isComposing = false; // 是否正在使用输入法（如中文拼音）
+            
+            // 开始输入法输入（如中文拼音）
+            input.addEventListener('compositionstart', () => {
+                isComposing = true;
+            });
+            
+            // 结束输入法输入
+            input.addEventListener('compositionend', () => {
+                isComposing = false;
+            });
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    // 如果正在使用输入法（如中文拼音输入中），不发送消息
+                    // 让输入法处理回车键（确认拼音输入）
+                    if (isComposing) {
+                        return;
+                    }
+                    
+                    e.preventDefault();
+                    
+                    // 支持 /clear 和 /stop 命令
+                    const value = input.value.trim();
+                    if (value === '/clear') {
+                        input.value = '';
+                        clearChat();
+                        return;
+                    }
+                    if (value === '/stop') {
+                        input.value = '';
+                        stopGeneration();
+                        return;
+                    }
+                    
+                    sendMessage();
+                }
+            });
+            
+            input.addEventListener('input', (e) => {
+                input.style.height = 'auto';
+                input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+                
+                // 检测输入 @ 显示下拉菜单
+                const value = input.value;
+                const cursorPos = input.selectionStart;
+                const beforeCursor = value.substring(0, cursorPos);
+                const lastAtIndex = beforeCursor.lastIndexOf('@');
+                
+                if (lastAtIndex !== -1) {
+                    const afterAt = beforeCursor.substring(lastAtIndex + 1);
+                    // 如果 @ 后面没有空格或换行，显示下拉菜单
+                    if (!afterAt.includes(' ') && !afterAt.includes('\n')) {
+                        showMentionDropdown();
+                    }
+                }
+            });
+        }
+        
+        // 搜索快捷键
+        function setupSearchListeners() {
+            document.addEventListener('keydown', (e) => {
+                // ⌘+K 或 Ctrl+K 打开搜索
+                if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                    e.preventDefault();
+                    toggleSearch();
+                }
+                
+                // Esc 关闭搜索/菜单/弹窗
+                if (e.key === 'Escape') {
+                    if (isSearchOpen) {
+                        e.preventDefault();
+                        closeSearch();
+                    } else if (isMoreMenuOpen) {
+                        e.preventDefault();
+                        closeMoreMenu();
+                    } else if (document.getElementById('addBotModal').classList.contains('show')) {
+                        e.preventDefault();
+                        closeAddBotModal();
+                    }
+                }
+                
+                // 搜索框内的快捷键
+                if (isSearchOpen && document.activeElement.id === 'searchInput') {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                            prevSearchResult();
+                        } else {
+                            nextSearchResult();
+                        }
+                    }
+                }
+            });
+            
+            // 点击外部关闭菜单
+            document.addEventListener('click', (e) => {
+                const moreMenu = document.getElementById('moreMenu');
+                const moreBtn = e.target.closest('.header-btn');
+                if (isMoreMenuOpen && !e.target.closest('.more-menu') && !(moreBtn && moreBtn.querySelector('.fa-ellipsis-h'))) {
+                    closeMoreMenu();
+                }
+            });
+        }
+        
+        // ========== 更多菜单功能 ==========
+        
+        function toggleMoreMenu(event) {
+            event.stopPropagation();
+            isMoreMenuOpen = !isMoreMenuOpen;
+            const menu = document.getElementById('moreMenu');
+            if (isMoreMenuOpen) {
+                menu.classList.add('show');
+            } else {
+                menu.classList.remove('show');
+            }
+        }
+        
+        function closeMoreMenu() {
+            isMoreMenuOpen = false;
+            document.getElementById('moreMenu').classList.remove('show');
+        }
+        
+        function exportChat() {
+            closeMoreMenu();
+            if (!currentSessionId) {
+                alert('请先选择一个会话');
+                return;
+            }
+            
+            const session = sessions.find(s => s.id === currentSessionId);
+            
+            // 获取当前聊天记录
+            const messages = [];
+            document.querySelectorAll('.message-item-wrapper').forEach(wrapper => {
+                const sender = wrapper.querySelector('.message-sender');
+                const content = wrapper.querySelector('.message-content');
+                const time = wrapper.querySelector('.message-timestamp');
+                if (content) {
+                    messages.push({
+                        sender: sender ? sender.textContent : '我',
+                        content: content.textContent,
+                        time: time ? time.textContent : ''
+                    });
+                }
+            });
+            
+            if (messages.length === 0) {
+                alert('当前没有聊天记录可导出');
+                return;
+            }
+            
+            // 生成文本内容
+            let text = `聊天记录导出\n会话: ${session ? session.name : '未知'}\n时间: ${new Date().toLocaleString()}\n\n`;
+            messages.forEach(msg => {
+                text += `[${msg.time}] ${msg.sender}:\n${msg.content}\n\n`;
+            });
+            
+            // 下载文件
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chat_export_${session ? session.name.replace(/\\s+/g, '_') : 'unknown'}_${new Date().toISOString().slice(0,10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function clearCurrentChat() {
+            closeMoreMenu();
+            if (!currentSessionId) {
+                alert('请先选择一个会话');
+                return;
+            }
+            if (!confirm('确定要清空当前会话的聊天记录吗？此操作不可恢复。')) return;
+            
+            // 清空显示
+            document.getElementById('messages').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🤖</div>
+                    <div>会话已清空</div>
+                </div>
+            `;
+            lastMsgTime = null;
+            streamingMessages.clear();
+            
+            // 清空数据库中的记录
+            if (db) {
+                const transaction = db.transaction(['messages'], 'readwrite');
+                const store = transaction.objectStore('messages');
+                const index = store.index('sessionId');
+                const request = index.openCursor(IDBKeyRange.only(currentSessionId));
+                
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        cursor.delete();
+                        cursor.continue();
+                    }
+                };
+            }
+        }
+        
+        // ========== 添加 Bot 弹窗功能 ==========
+        
+        function showAddBotModal() {
+            closeMoreMenu();
+            isCreatingNewSession = true;
+            
+            // 初始化临时选择集合（默认空）
+            tempSelectedBots = new Set();
+            
+            // 渲染 Bot 列表
+            renderAddBotList();
+            
+            // 显示弹窗
+            document.getElementById('addBotModal').classList.add('show');
+            updateConfirmButton();
+        }
+        
+        function renderAddBotList() {
+            const container = document.getElementById('addBotList');
+            
+            if (bots.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-tertiary);">暂无可用 Bot</div>';
+                return;
+            }
+            
+            container.innerHTML = bots.map((bot, i) => {
+                const cfg = botConfigs[i % botConfigs.length];
+                const isSelected = tempSelectedBots.has(bot.id);
+                
+                return `
+                    <div class="bot-select-item ${isSelected ? 'selected' : ''}" 
+                         onclick="toggleBotSelection('${bot.id}')">
+                        <div class="bot-select-avatar ${cfg.color} text-white">
+                            <i class="fas ${cfg.icon}"></i>
+                        </div>
+                        <div class="bot-select-info">
+                            <div class="bot-select-name">${bot.name || bot.id}</div>
+                            <div class="bot-select-id">@${bot.id}</div>
+                        </div>
+                        <div class="bot-select-check">
+                            ${isSelected ? '<i class="fas fa-check" style="font-size:12px;"></i>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleBotSelection(botId) {
+            if (tempSelectedBots.has(botId)) {
+                tempSelectedBots.delete(botId);
+            } else {
+                tempSelectedBots.add(botId);
+            }
+            renderAddBotList();
+            updateConfirmButton();
+        }
+        
+        function updateConfirmButton() {
+            const btn = document.getElementById('confirmAddBotBtn');
+            const selectedCount = tempSelectedBots.size;
+            
+            if (selectedCount > 0) {
+                btn.disabled = false;
+                btn.textContent = `创建群聊 (${selectedCount})`;
+            } else {
+                btn.disabled = true;
+                btn.textContent = '创建群聊';
+            }
+        }
+        
+        async function confirmAddBots() {
+            if (tempSelectedBots.size === 0) return;
+            
+            // 创建新会话
+            const botIds = Array.from(tempSelectedBots);
+            const newSession = createSession(botIds);
+            
+            // 添加到会话列表
+            sessions.unshift(newSession);
+            await saveSessionToDB(newSession);
+            
+            // 保存到服务器（确保刷新后仍然存在）
+            await saveSessionToServer(newSession);
+            
+            // 切换到新会话
+            await selectSession(newSession.id);
+            renderSessionList();
+            
+            closeAddBotModal();
+        }
+        
+        function closeAddBotModal() {
+            document.getElementById('addBotModal').classList.remove('show');
+            tempSelectedBots.clear();
+            isCreatingNewSession = false;
+        }
+        
+        function closeAddBotModalOnOverlay(event) {
+            if (event.target.id === 'addBotModal') {
+                closeAddBotModal();
+            }
+        }
+        
+        // ========== 会话右键菜单功能 ==========
+        
+        let contextMenuSessionId = null;
+        
+        function showSessionContextMenu(event, sessionId) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            contextMenuSessionId = sessionId;
+            
+            const menu = document.getElementById('sessionContextMenu');
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            menu.classList.add('show');
+            
+            // 点击其他地方关闭菜单
+            setTimeout(() => {
+                document.addEventListener('click', closeContextMenu, { once: true });
+            }, 0);
+        }
+        
+        function closeContextMenu() {
+            document.getElementById('sessionContextMenu').classList.remove('show');
+            contextMenuSessionId = null;
+        }
+        
+        function renameSession() {
+            if (!contextMenuSessionId) return;
+            
+            const session = sessions.find(s => s.id === contextMenuSessionId);
+            if (!session) return;
+            
+            document.getElementById('renameInput').value = session.name;
+            document.getElementById('renameModal').classList.add('show');
+            document.getElementById('renameInput').focus();
+            document.getElementById('renameInput').select();
+            
+            closeContextMenu();
+        }
+        
+        function closeRenameModal() {
+            document.getElementById('renameModal').classList.remove('show');
+            contextMenuSessionId = null;
+        }
+        
+        function closeRenameModalOnOverlay(event) {
+            if (event.target.id === 'renameModal') {
+                closeRenameModal();
+            }
+        }
+        
+        async function confirmRename() {
+            if (!contextMenuSessionId) return;
+            
+            const newName = document.getElementById('renameInput').value.trim();
+            if (!newName) return;
+            
+            const session = sessions.find(s => s.id === contextMenuSessionId);
+            if (session) {
+                session.name = newName;
+                await saveSessionToDB(session);
+                renderSessionList();
+                if (currentSessionId === contextMenuSessionId) {
+                    updateHeader(session);
+                }
+            }
+            
+            closeRenameModal();
+        }
+        
+        async function deleteSession() {
+            console.log(`[deleteSession] 右键菜单删除: ${contextMenuSessionId}`);
+            if (!contextMenuSessionId) return;
+            
+            try {
+                if (!confirm('确定要删除这个会话吗？聊天记录将无法恢复。')) {
+                    closeContextMenu();
+                    return;
+                }
+                
+                // 从数据库删除
+                const success = await deleteSessionFromDB(contextMenuSessionId);
+                console.log(`[deleteSession] 后端删除结果: ${success}`);
+                if (!success) {
+                    alert('删除失败，请重试');
+                    closeContextMenu();
+                    return;
+                }
+                
+                // 从列表移除
+                sessions = sessions.filter(s => s.id !== contextMenuSessionId);
+                
+                // 如果删除的是当前会话，切换到第一个
+                if (currentSessionId === contextMenuSessionId) {
+                    currentSessionId = null;
+                    if (sessions.length > 0) {
+                        await selectSession(sessions[0].id);
+                        // selectSession 已经调用了 renderSessionList
+                        closeContextMenu();
+                        return;
+                    } else {
+                        // 没有会话了，显示空状态
+                        document.getElementById('messages').innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-icon">🤖</div>
+                                <div>点击右上角"..."创建新会话</div>
+                            </div>
+                        `;
+                        document.getElementById('headerTitle').textContent = '选择一个会话';
+                        selectedBots.clear();
+                        updatePlaceholder();
+                    }
+                }
+                
+                renderSessionList();
+                
+                // 强制刷新 DOM
+                requestAnimationFrame(() => {
+                    const container = document.getElementById('botList');
+                    if (container) {
+                        const originalDisplay = container.style.display;
+                        container.style.display = 'none';
+                        void container.offsetHeight;
+                        container.style.display = originalDisplay || '';
+                    }
+                });
+                
+                closeContextMenu();
+            } catch (e) {
+                console.error('[deleteSession] 删除过程中发生错误:', e);
+                alert('删除失败: ' + e.message);
+                closeContextMenu();
+            }
+        }
+        
+        function sendMessage() {
+            console.log('sendMessage called');
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            console.log('text:', text, 'selectedBots:', selectedBots.size, 'isConnected:', isConnected);
+            
+            if (selectedBots.size === 0) { console.log('No bot selected'); return; }
+            if (!isConnected) { console.log('Not connected'); return; }
+            
+            // 如果有待发送的文件，将消息和文件一起发送
+            if (pendingFile) {
+                const botPath = pendingFile.bot_path || pendingFile.file_name;
+                const fileTypeText = pendingFile.isImage ? '图片' : '文件';
+                
+                // 构建包含文件和消息的内容
+                let messageContent;
+                if (pendingFile.isImage) {
+                    messageContent = text 
+                        ? `[用户发送了图片: ${pendingFile.file_name}](${pendingFile.file_url})\n\n${text}\n\n请查看这个图片并回复: ${botPath}`
+                        : `[用户发送了图片: ${pendingFile.file_name}](${pendingFile.file_url})\n\n请查看这个图片并分析: ${botPath}`;
+                } else {
+                    messageContent = text
+                        ? `[用户发送了文件: ${pendingFile.file_name}](${pendingFile.file_url})\n\n${text}\n\n请读取这个文件并回复: ${botPath}`
+                        : `[用户发送了文件: ${pendingFile.file_name}](${pendingFile.file_url})\n\n请读取这个文件并分析: ${botPath}`;
+                }
+                
+                // 如果有文字消息，显示在聊天中
+                if (text) {
+                    createUserMsg(text);
+                }
+                
+                ws.send(JSON.stringify({
+                    mode: selectedBots.size > 1 ? 'group' : 'single',
+                    bots: Array.from(selectedBots),
+                    message: messageContent,
+                    chat_id: currentSessionId
+                }));
+                
+                // 清空待发送文件
+                pendingFile = null;
+                input.placeholder = '发送消息...';
+                input.value = '';
+                input.style.height = 'auto';
+            } else {
+                // 普通消息发送
+                if (!text) { console.log('No text'); return; }
+                
+                // 群聊模式下，检查@了哪些Bot
+                let targetBots = Array.from(selectedBots);
+                let shouldReply = true;
+                
+                if (selectedBots.size > 1) {
+                    const mentionedBots = parseMentionedBots(text);
+                    if (mentionedBots.length > 0) {
+                        // 只发送给被@的Bot
+                        targetBots = mentionedBots;
+                    } else {
+                        // 群聊中没有@任何人，只记录不回复
+                        shouldReply = false;
+                    }
+                }
+                
+                // 创建并显示用户消息（内部已保存到数据库）
+                createUserMsg(text);
+                
+                // 只有被@了才发送给Bot回复
+                if (shouldReply) {
+                    ws.send(JSON.stringify({
+                        mode: selectedBots.size > 1 ? 'group' : 'single',
+                        bots: targetBots,
+                        message: text,
+                        chat_id: currentSessionId
+                    }));
+                }
+                
+                input.value = '';
+                input.style.height = 'auto';
+            }
+        }
+        
+        // 解析消息中的@提及，返回被@的Bot ID列表
+        function parseMentionedBots(text) {
+            const mentionedBotIds = [];
+            const seen = new Set(); // 用于去重
+            
+            // 获取当前会话中的所有Bot
+            const session = sessions.find(s => s.id === currentSessionId);
+            if (!session) return mentionedBotIds;
+            
+            session.botIds.forEach(botId => {
+                const bot = bots.find(b => b.id === botId);
+                if (!bot) return;
+                
+                const botName = bot.name || bot.id;
+                // 检查是否@了该Bot (@botName 或 @botId)
+                // 使用更精确的正则：@后面跟着完整的botName或botId
+                const escapedBotName = botName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const escapedBotId = botId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const mentionPattern1 = new RegExp(`@${escapedBotName}(?:\\s|$)`, 'i');
+                const mentionPattern2 = new RegExp(`@${escapedBotId}(?:\\s|$)`, 'i');
+                
+                if ((mentionPattern1.test(text) || mentionPattern2.test(text)) && !seen.has(botId)) {
+                    mentionedBotIds.push(botId);
+                    seen.add(botId);
+                }
+            });
+            
+            return mentionedBotIds;
+        }
+        
+        function clearChat() {
+            // 发送 /clear 命令给 Bot，让 Bot 处理清空逻辑
+            if (!currentSessionId || selectedBots.size === 0) {
+                alert('请先选择一个会话');
+                return;
+            }
+            if (!isConnected) {
+                alert('网络未连接');
+                return;
+            }
+            
+            // 显示用户发送的 /clear 命令
+            createUserMsg('/clear');
+            
+            // 发送给 Bot
+            ws.send(JSON.stringify({
+                mode: 'group',
+                bots: Array.from(selectedBots),
+                message: '/clear',
+                chat_id: currentSessionId
+            }));
+            
+            // 清空输入框
+            const input = document.getElementById('messageInput');
+            input.value = '';
+            input.style.height = 'auto';
+        }
+        
+        // ========== @ 提及功能 ==========
+        let activeMentionBotId = null;
+        
+        function showMentionDropdown() {
+            // 获取当前会话中的Bot
+            const session = sessions.find(s => s.id === currentSessionId);
+            if (!session || session.botIds.length === 0) {
+                alert('当前会话没有可用的 Bot');
+                return;
+            }
+            
+            const dropdown = document.getElementById('mentionDropdown');
+            const input = document.getElementById('messageInput');
+            
+            // 只显示当前会话中的Bot
+            const sessionBots = bots.filter(b => session.botIds.includes(b.id));
+            if (sessionBots.length === 0) {
+                alert('暂无可用的 Bot');
+                return;
+            }
+            
+            // 构建下拉菜单内容
+            dropdown.innerHTML = sessionBots.map((bot, i) => {
+                const cfg = botConfigs[i % botConfigs.length];
+                return `
+                    <div class="mention-item" onclick="insertMention('${bot.id}', '${bot.name || bot.id}')">
+                        <div class="mention-avatar ${cfg.color} text-white">
+                            <i class="fas ${cfg.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="mention-name">${bot.name || bot.id}</div>
+                            <div class="mention-id">@${bot.id}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            dropdown.classList.add('show');
+            
+            // 点击外部关闭
+            setTimeout(() => {
+                document.addEventListener('click', closeMentionDropdown, { once: true });
+            }, 0);
+        }
+        
+        function closeMentionDropdown() {
+            document.getElementById('mentionDropdown').classList.remove('show');
+        }
+        
+        function insertMention(botId, botName) {
+            const input = document.getElementById('messageInput');
+            const mention = `@${botName} `;
+            
+            // 在光标位置插入
+            let start = input.selectionStart;
+            const end = input.selectionEnd;
+            const text = input.value;
+            
+            // 检查@前面是否已经有@，避免重复
+            // 向前查找最近的@位置
+            const beforeCursor = text.substring(0, start);
+            const lastAtIndex = beforeCursor.lastIndexOf('@');
+            
+            if (lastAtIndex !== -1 && lastAtIndex === start - 1) {
+                // 光标紧跟在@后面，替换这个@（用户输入的@）
+                start = lastAtIndex;
+            }
+            
+            input.value = text.substring(0, start) + mention + text.substring(end);
+            input.focus();
+            input.setSelectionRange(start + mention.length, start + mention.length);
+            
+            // 记录当前@的Bot
+            activeMentionBotId = botId;
+            
+            closeMentionDropdown();
+        }
+        
+        // 解析消息中的@提及
+        function parseMentions(text) {
+            // 找到所有 @BotName 并转换为特定格式
+            let parsed = text;
+            bots.forEach(bot => {
+                const name = bot.name || bot.id;
+                const regex = new RegExp(`@${name}\\b`, 'g');
+                parsed = parsed.replace(regex, `<span class="mention-highlight">@${name}</span>`);
+            });
+            return parsed;
+        }
+        
+        // ========== 停止生成功能 ==========
+        
+        function stopGeneration() {
+            // 向所有正在回复的Bot发送停止信号
+            activeStreams.forEach(msgId => {
+                if (ws && isConnected) {
+                    ws.send(JSON.stringify({
+                        type: 'stop',
+                        msg_id: msgId
+                    }));
+                }
+            });
+            
+            // 本地停止当前显示的流
+            streamingMessages.forEach((stream, msgId) => {
+                stream.isStreaming = false;
+                const contentDiv = document.getElementById(`content-${msgId}`);
+                if (contentDiv && !contentDiv.innerHTML.includes('[已停止]')) {
+                    contentDiv.innerHTML += '<div style="color:#8f959e;font-size:12px;margin-top:8px;">[已停止生成]</div>';
+                }
+            });
+            
+            // 清空待处理消息
+            pendingMessages.clear();
+            
+            activeStreams.clear();
+            streamingMessages.clear();
+            hideStopBtn();
+        }
+        
+        function showStopBtn() {
+            document.getElementById('stopBtn').style.display = 'flex';
+        }
+        
+        function hideStopBtn() {
+            document.getElementById('stopBtn').style.display = 'none';
+        }
+        
+        function scrollBottom() {
+            const c = document.getElementById('messages');
+            c.scrollTop = c.scrollHeight;
+        }
+        
+        init();
+    </script>
+</body>
+</html>
