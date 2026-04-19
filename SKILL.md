@@ -197,7 +197,7 @@ my-bot/
 ```json
 {
   "agent": {
-    "executable": "kimi"
+    "executable": "your-agent-path(kimi/opencode/claude-code-acp/openclaw-acp/hermes)"
   },
   "feishu": {
     "app_id": "cli_xxxxxxxxxxxxxxxx",
