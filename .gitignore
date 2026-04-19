@@ -85,3 +85,11 @@ config.json
 .env
 *.secret
 *.key
+
+# 运行时生成的文件（自动创建，不应提交）
+.bots.md
+*.pid
+*.backup
+
+# 独立 CLI 工具（已被 clawdboz/cli_client.py 取代）
+# 保留以兼容旧用户，但忽略变更
