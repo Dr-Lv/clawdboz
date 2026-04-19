@@ -1,7 +1,7 @@
 # Clawdboz 部署指南
 
 > 本指南帮助你在任何环境中部署 **嗑唠的宝子 (Clawdboz)** 飞书 Bot。
-> 
+>
 > 适用对象：AI Agent / 开发者 / 运维人员
 
 ---
@@ -24,15 +24,16 @@
 
 ### 2.1 系统环境
 
-| 要求 | 版本/说明 |
-|------|----------|
-| Python | >= 3.9 |
+| 要求     | 版本/说明              |
+| -------- | ---------------------- |
+| Python   | >= 3.9                 |
 | 操作系统 | Linux / macOS / Windows (WSL) |
-| 网络 | 可访问飞书开放平台 |
+| 网络     | 可访问飞书开放平台     |
 
 ### 2.2 安装至少一种 ACP Agent
 
 **Kimi Code CLI（推荐，默认）**
+
 ```bash
 pip install kimi-cli
 # 或
@@ -43,6 +44,7 @@ kimi login
 ```
 
 **其他 Agent（可选）**
+
 ```bash
 # Claude Code
 pip install claude-code-acp
@@ -87,6 +89,7 @@ clawdboz init
 ```
 
 **`clawdboz init` 会自动完成：**
+
 - ✅ 检测已安装的 ACP Agent
 - ✅ 创建 `config.json`（含 Python 路径和默认 Agent）
 - ✅ 创建 `.agents/mcp.json`（飞书 MCP 工具配置）
@@ -102,7 +105,6 @@ my-bot/
 ├── .agents/
 │   ├── mcp.json              # MCP 配置
 │   └── skills/               # Skills 目录
-│       ├── deploy-clawdboz/
 │       ├── feishu-api-sender/
 │       ├── find-skills/
 │       ├── local-memory/
@@ -152,13 +154,13 @@ my-bot/
 
 **Agent 可执行文件配置：**
 
-| Agent | `executable` 值 |
-|-------|----------------|
-| Kimi Code CLI | `kimi` 或绝对路径 |
-| OpenCode | `opencode` 或绝对路径 |
-| Claude Code | `claude-code-acp` 或绝对路径 |
-| OpenClaw | `openclaw-acp` 或绝对路径 |
-| Hermes | `hermes` 或绝对路径 |
+| Agent         | `executable` 值      |
+| ------------- | -------------------- |
+| Kimi Code CLI | `kimi` 或绝对路径    |
+| OpenCode      | `opencode` 或绝对路径 |
+| Claude Code   | `claude-code-acp` 或绝对路径 |
+| OpenClaw      | `openclaw-acp` 或绝对路径 |
+| Hermes        | `hermes` 或绝对路径  |
 
 ---
 
@@ -177,21 +179,23 @@ my-bot/
 
 **权限管理 → 申请以下 API 权限：**
 
-| 权限名称 | 用途 |
-|---------|------|
-| `im:message:send` | 发送消息 |
-| `im:message:send_as_bot` | 发送消息卡片 |
-| `im:message:update` | 更新消息卡片 |
-| `im:message.resource` | 获取图片、文件 |
-| `im:chat:readonly` | 获取聊天记录 |
-| `im:file:create` | 上传文件 |
-| `im:file:send` | 发送文件消息 |
-| `im:image:create` | 上传图片 |
+| 权限名称                | 用途           |
+| ----------------------- | -------------- |
+| `im:message:send`       | 发送消息       |
+| `im:message:send_as_bot`| 发送消息卡片   |
+| `im:message:update`     | 更新消息卡片   |
+| `im:message.resource`   | 获取图片、文件 |
+| `im:chat:readonly`      | 获取聊天记录   |
+| `im:file:create`        | 上传文件       |
+| `im:file:send`          | 发送文件消息   |
+| `im:image:create`       | 上传图片       |
 
 **事件与回调 → 选择长连接方式：**
+
 - 勾选 `im.message.receive_v1`（接收消息）
 
 **机器人 → 开启能力：**
+
 - ✅ 接收消息
 - ✅ 发送消息
 
@@ -242,7 +246,7 @@ my-bot/
 python bot0.py
 ```
 
-### 7.3 三行代码快速启动（Python 代码）
+### 7.3 三行代码快速启动（Python）
 
 ```python
 from clawdboz import Bot
@@ -275,6 +279,7 @@ tail -f logs/bot_debug.log
 ### 8.3 发送测试消息
 
 在飞书单聊或群聊中 @机器人，发送：
+
 ```
 你好
 ```
@@ -292,11 +297,13 @@ crontab -e
 ```
 
 添加：
+
 ```
 */30 * * * * cd /path/to/my-bot && ./bot_manager.sh check >/dev/null 2>&1
 ```
 
 `check` 命令会：
+
 - 检查 Bot 进程状态
 - 检查 WebSocket 连接
 - 检查日志错误
@@ -312,6 +319,7 @@ crontab -e
 **原因：** 缺少 PySocks 库。
 
 **解决：**
+
 ```bash
 pip install pysocks
 # 或
@@ -321,6 +329,7 @@ uv pip install pysocks
 ### Q2: Bot 启动后无法收发消息
 
 **排查步骤：**
+
 1. 检查 `config.json` 中 `feishu.app_id` 和 `feishu.app_secret` 是否正确
 2. 检查飞书应用是否已发布
 3. 检查机器人是否已添加到聊天
@@ -329,6 +338,7 @@ uv pip install pysocks
 ### Q3: 消息无回复
 
 **排查步骤：**
+
 1. 检查 ACP Agent 是否已安装并可运行：`kimi --version`
 2. 检查 `config.json` 中 `agent.executable` 配置是否正确
 3. 检查 `logs/bot_debug.log` 是否有 ACP 调用错误
@@ -336,6 +346,7 @@ uv pip install pysocks
 ### Q4: 如何切换 Agent？
 
 修改 `config.json`：
+
 ```json
 {
   "agent": {
@@ -345,6 +356,7 @@ uv pip install pysocks
 ```
 
 然后重启 Bot：
+
 ```bash
 ./bot_manager.sh restart
 ```
@@ -366,7 +378,3 @@ pip install --upgrade clawdboz
 # 卸载包
 pip uninstall clawdboz
 ```
-
----
-
-> **提示：** 本 SKILL.md 位于 `.agents/skills/deploy-clawdboz/` 目录下，运行 `clawdboz init` 时会自动复制到项目目录。如需更新，修改后重新运行 `clawdboz init` 或直接覆盖文件。
