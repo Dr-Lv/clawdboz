@@ -32,27 +32,98 @@
 
 ### 2.2 安装至少一种 ACP Agent
 
-**Kimi Code CLI（推荐，默认）**
+> 💡 **推荐原则**：选择你**当前正在使用、最熟悉的 Agent**来构建 Bot，无需为了 Bot 而切换 Agent。
+
+---
+
+**1. Kimi Code CLI（推荐，默认）**
+
+Kimi Code CLI 原生支持 ACP 协议，开箱即用。
 
 ```bash
+# 安装
 pip install kimi-cli
 # 或
 uv tool install --python 3.13 kimi-cli
 
-# 首次使用需登录
+# 登录（首次使用必需）
 kimi login
+
+# 验证
+kimi --version
 ```
 
-**其他 Agent（可选）**
+---
+
+**2. OpenCode**
+
+OpenCode 原生支持 ACP 协议。
 
 ```bash
-# Claude Code
+# 安装（按 OpenCode 官方文档）
+# 通常为：
+pip install opencode
+
+# 登录
+opencode login
+
+# 验证
+opencode --version
+```
+
+---
+
+**3. Claude Code**
+
+Claude Code **本身不支持 ACP 协议**，需要额外安装 `claude-code-acp` 转换工具。
+
+```bash
+# 步骤 1：安装 Claude Code（按官方文档）
+# 通常为 npm 安装或官方安装器
+
+# 步骤 2：安装 ACP 转换工具（必需）
 pip install claude-code-acp
 
-# OpenClaw
+# 验证
+code --version          # Claude Code 版本
+claude-code-acp --version  # ACP 转换工具版本
+```
+
+> ⚠️ **注意**：必须同时安装 Claude Code 本体和 `claude-code-acp`，Bot 通过 `claude-code-acp` 调用 Claude Code。
+
+---
+
+**4. OpenClaw**
+
+OpenClaw 的 ACP 协议实现**不标准**，需要额外安装 `openclaw-acp` 转换工具进行协议适配。
+
+```bash
+# 步骤 1：安装 OpenClaw（按官方文档）
+
+# 步骤 2：安装 ACP 转换工具（必需）
 pip install openclaw-acp
 
-# OpenCode / Hermes — 按官方文档安装
+# 验证
+openclaw --version
+openclaw-acp --version
+```
+
+> ⚠️ **注意**：必须同时安装 OpenClaw 本体和 `openclaw-acp`，Bot 通过 `openclaw-acp` 进行协议转换后调用 OpenClaw。
+
+---
+
+**5. Hermes Agent**
+
+Hermes 原生支持 ACP 协议。
+
+```bash
+# 安装（按 Hermes 官方文档）
+
+# 登录
+hermes login
+
+# 验证
+hermes --version
 ```
 
 ---
