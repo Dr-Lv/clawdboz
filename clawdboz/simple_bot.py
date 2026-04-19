@@ -526,7 +526,7 @@ class Bot:
             bot.run()  # 阻塞运行，直到手动停止
             bot.run(enable_cli=True)  # 启用 CLI 接口
         """
-        print(f"[Bot] 启动嗑唠的宝子 v2.2.0")
+        print(f"[Bot] 启动嗑唠的宝子 v3.5.0")
         print(f"[Bot] 工作目录: {self.work_dir}")
         print(f"[Bot] App ID: {self.config['feishu']['app_id'][:10]}...")
         
