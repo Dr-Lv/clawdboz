@@ -37,6 +37,8 @@ class LarkBot:
         self._update_lock = threading.Lock()  # 更新锁
         self._update_counts = {}  # 每个消息的更新计数 {message_id: count}
         self._completed_messages = set()  # 已完成生成的消息ID
+        self._last_update_time = {}  # 每条消息的最后更新时间 {message_id: timestamp}
+        self._min_update_interval = 1.5  # 单条消息最小更新间隔（秒）
         self._pending_image = {}  # 待处理的图片 {chat_id: image_path}
         self._pending_file = {}  # 待处理的文件 {chat_id: file_path}
         # Bot 的 user_id（用于精确检测 @）
@@ -53,6 +55,10 @@ class LarkBot:
             f.write(f"=== Bot started at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
         with open(self.feishu_log_file, 'w') as f:
             f.write(f"=== Feishu API Log started at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+        # 对话记录目录
+        self.history_dir = get_absolute_path('HISTORY')
+        os.makedirs(self.history_dir, exist_ok=True)
+        self._history_lock = threading.Lock()
         # 获取 Bot 的 user_id
         self._fetch_bot_user_id()
         
@@ -72,7 +78,7 @@ class LarkBot:
         self._start_heart_beat()
     
     def _setup_builtin_skills(self):
-        """将内置 skills 复制到工作目录的 .kimi/skills"""
+        """将内置 skills 复制到工作目录的 .agents/skills"""
         try:
             import shutil
             from pathlib import Path
@@ -82,14 +88,14 @@ class LarkBot:
             
             # 获取包安装目录
             package_dir = Path(__file__).parent.resolve()
-            builtin_skills_dir = package_dir / '.kimi' / 'skills'
+            builtin_skills_dir = package_dir / '.agents' / 'skills'
             
             if not builtin_skills_dir.exists():
                 self._log("[INIT] 未找到内置 skills 目录")
                 return
             
             # 用户工作目录的 skills 路径
-            user_skills_dir = Path(workplace_dir) / '.kimi' / 'skills'
+            user_skills_dir = Path(workplace_dir) / '.agents' / 'skills'
             
             copied = []
             existing = []
@@ -152,7 +158,7 @@ class LarkBot:
             # 检查是否已存在每日分析任务
             has_daily_analysis = False
             for task in data.get('tasks', {}).values():
-                if '每日分析' in task.get('description', '') or 'analyze_daily' in task.get('description', ''):
+                if '每日对话分析' in task.get('description', '') or 'analyze_daily' in task.get('description', ''):
                     has_daily_analysis = True
                     break
             
@@ -166,12 +172,16 @@ class LarkBot:
                 data['task_id_counter'] += 1
                 task_id = str(data['task_id_counter'])
                 
+                # 动态生成 skill 脚本路径和历史目录路径
+                skill_script = os.path.join(os.path.dirname(__file__), '.agents', 'skills', 'daily-history-analyzer', 'daily_history_analyzer.py')
+                history_dir = getattr(self, 'history_dir', os.path.join(os.path.dirname(workplace_dir), 'HISTORY'))
+                
                 data['tasks'][task_id] = {
                     'id': task_id,
                     'chat_id': 'default',
                     'execute_time': midnight_timestamp,
                     'time_interval': 86400,  # 每天重复（24小时 = 86400秒）
-                    'description': '[系统默认任务] 每日对话分析：分析当天所有对话记录，提取重要信息保存到记忆中。分析完成后向用户发送汇总报告。',
+                    'description': f'[系统默认任务] 每日对话分析：请执行内置 skill `daily-history-analyzer`，分析前一天（当天已结束的日期）的 HISTORY 对话记录。调用方式：`python3 {skill_script}`。脚本会自动读取 `{history_dir}/YYYY-MM-DD.json`、提取重要信息并使用 local-memory 保存到记忆中，报告会保存到 skill 的 assets 目录。请把分析结果整理成简洁的汇总报告发送给用户。',
                     'status': 'pending',
                     'is_default': True  # 标记为默认任务
                 }
@@ -225,6 +235,9 @@ class LarkBot:
                 # 检查是否需要执行每日汇总
                 self._check_daily_summary()
                 
+                # 定期更新 MCP 上下文时间戳（防止过期）
+                self._refresh_mcp_context()
+                
                 self._log(f"[HEART_BEAT] 第 {beat_count} 次心跳完成")
                 
             except Exception as e:
@@ -237,7 +250,7 @@ class LarkBot:
         try:
             import sys
             # 添加 skill 路径到 sys.path
-            skill_path = get_absolute_path('.kimi/skills')
+            skill_path = get_absolute_path('.agents/skills')
             if skill_path not in sys.path:
                 sys.path.insert(0, skill_path)
             
@@ -296,12 +309,39 @@ class LarkBot:
                 
         except Exception as e:
             self._log(f"[HEART_BEAT] 每日汇总检查失败: {e}")
+    
+    def _refresh_mcp_context(self):
+        """定期刷新 MCP 上下文文件的时间戳，防止过期
+        
+        每次心跳时调用，保持 mcp_context.json 的时间戳为最新
+        """
+        try:
+            context_file = get_absolute_path('WORKPLACE/mcp_context.json')
+            if os.path.exists(context_file):
+                # 读取现有内容
+                with open(context_file, 'r') as f:
+                    data = json.load(f)
+                
+                # 更新时间戳
+                old_timestamp = data.get('timestamp', 0)
+                data['timestamp'] = time.time()
+                
+                # 写回文件
+                with open(context_file, 'w') as f:
+                    json.dump(data, f)
+                
+                # 每10次心跳记录一次日志（避免日志过多）
+                if int(time.time()) % 600 < 65:  # 大约每10分钟记录一次
+                    self._log(f"[HEART_BEAT] 已刷新 MCP 上下文时间戳")
+        except Exception as e:
+            # 静默处理错误，不影响主功能
+            pass
 
     def _do_daily_summary(self):
         """执行每日任务汇总（使用 skill）"""
         try:
             import sys
-            skill_path = get_absolute_path('.kimi/skills')
+            skill_path = get_absolute_path('.agents/skills')
             if skill_path not in sys.path:
                 sys.path.insert(0, skill_path)
             from scheduler.scheduler import list_tasks
@@ -327,6 +367,11 @@ class LarkBot:
             
             # 向每个聊天发送汇总消息
             for chat_id, tasks_list in chat_tasks.items():
+                # 跳过无效的 chat_id
+                if not chat_id or chat_id == 'default':
+                    self._log(f"[HEART_BEAT] 跳过无效 chat_id 的任务汇总")
+                    continue
+                    
                 message_lines = ["📊 **每日任务执行汇总**", ""]
                 message_lines.append(f"共有 {len(tasks_list)} 个任务未成功执行：")
                 message_lines.append("")
@@ -361,7 +406,7 @@ class LarkBot:
         
         try:
             import sys
-            skill_path = get_absolute_path('.kimi/skills')
+            skill_path = get_absolute_path('.agents/skills')
             if skill_path not in sys.path:
                 sys.path.insert(0, skill_path)
             from scheduler.scheduler import update_task
@@ -390,8 +435,11 @@ class LarkBot:
             # 格式化消息
             message = f"⏰ **定时任务提醒**\n\n任务: {description}\n\n{result}"
             
-            # 发送消息给用户
-            self.reply_text(chat_id, message, streaming=False)
+            # 发送消息给用户（仅在 chat_id 有效时）
+            if chat_id and chat_id != 'default':
+                self.reply_text(chat_id, message, streaming=False)
+            else:
+                self._log(f"[HEART_BEAT] 任务 #{task_id} 的 chat_id 无效，跳过发送消息")
             
             # 处理重复任务
             data_dir = get_absolute_path('WORKPLACE')
@@ -413,7 +461,7 @@ class LarkBot:
             # 更新任务状态为 failed
             try:
                 import sys
-                skill_path = get_absolute_path('.kimi/skills')
+                skill_path = get_absolute_path('.agents/skills')
                 if skill_path not in sys.path:
                     sys.path.insert(0, skill_path)
                 from scheduler.scheduler import update_task
@@ -432,14 +480,26 @@ class LarkBot:
             except:
                 pass
 
-    def _log(self, message):
-        """写入日志到文件"""
+    def _log(self, message, level=None):
+        """写入日志到文件
+        
+        Args:
+            message: 日志消息
+            level: 日志级别（可选，如 'debug', 'info', 'error' 等）
+        """
         timestamp = time.strftime('%H:%M:%S')
+        # 如果指定了级别，添加到消息中
+        if level:
+            message = f"[{level.upper()}] {message}"
         with open(self.log_file, 'a') as f:
             f.write(f"[{timestamp}] {message}\n")
             f.flush()
         # 同时输出到控制台（会被重定向到 log 文件）
-        print(message)
+        try:
+            print(message)
+        except (BrokenPipeError, OSError):
+            # stdout 管道已关闭，忽略此错误
+            pass
 
     def _fetch_bot_user_id(self):
         """获取 Bot 的 user_id，用于精确检测 @"""
@@ -468,6 +528,39 @@ class LarkBot:
             f.write(f"  Content: {content_str}\n")
             f.write("-" * 80 + "\n")
             f.flush()
+
+    def _save_chat_history(self, chat_id, user_input, bot_response):
+        """保存对话记录到 HISTORY/YYYY-MM-DD.json"""
+        try:
+            from datetime import datetime
+            date_str = datetime.now().strftime('%Y-%m-%d')
+            history_file = os.path.join(self.history_dir, f'{date_str}.json')
+            
+            record = {
+                'timestamp': datetime.now().isoformat(),
+                'chat_id': chat_id,
+                'user_input': user_input or '',
+                'bot_response': bot_response or ''
+            }
+            
+            with self._history_lock:
+                if os.path.exists(history_file):
+                    with open(history_file, 'r', encoding='utf-8') as f:
+                        try:
+                            data = json.load(f)
+                        except (json.JSONDecodeError, ValueError):
+                            data = []
+                else:
+                    data = []
+                
+                data.append(record)
+                
+                with open(history_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            self._log(f"[HISTORY] 已保存对话记录到 {history_file}")
+        except Exception as e:
+            self._log(f"[ERROR] 保存对话记录失败: {e}")
 
     def _download_chat_image(self, message_id: str, image_key: str, chat_id: str) -> str:
         """下载群聊中的图片并返回本地路径"""
@@ -1082,11 +1175,11 @@ class LarkBot:
                         self._log(f"[DEBUG] Prompt 长度: {len(combined_prompt)} 字符")
                         self._log(f"[DEBUG] 完整 Prompt:\n{combined_prompt}")
                         self._log(f"[DEBUG] ===== Prompt 结束 =====")
-                        self.executor.submit(self.run_msg_script_streaming, chat_id, combined_prompt)
+                        self.executor.submit(self.run_msg_script_streaming, chat_id, combined_prompt, False, text)
                         del self._pending_image[chat_id]
                     else:
                         del self._pending_image[chat_id]
-                        self.executor.submit(self.run_msg_script_streaming, chat_id, final_prompt)
+                        self.executor.submit(self.run_msg_script_streaming, chat_id, final_prompt, False, text)
                 elif chat_id in self._pending_file:
                     file_path = self._pending_file[chat_id]
                     if os.path.exists(file_path):
@@ -1098,13 +1191,13 @@ class LarkBot:
                         self._log(f"[DEBUG] Prompt 长度: {len(combined_prompt)} 字符")
                         self._log(f"[DEBUG] 完整 Prompt:\n{combined_prompt}")
                         self._log(f"[DEBUG] ===== Prompt 结束 =====")
-                        self.executor.submit(self.run_msg_script_streaming, chat_id, combined_prompt)
+                        self.executor.submit(self.run_msg_script_streaming, chat_id, combined_prompt, False, text)
                         del self._pending_file[chat_id]
                     else:
                         del self._pending_file[chat_id]
-                        self.executor.submit(self.run_msg_script_streaming, chat_id, final_prompt)
+                        self.executor.submit(self.run_msg_script_streaming, chat_id, final_prompt, False, text)
                 else:
-                    self.executor.submit(self.run_msg_script_streaming, chat_id, final_prompt)
+                    self.executor.submit(self.run_msg_script_streaming, chat_id, final_prompt, False, text)
             elif msg_type == 'image':
                 content_dict = json.loads(msg_content)
                 image_key = content_dict.get('image_key', '')
@@ -1190,7 +1283,7 @@ class LarkBot:
         try:
             # 尝试从用户工作目录导入
             import sys
-            skills_dir = get_absolute_path('.kimi/skills')
+            skills_dir = get_absolute_path('.agents/skills')
             if skills_dir not in sys.path:
                 sys.path.insert(0, skills_dir)
             
@@ -1304,13 +1397,14 @@ class LarkBot:
         return False
 
 
-    def run_msg_script_streaming(self, chat_id, text, async_mode=False):
+    def run_msg_script_streaming(self, chat_id, text, async_mode=False, user_input=None):
         """使用 ACP 协议调用 Kimi Code CLI（流式输出）
         
         Args:
             chat_id: 聊天ID
             text: 用户输入文本
             async_mode: 是否使用异步模式（长时间任务在后台执行）
+            user_input: 原始用户输入（用于保存对话记录）
         """
         try:
             # 延迟初始化 ACP 客户端（传递 self 引用）
@@ -1341,6 +1435,12 @@ class LarkBot:
             
             # 动画定时器
             animation_timer = [None]
+            animation_lock = threading.Lock()  # 保护定时器操作
+            
+            # Watchdog 机制：监控 ACP 调用是否卡住
+            last_chunk_time = [time.time()]
+            watchdog_timer = [None]
+            acp_call_completed = [False]  # 标记 ACP 调用是否完成
             
             def get_waiting_symbol():
                 """获取当前等待符号并更新索引"""
@@ -1349,12 +1449,12 @@ class LarkBot:
                 return symbol
             
             def update_animation():
-                """独立更新动画符号，每0.3秒执行一次"""
+                """独立更新动画符号，每2.0秒执行一次"""
                 if is_completed[0]:
                     return
                 
                 try:
-                    # 无条件更新动画符号（定时器本身就是每0.3秒触发）
+                    # 无条件更新动画符号（定时器本身就是每2.0秒触发）
                     current_text = last_content[0] if last_content[0] else "⏳ 正在思考..."
                     display_text = current_text + f"\n\n{get_waiting_symbol()} **生成中...**"
                     self.executor.submit(self.update_card, initial_message_id, display_text)
@@ -1363,11 +1463,71 @@ class LarkBot:
                 
                 # 安排下一次更新（即使本次异常也要继续）
                 if not is_completed[0]:
+                    with animation_lock:
+                        if not is_completed[0]:
+                            try:
+                                animation_timer[0] = threading.Timer(2.0, update_animation)
+                                animation_timer[0].start()
+                            except Exception as e:
+                                self._log(f"[ERROR] 动画定时器启动失败: {e}")
+            
+            def restart_animation_timer():
+                """安全地重启动画定时器"""
+                with animation_lock:
+                    if is_completed[0]:
+                        return
                     try:
-                        animation_timer[0] = threading.Timer(0.3, update_animation)
+                        if animation_timer[0] is not None:
+                            try:
+                                animation_timer[0].cancel()
+                            except:
+                                pass
+                        animation_timer[0] = threading.Timer(2.0, update_animation)
                         animation_timer[0].start()
                     except Exception as e:
-                        self._log(f"[ERROR] 动画定时器启动失败: {e}")
+                        self._log(f"[ERROR] 重启动画定时器失败: {e}")
+            
+            def watchdog_check():
+                """Watchdog：检查 ACP 是否卡住，如果卡住则强制结束"""
+                if is_completed[0] or acp_call_completed[0]:
+                    return
+                
+                try:
+                    elapsed = time.time() - last_chunk_time[0]
+                    # 如果超过 60 秒没有收到新内容，认为 ACP 卡住
+                    if elapsed > 60:
+                        self._log(f"[WARN] Watchdog: ACP 调用可能卡住，{elapsed:.1f}秒未收到新内容")
+                        # 尝试取消 ACP 客户端
+                        if self.acp_client:
+                            self.acp_client.cancel()
+                        
+                        # 如果超过 5 分钟仍然没有完成，强制标记为完成
+                        if elapsed > 300:
+                            self._log(f"[ERROR] Watchdog: ACP 调用超时超过5分钟，强制结束")
+                            is_completed[0] = True
+                            # 停止动画定时器
+                            with animation_lock:
+                                if animation_timer[0]:
+                                    try:
+                                        animation_timer[0].cancel()
+                                    except:
+                                        pass
+                            # 更新卡片显示超时信息
+                            timeout_msg = last_content[0] if last_content[0] else ""
+                            timeout_msg += "\n\n⚠️ **生成超时**，请稍后重试或简化问题。"
+                            self._do_update_card_now(initial_message_id, timeout_msg)
+                            return
+                    
+                    # 继续监控
+                    if not is_completed[0] and not acp_call_completed[0]:
+                        watchdog_timer[0] = threading.Timer(10.0, watchdog_check)  # 每10秒检查一次
+                        watchdog_timer[0].start()
+                except Exception as e:
+                    self._log(f"[ERROR] Watchdog 异常: {e}")
+            
+            # 启动 watchdog
+            watchdog_timer[0] = threading.Timer(10.0, watchdog_check)
+            watchdog_timer[0].start()
             
             # 立即显示第一帧动画（不要等待定时器）
             update_animation()
@@ -1377,34 +1537,48 @@ class LarkBot:
                 if is_completed[0]:
                     return
                 
+                # 更新最后收到内容的时间
+                last_chunk_time[0] = time.time()
+                
                 # 检测是否转为后台执行
                 if "后台执行" in current_text or "后台任务" in current_text:
                     if not is_background[0]:
                         is_background[0] = True
                         self._log(f"[INFO] 检测到任务转为后台执行: {chat_id}")
                 
-                # 仅更新内容（动画定时器会负责每0.3秒更新一次卡片）
+                # 仅更新内容（动画定时器会负责每2.0秒更新一次卡片）
                 if current_text != last_content[0]:
                     last_content[0] = current_text
                     
                     # 检查动画定时器是否还在运行，如果停止则重新启动
                     # （处理长时间工具调用后定时器过期的情况）
-                    if animation_timer[0] is None or not animation_timer[0].is_alive():
+                    with animation_lock:
+                        is_alive = animation_timer[0] is not None and animation_timer[0].is_alive()
+                    
+                    if not is_alive:
                         self._log(f"[DEBUG] 检测到动画定时器停止，重新启动")
-                        animation_timer[0] = threading.Timer(0.3, update_animation)
-                        animation_timer[0].start()
+                        restart_animation_timer()
             
             def on_chunk_final(final_text):
                 """最终回调 - 立即去掉动画"""
                 # 标记已完成，阻止 on_chunk 继续更新
                 is_completed[0] = True
+                acp_call_completed[0] = True
                 
-                # 停止动画定时器
-                if animation_timer[0]:
+                # 停止 watchdog
+                if watchdog_timer[0]:
                     try:
-                        animation_timer[0].cancel()
+                        watchdog_timer[0].cancel()
                     except:
                         pass
+                
+                # 停止动画定时器
+                with animation_lock:
+                    if animation_timer[0]:
+                        try:
+                            animation_timer[0].cancel()
+                        except:
+                            pass
                 
                 # 等待一小段时间，确保线程池中的动画更新完成
                 time.sleep(0.1)
@@ -1425,10 +1599,20 @@ class LarkBot:
                 # 等待一小段时间，确保已提交的动画更新完成
                 time.sleep(0.2)
                 # 立即更新卡片，去掉生成中字样
-                self._do_update_card_now(initial_message_id, final_text)
+                self._do_update_card_now(initial_message_id, final_text, force=True)
 
-            # 调用 ACP（流式，超时 30 分钟）
-            response = self.acp_client.chat(text, on_chunk=on_chunk, timeout=1800)
+            try:
+                # 调用 ACP（流式，超时 30 分钟）
+                response = self.acp_client.chat(text, on_chunk=on_chunk, timeout=1800)
+            finally:
+                # 无论成功与否，标记 ACP 调用完成
+                acp_call_completed[0] = True
+                # 停止 watchdog
+                if watchdog_timer[0]:
+                    try:
+                        watchdog_timer[0].cancel()
+                    except:
+                        pass
 
             # 检查是否是后台任务（Kimi 将任务放入后台执行）
             if is_background[0] and ("请稍后再试" in response or "请稍后查看" in response or len(response) < 50):
@@ -1442,6 +1626,9 @@ class LarkBot:
             on_chunk_final(response)
 
             self._log(f"[DEBUG] ACP 完成，总长度: {len(response)}")
+            
+            # 保存对话记录
+            self._save_chat_history(chat_id, user_input or text, response)
 
         except Exception as e:
             import traceback
@@ -1525,6 +1712,9 @@ class LarkBot:
         - 有序列表 (1. item)
         - 引用 (> text)
         - 分割线 (---)
+        
+        注意：飞书 API 对卡片元素数量有限制（最多约 50 个 markdown 元素），
+        当内容过多时，会自动合并元素以避免超出限制。
         """
         if not text:
             return {
@@ -1533,9 +1723,15 @@ class LarkBot:
                 "body": {"elements": []}
             }
         
+        # 飞书卡片限制：最多约 50 个 markdown 元素
+        MAX_ELEMENTS = 40  # 留一些余量
+        
         elements = []
         lines = text.split('\n')
         i = 0
+        
+        # 预解析所有块，然后合并控制数量
+        raw_blocks = []
         
         while i < len(lines):
             line = lines[i]
@@ -1557,9 +1753,8 @@ class LarkBot:
                 i += 1  # 跳过结束标记
                 
                 code_content = '\n'.join(code_lines)
-                # 使用 markdown 元素渲染代码块
-                elements.append({
-                    "tag": "markdown",
+                raw_blocks.append({
+                    "type": "code",
                     "content": f"```{language}\n{code_content}\n```"
                 })
                 continue
@@ -1569,8 +1764,8 @@ class LarkBot:
             if header_match:
                 level = len(header_match.group(1))
                 content = header_match.group(2)
-                elements.append({
-                    "tag": "markdown",
+                raw_blocks.append({
+                    "type": "header",
                     "content": f"{'#' * level} {content}"
                 })
                 i += 1
@@ -1578,7 +1773,7 @@ class LarkBot:
             
             # 检测分割线
             if stripped == '---' or stripped == '***' or stripped == '___':
-                elements.append({"tag": "hr"})
+                raw_blocks.append({"type": "hr"})
                 i += 1
                 continue
             
@@ -1604,10 +1799,75 @@ class LarkBot:
             
             if markdown_lines:
                 content = '\n'.join(markdown_lines)
-                elements.append({
-                    "tag": "markdown",
+                raw_blocks.append({
+                    "type": "markdown",
                     "content": content
                 })
+        
+        # 如果块数超过限制，合并相邻的 markdown 块
+        if len(raw_blocks) > MAX_ELEMENTS:
+            self._log(f"[WARN] 卡片内容块数({len(raw_blocks)})超过限制，合并处理", "debug")
+            merged_blocks = []
+            current_markdown = []
+            
+            for block in raw_blocks:
+                if block.get("type") == "markdown":
+                    current_markdown.append(block["content"])
+                else:
+                    # 先刷新积累的 markdown
+                    if current_markdown:
+                        merged_blocks.append({
+                            "type": "markdown",
+                            "content": "\n\n".join(current_markdown)
+                        })
+                        current_markdown = []
+                    merged_blocks.append(block)
+            
+            # 处理最后积累的 markdown
+            if current_markdown:
+                merged_blocks.append({
+                    "type": "markdown",
+                    "content": "\n\n".join(current_markdown)
+                })
+            
+            raw_blocks = merged_blocks
+        
+        # 如果还是超过限制，进一步合并所有 markdown 块
+        if len(raw_blocks) > MAX_ELEMENTS:
+            self._log(f"[WARN] 卡片内容块数({len(raw_blocks)})仍超过限制，强制合并", "debug")
+            all_markdown = []
+            other_blocks = []
+            
+            for block in raw_blocks:
+                if block.get("type") == "markdown":
+                    all_markdown.append(block["content"])
+                elif block.get("type") == "code":
+                    all_markdown.append(block["content"])
+                elif block.get("type") == "header":
+                    all_markdown.append(block["content"])
+                else:
+                    other_blocks.append(block)
+            
+            # 将所有 markdown 合并为一个块
+            raw_blocks = [{"type": "markdown", "content": "\n\n".join(all_markdown)}] + other_blocks
+        
+        # 转换为飞书卡片元素格式
+        for block in raw_blocks:
+            block_type = block.get("type")
+            if block_type == "hr":
+                elements.append({"tag": "hr"})
+            elif block_type in ("markdown", "code", "header"):
+                elements.append({
+                    "tag": "markdown",
+                    "content": block["content"]
+                })
+        
+        # 最终检查：如果还是超过限制，截断为纯文本
+        if len(elements) > MAX_ELEMENTS:
+            self._log(f"[WARN] 卡片元素数({len(elements)})仍超限，转为纯文本模式", "debug")
+            # 截取前 3000 字符作为纯文本
+            truncated_text = text[:3000] + "..." if len(text) > 3000 else text
+            elements = [{"tag": "markdown", "content": truncated_text}]
         
         return {
             "schema": "2.0",
@@ -1646,8 +1906,8 @@ class LarkBot:
             if message_id in self._update_timers and self._update_timers[message_id].is_alive():
                 return
             
-            # 创建定时器，0.3秒后执行实际更新（匹配动画频率）
-            timer = threading.Timer(0.3, self._do_update_card, args=[message_id])
+            # 创建定时器，1.0秒后执行实际更新（避免触发飞书API频率限制）
+            timer = threading.Timer(1.0, self._do_update_card, args=[message_id])
             self._update_timers[message_id] = timer
             timer.start()
     
@@ -1679,12 +1939,26 @@ class LarkBot:
         # 执行实际更新
         self._do_update_card_now(message_id, text)
     
-    def _do_update_card_now(self, message_id, text):
-        """立即执行卡片更新（不经过批量策略）"""
+    def _do_update_card_now(self, message_id, text, force=False):
+        """立即执行卡片更新（不经过批量策略）
+        
+        Args:
+            message_id: 消息ID
+            text: 更新内容
+            force: 是否强制更新（绕过最小间隔限制），用于最终更新确保去掉"生成中"
+        """
         from lark_oapi.api.im.v1 import PatchMessageRequest, PatchMessageRequestBody
         
         if not text:
             return
+        
+        # 检查最小更新间隔，避免触发飞书频率限制
+        now = time.time()
+        last_time = self._last_update_time.get(message_id, 0)
+        if not force and now - last_time < self._min_update_interval:
+            # 时间太短，跳过本次更新（但force=True时强制更新）
+            return
+        self._last_update_time[message_id] = now
         
         start_time = time.time()
         
@@ -1706,23 +1980,46 @@ class LarkBot:
                 .build()) \
             .build()
 
-        response = self.client.im.v1.message.patch(request)
-        elapsed = time.time() - start_time
-        
-        # 记录飞书API响应
-        self._log_feishu("RECV", {
-            "type": "UPDATE_CARD_V2_RESPONSE",
-            "success": response.success(),
-            "code": response.code if not response.success() else 0,
-            "elapsed_ms": round(elapsed * 1000, 2)
-        }, "streaming response")
-        
-        # 流式更新时减少日志输出
-        if elapsed > 0.5 or len(text) < 100:
-            if response.success():
-                self._log(f"[DEBUG] 更新卡片成功 ({len(text)}字, 耗时{elapsed:.2f}s)")
-            else:
-                self._log(f"[ERROR] 更新卡片失败: {response.code} - {response.msg}")
+        try:
+            response = self.client.im.v1.message.patch(request)
+            elapsed = time.time() - start_time
+            
+            # 记录飞书API响应
+            self._log_feishu("RECV", {
+                "type": "UPDATE_CARD_V2_RESPONSE",
+                "success": response.success(),
+                "code": response.code if not response.success() else 0,
+                "elapsed_ms": round(elapsed * 1000, 2)
+            }, "streaming response")
+            
+            # 流式更新时减少日志输出
+            if elapsed > 0.5 or len(text) < 100:
+                if response.success():
+                    self._log(f"[DEBUG] 更新卡片成功 ({len(text)}字, 耗时{elapsed:.2f}s)")
+                else:
+                    # 频率限制错误降级为 WARN，避免日志刷屏
+                    if response.code == 230020:
+                        self._log(f"[WARN] 更新卡片频率限制: {response.code} - {response.msg}")
+                    else:
+                        self._log(f"[ERROR] 更新卡片失败: {response.code} - {response.msg}")
+        except json.decoder.JSONDecodeError as e:
+            elapsed = time.time() - start_time
+            self._log_feishu("RECV", {
+                "type": "UPDATE_CARD_V2_RESPONSE",
+                "success": False,
+                "code": "JSONDecodeError",
+                "elapsed_ms": round(elapsed * 1000, 2)
+            }, "empty response")
+            self._log(f"[WARN] 更新卡片返回空响应，可能触发频率限制或网络异常: {e}")
+        except Exception as e:
+            elapsed = time.time() - start_time
+            self._log_feishu("RECV", {
+                "type": "UPDATE_CARD_V2_RESPONSE",
+                "success": False,
+                "code": type(e).__name__,
+                "elapsed_ms": round(elapsed * 1000, 2)
+            }, f"exception: {e}")
+            self._log(f"[ERROR] 更新卡片异常: {e}")
 
     def _get_tenant_access_token(self):
         """获取 tenant_access_token"""
@@ -1844,8 +2141,13 @@ class LarkBot:
             
             if resp.status_code != 200:
                 error_msg = resp.text[:500] if resp.text else f"HTTP {resp.status_code}"
-                self._log(f"[ERROR] 下载文件失败: {error_msg}")
-                self.update_card(initial_message_id, f"⚠️ **无法处理文件**\n\n飞书平台限制，无法获取用户发送的文件。\n\n**替代方案**：请将文件内容复制粘贴发送。")
+                # 检查是否是文件大小超过限制的错误
+                if "234037" in error_msg or "exceeds limit" in error_msg.lower():
+                    self._log(f"[WARNING] 文件大小超过限制，跳过下载: {file_name}")
+                    self.update_card(initial_message_id, f"⚠️ **文件太大**\n\n您上传的文件 **{file_name}** 超过了飞书平台的大小限制（最大约 20MB）。\n\n**替代方案**：\n1. 压缩文件后重新上传\n2. 将文件内容复制粘贴发送\n3. 分批发送文件内容")
+                else:
+                    self._log(f"[WARNING] 下载文件失败: {error_msg}")
+                    self.update_card(initial_message_id, f"⚠️ **无法处理文件**\n\n飞书平台限制，无法获取用户发送的文件。\n\n**替代方案**：请将文件内容复制粘贴发送。")
                 return
             
             # 处理文件数据
@@ -1875,8 +2177,15 @@ class LarkBot:
             self._log(f"[ERROR] 处理文件异常: {e}")
             self.reply_text(chat_id, f"❌ 处理文件失败: {str(e)}", streaming=False)
 
-    def _call_acp_with_text(self, chat_id, initial_message_id, prompt):
-        """调用 ACP 处理文本（复用流式输出逻辑）"""
+    def _call_acp_with_text(self, chat_id, initial_message_id, prompt, user_input=None):
+        """调用 ACP 处理文本（复用流式输出逻辑）
+        
+        Args:
+            chat_id: 聊天ID
+            initial_message_id: 初始消息ID
+            prompt: 发送给ACP的prompt
+            user_input: 原始用户输入（用于保存对话记录）
+        """
         try:
             if self.acp_client is None:
                 self.acp_client = ACPClient(bot_ref=self)
@@ -1888,6 +2197,12 @@ class LarkBot:
             waiting_symbols = ["◐", "○", "◑", "●"]
             symbol_index = [0]
             animation_timer = [None]
+            animation_lock = threading.Lock()  # 保护定时器操作
+            
+            # Watchdog 机制
+            last_chunk_time = [time.time()]
+            watchdog_timer = [None]
+            acp_call_completed = [False]
             
             def get_waiting_symbol():
                 symbol = waiting_symbols[symbol_index[0] % len(waiting_symbols)]
@@ -1895,12 +2210,12 @@ class LarkBot:
                 return symbol
             
             def update_animation():
-                """独立更新动画符号，每0.3秒执行一次"""
+                """独立更新动画符号，每2.0秒执行一次"""
                 if is_completed[0]:
                     return
                 
                 try:
-                    # 无条件更新动画符号（定时器本身就是每0.3秒触发）
+                    # 无条件更新动画符号（定时器本身就是每2.0秒触发）
                     current_text = last_content[0] if last_content[0] else "⏳ 正在思考..."
                     display_text = current_text + f"\n\n{get_waiting_symbol()} **生成中...**"
                     self.executor.submit(self.update_card, initial_message_id, display_text)
@@ -1909,11 +2224,65 @@ class LarkBot:
                 
                 # 安排下一次更新（即使本次异常也要继续）
                 if not is_completed[0]:
+                    with animation_lock:
+                        if not is_completed[0]:
+                            try:
+                                animation_timer[0] = threading.Timer(2.0, update_animation)
+                                animation_timer[0].start()
+                            except Exception as e:
+                                self._log(f"[ERROR] 动画定时器启动失败: {e}")
+            
+            def restart_animation_timer():
+                """安全地重启动画定时器"""
+                with animation_lock:
+                    if is_completed[0]:
+                        return
                     try:
-                        animation_timer[0] = threading.Timer(0.3, update_animation)
+                        if animation_timer[0] is not None:
+                            try:
+                                animation_timer[0].cancel()
+                            except:
+                                pass
+                        animation_timer[0] = threading.Timer(2.0, update_animation)
                         animation_timer[0].start()
                     except Exception as e:
-                        self._log(f"[ERROR] 动画定时器启动失败: {e}")
+                        self._log(f"[ERROR] 重启动画定时器失败: {e}")
+            
+            def watchdog_check():
+                """Watchdog：检查 ACP 是否卡住"""
+                if is_completed[0] or acp_call_completed[0]:
+                    return
+                
+                try:
+                    elapsed = time.time() - last_chunk_time[0]
+                    if elapsed > 60:
+                        self._log(f"[WARN] Watchdog: ACP 调用可能卡住，{elapsed:.1f}秒未收到新内容")
+                        if self.acp_client:
+                            self.acp_client.cancel()
+                        
+                        if elapsed > 300:
+                            self._log(f"[ERROR] Watchdog: ACP 调用超时超过5分钟，强制结束")
+                            is_completed[0] = True
+                            with animation_lock:
+                                if animation_timer[0]:
+                                    try:
+                                        animation_timer[0].cancel()
+                                    except:
+                                        pass
+                            timeout_msg = last_content[0] if last_content[0] else ""
+                            timeout_msg += "\n\n⚠️ **生成超时**，请稍后重试或简化问题。"
+                            self._do_update_card_now(initial_message_id, timeout_msg)
+                            return
+                    
+                    if not is_completed[0] and not acp_call_completed[0]:
+                        watchdog_timer[0] = threading.Timer(10.0, watchdog_check)
+                        watchdog_timer[0].start()
+                except Exception as e:
+                    self._log(f"[ERROR] Watchdog 异常: {e}")
+            
+            # 启动 watchdog
+            watchdog_timer[0] = threading.Timer(10.0, watchdog_check)
+            watchdog_timer[0].start()
             
             # 立即显示第一帧动画（不要等待定时器）
             update_animation()
@@ -1922,26 +2291,40 @@ class LarkBot:
                 if is_completed[0]:
                     return
                 
-                # 仅更新内容（动画定时器会负责每0.3秒更新一次卡片）
+                # 更新最后收到内容的时间
+                last_chunk_time[0] = time.time()
+                
+                # 仅更新内容（动画定时器会负责每2.0秒更新一次卡片）
                 if current_text != last_content[0]:
                     last_content[0] = current_text
                     
                     # 检查动画定时器是否还在运行，如果停止则重新启动
-                    if animation_timer[0] is None or not animation_timer[0].is_alive():
+                    with animation_lock:
+                        is_alive = animation_timer[0] is not None and animation_timer[0].is_alive()
+                    
+                    if not is_alive:
                         self._log(f"[DEBUG] 检测到动画定时器停止，重新启动")
-                        animation_timer[0] = threading.Timer(0.3, update_animation)
-                        animation_timer[0].start()
+                        restart_animation_timer()
             
             def on_chunk_final(final_text):
                 """最终回调 - 立即去掉动画"""
                 is_completed[0] = True
+                acp_call_completed[0] = True
                 
-                # 停止动画定时器
-                if animation_timer[0]:
+                # 停止 watchdog
+                if watchdog_timer[0]:
                     try:
-                        animation_timer[0].cancel()
+                        watchdog_timer[0].cancel()
                     except:
                         pass
+                
+                # 停止动画定时器
+                with animation_lock:
+                    if animation_timer[0]:
+                        try:
+                            animation_timer[0].cancel()
+                        except:
+                            pass
                 
                 # 等待一小段时间，确保线程池中的动画更新完成
                 time.sleep(0.1)
@@ -1959,10 +2342,22 @@ class LarkBot:
                 # 等待一小段时间，确保已提交的动画更新完成
                 time.sleep(0.2)
                 # 立即更新卡片，去掉生成中字样
-                self._do_update_card_now(initial_message_id, final_text)
+                self._do_update_card_now(initial_message_id, final_text, force=True)
 
-            response = self.acp_client.chat(prompt, on_chunk=on_chunk, timeout=300)
+            try:
+                response = self.acp_client.chat(prompt, on_chunk=on_chunk, timeout=300)
+            finally:
+                acp_call_completed[0] = True
+                if watchdog_timer[0]:
+                    try:
+                        watchdog_timer[0].cancel()
+                    except:
+                        pass
+            
             on_chunk_final(response)
+            
+            # 保存对话记录
+            self._save_chat_history(chat_id, user_input or prompt, response)
             
         except Exception as e:
             self._log(f"[ERROR] 调用 ACP 出错: {e}")
@@ -2024,6 +2419,9 @@ class LarkBot:
                             f"任务结果已更新到上一条消息。\n"
                             f"📊 结果长度: {len(response)} 字符", 
                             streaming=False)
+                        
+                        # 保存对话记录
+                        self._save_chat_history(chat_id, original_prompt, response)
                         return
                     
                     # 如果是其他响应，继续等待

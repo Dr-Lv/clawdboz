@@ -16,7 +16,7 @@ try:
     with open(_version_file, 'r') as f:
         __version__ = f.read().strip()
 except Exception:
-    __version__ = '2.6.9'
+    __version__ = '3.5.0'
 
 from .config import PROJECT_ROOT, CONFIG, get_project_root, load_config, get_absolute_path
 from .acp_client import ACPClient

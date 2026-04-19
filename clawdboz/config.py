@@ -128,10 +128,6 @@ def merge_config_from_env(config):
     # 注意：飞书配置 (FEISHU_APP_ID, FEISHU_APP_SECRET) 只从 config.json 读取
     # 不再从环境变量或 .env 文件覆盖，确保每个项目使用自己的独立配置
     
-    # QVeris 配置（仍可从环境变量读取）
-    if os.environ.get('QVERIS_API_KEY'):
-        config.setdefault('qveris', {})['api_key'] = os.environ['QVERIS_API_KEY']
-    
     # 通知配置（仍可从环境变量读取）
     if os.environ.get('ENABLE_FEISHU_NOTIFY'):
         enable = os.environ['ENABLE_FEISHU_NOTIFY'].lower() in ('true', '1', 'yes', 'on')
@@ -169,7 +165,6 @@ def validate_config(config):
         print("\n提示: 您可以将敏感配置写入项目根目录的 .env 文件，格式如下:")
         print("  FEISHU_APP_ID=your_app_id")
         print("  FEISHU_APP_SECRET=your_app_secret")
-        print("  QVERIS_API_KEY=your_api_key (可选)")
         sys.exit(1)
 
 
@@ -191,6 +186,9 @@ def load_config(silent=False):
             'feishu': {},
             'logs': {},
             'paths': {},
+            'agent': {
+                'executable': 'kimi'
+            },
             'scheduler': {
                 'heart_beat': 60  # 心跳间隔，单位秒，默认60秒
             }
@@ -223,6 +221,9 @@ except SystemExit:
         'feishu': {},
         'logs': {},
         'paths': {},
+        'agent': {
+            'executable': 'kimi'
+        },
         'scheduler': {
             'heart_beat': 60  # 心跳间隔，单位秒，默认60秒
         }

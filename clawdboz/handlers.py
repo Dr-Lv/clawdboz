@@ -26,12 +26,22 @@ def do_bot_p2p_chat_entered(data):
 def do_bot_p2p_chat_create(data):
     """机器人创建单聊事件处理（用户首次与Bot创建单聊）"""
     print(lark.JSON.marshal(data))
-    chat_id = data.event.chat_id
-    operator_id = data.event.operator_id
+    # data.event 是字典类型，需要使用 get 方法访问
+    chat_id = data.event.get('chat_id') if data.event else None
+    operator_id = data.event.get('operator_id') if data.event else None
     print(f"用户创建与机器人的单聊: chat_id={chat_id}, operator_id={operator_id}")
     return None
 
 
 def do_message_read(data):
     """消息已读事件处理（忽略）"""
+    return None
+
+
+def do_bot_group_chat_added(data):
+    """机器人被添加到群聊事件处理"""
+    print(lark.JSON.marshal(data))
+    chat_id = data.event.chat_id
+    operator_id = data.event.operator_id
+    print(f"机器人被添加到群聊: chat_id={chat_id}, operator_id={operator_id}")
     return None

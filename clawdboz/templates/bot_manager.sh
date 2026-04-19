@@ -14,33 +14,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 # 配置文件路径
 CONFIG_FILE="$SCRIPT_DIR/config.json"
 
-# 使用 jq 或系统 python3 读取配置（用于获取 python.bin 配置）
+# 使用系统 python3 读取配置（用于获取 python.bin 配置）
 _get_config() {
-    local path="$1"
-    local result=""
-    
-    # 检查配置文件是否存在
-    if [ ! -f "$CONFIG_FILE" ]; then
-        return 1
-    fi
-    
-    # 尝试使用 jq（如果安装了）
-    if command -v jq &> /dev/null; then
-        local jq_path=$(echo "$path" | sed "s/\['/./g; s/'\]//g")
-        result=$(jq -r "$jq_path" "$CONFIG_FILE" 2>/dev/null)
-        if [ "$result" = "null" ] || [ -z "$result" ]; then
-            return 1
-        fi
-        echo "$result"
-        return 0
-    fi
-    
-    # 回退到系统 python3
-    result=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null)
-    if [ -z "$result" ]; then
-        return 1
-    fi
-    echo "$result"
+    python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c$1)" 2>/dev/null
 }
 
 # 从配置文件读取 Python 路径（只从 config.json 读取）
@@ -101,23 +77,23 @@ export LARKBOT_ROOT="$PROJECT_ROOT"
 # PID 文件路径 - 放在脚本所在目录（当前目录）
 PID_FILE="$SCRIPT_DIR/${BOT_NAME}.pid"
 
-# Kimi CLI 路径从 config.json 读取，默认为 ~/.local/bin
-KIMI_DIR=$(get_config "['kimi']['bin_dir']" 2>/dev/null)
+# ACP agent 可执行文件路径从 config.json 读取
+AGENT_EXECUTABLE=$(get_config "['agent']['executable']" 2>/dev/null)
 
-if [ -n "$KIMI_DIR" ] && [ "${KIMI_DIR:0:1}" != "/" ]; then
-    # 相对路径，转换为绝对路径
-    KIMI_DIR="$SCRIPT_DIR/$KIMI_DIR"
+if [ -z "$AGENT_EXECUTABLE" ]; then
+    # 按优先级查找支持的 ACP agent
+    for agent in kimi opencode claude-code-acp openclaw hermes; do
+        AGENT_BIN=$(which "$agent" 2>/dev/null)
+        if [ -n "$AGENT_BIN" ]; then
+            AGENT_EXECUTABLE="$AGENT_BIN"
+            break
+        fi
+    done
 fi
 
-if [ -z "$KIMI_DIR" ]; then
-    # 尝试查找 kimi 可执行文件
-    KIMI_BIN=$(which kimi 2>/dev/null)
-    if [ -n "$KIMI_BIN" ]; then
-        KIMI_DIR=$(dirname "$KIMI_BIN")
-    else
-        # 默认路径
-        KIMI_DIR="$HOME/.local/bin"
-    fi
+if [ -z "$AGENT_EXECUTABLE" ]; then
+    # 默认路径
+    AGENT_EXECUTABLE="$HOME/.local/bin/kimi"
 fi
 
 # 日志路径（从配置文件读取，基于项目根目录）
@@ -183,9 +159,7 @@ for p in sys.path:
 
 NOTIFY_SCRIPT=$(find_notify_script "$NOTIFY_SCRIPT_NAME")
 
-# QVeris API Key 配置（优先环境变量，其次配置文件）
-QVERIS_API_KEY_CONFIG=$(get_config "['qveris']['api_key']" || echo '')
-export QVERIS_API_KEY="${QVERIS_API_KEY:-$QVERIS_API_KEY_CONFIG}"
+
 
 # 确保日志目录存在
 mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$DEBUG_LOG")" "$(dirname "$FEISHU_API_LOG")" "$(dirname "$OPS_LOG")" 2>/dev/null
@@ -928,34 +902,45 @@ check() {
         check_results="${check_results}\n[SKIP] 日志检查: 调试日志不存在"
     fi
     
-    # 5. 检查 feishu-api-sender skill（替代原有的 MCP server）
-    info "检查飞书发送技能..."
-    if [ -d "$PROJECT_ROOT/.kimi/skills/feishu-api-sender" ]; then
-        success "✓ feishu-api-sender skill 存在"
-        log_ops "INFO" "feishu-api-sender skill 存在"
-        check_results="${check_results}\n[OK] 飞书技能: 存在"
-        
-        # 检查核心文件
-        if [ -f "$PROJECT_ROOT/.kimi/skills/feishu-api-sender/feishu_sender.py" ]; then
-            success "✓ feishu_sender.py 脚本存在"
-            log_ops "INFO" "feishu_sender.py 脚本存在"
-            check_results="${check_results}\n[OK] 飞书脚本: 存在"
+    # 5. 检查 MCP 配置
+    info "检查 MCP 配置..."
+    if [ -f "$PROJECT_ROOT/.agents/mcp.json" ]; then
+        if grep -q "mcp_feishu_file_server.py" "$PROJECT_ROOT/.agents/mcp.json" 2>/dev/null; then
+            success "✓ MCP 配置文件存在"
+            log_ops "INFO" "MCP 配置文件存在"
+            check_results="${check_results}\n[OK] MCP 配置: 存在"
+            
+            # 检查路径是否正确
+            local mcp_path=$(grep -o '/[^"]*mcp_feishu_file_server.py' "$PROJECT_ROOT/.agents/mcp.json" 2>/dev/null)
+            if [ -f "$mcp_path" ]; then
+                success "✓ MCP Server 脚本存在"
+                log_ops "INFO" "MCP Server 脚本存在: $mcp_path"
+                check_results="${check_results}\n[OK] MCP 脚本: 存在"
+            else
+                error "✗ MCP Server 脚本不存在: $mcp_path"
+                has_error=1
+                error_details="${error_details}\n- MCP Server 脚本路径错误: $mcp_path"
+                log_ops "ERROR" "MCP Server 脚本不存在: $mcp_path"
+                check_results="${check_results}\n[FAIL] MCP 脚本: 不存在"
+            fi
         else
-            warn "⚠ feishu_sender.py 脚本不存在"
-            log_ops "WARN" "feishu_sender.py 脚本不存在"
-            check_results="${check_results}\n[WARN] 飞书脚本: 缺失"
+            error "✗ MCP 配置中找不到 send_feishu_file"
+            has_error=1
+            error_details="${error_details}\n- MCP 配置不完整"
+            log_ops "ERROR" "MCP 配置不完整"
+            check_results="${check_results}\n[FAIL] MCP 配置: 不完整"
         fi
     else
-        error "✗ feishu-api-sender skill 不存在"
+        error "✗ MCP 配置文件不存在"
         has_error=1
-        error_details="${error_details}\n- feishu-api-sender skill 缺失"
-        log_ops "ERROR" "feishu-api-sender skill 缺失"
-        check_results="${check_results}\n[FAIL] 飞书技能: 缺失"
+        error_details="${error_details}\n- MCP 配置文件缺失"
+        log_ops "ERROR" "MCP 配置文件缺失"
+        check_results="${check_results}\n[FAIL] MCP 配置: 缺失"
     fi
     
     # 6. 检查 Skills
     info "检查 Skills..."
-    local skills_dir="$PROJECT_ROOT/.kimi/skills"
+    local skills_dir="$PROJECT_ROOT/.agents/skills"
     if [ -d "$skills_dir" ]; then
         local skill_count=$(find "$skills_dir" -name "SKILL.md" 2>/dev/null | wc -l)
         success "✓ 发现 $skill_count 个 Skills"
@@ -1039,7 +1024,7 @@ Bot 进程状态: $(check_running && echo "运行中 (PID: $(check_running))" ||
 4. 验证修复结果
 
 Bot 主脚本: clawdboz/main.py
-MCP 配置: .kimi/mcp.json
+MCP 配置: .agents/mcp.json
 日志文件: logs/bot_debug.log, logs/main.log
 
 如果需要重启 Bot，使用: ./bot_manager.sh restart
@@ -1050,19 +1035,19 @@ tips:
         info "调用 Kimi 进行自动修复..."
         log_ops "INFO" "开始调用 Kimi 自动修复"
         
-        # 检查 kimi 是否存在
-        if [ ! -f "$KIMI_DIR/kimi" ]; then
-            error "Kimi CLI 不存在: $KIMI_DIR/kimi"
-            error "请安装 Kimi CLI 或在 config.json 中配置 kimi.bin_dir"
-            log_ops "ERROR" "Kimi CLI 不存在: $KIMI_DIR/kimi"
-            notify_feishu "repair_failed" "Kimi CLI 未安装"
+        # 检查 agent 是否存在
+        if [ ! -f "$AGENT_EXECUTABLE" ] && ! command -v "$AGENT_EXECUTABLE" &> /dev/null; then
+            error "ACP agent 不存在: $AGENT_EXECUTABLE"
+            error "请安装支持的 ACP agent 或在 config.json 中配置 agent.executable"
+            log_ops "ERROR" "ACP agent 不存在: $AGENT_EXECUTABLE"
+            notify_feishu "repair_failed" "ACP agent 未安装"
             echo ""
             warn "自动修复跳过，请手动处理问题"
-            log_ops "INFO" "========== 运维检查结束（未修复：Kimi CLI 不存在）=========="
+            log_ops "INFO" "========== 运维检查结束（未修复：ACP agent 不存在）=========="
             return 1
         fi
         
-        cd "$PROJECT_ROOT" && $KIMI_DIR/kimi --yolo -p "$repair_prompt"
+        cd "$PROJECT_ROOT" && $AGENT_EXECUTABLE --yolo -p "$repair_prompt"
         local repair_result=$?
         
         if [ $repair_result -eq 0 ]; then
@@ -1145,8 +1130,8 @@ try:
     
     print("✓ 已更新 project_root: {}".format(detected_root))
     
-    # 更新 .kimi/mcp.json 中的路径
-    mcp_config_path = os.path.join(detected_root, '.kimi', 'mcp.json')
+    # 更新 .agents/mcp.json 中的路径
+    mcp_config_path = os.path.join(detected_root, '.agents', 'mcp.json')
     if os.path.exists(mcp_config_path):
         with open(mcp_config_path, 'r', encoding='utf-8') as f:
             mcp_config = json.load(f)
@@ -1244,8 +1229,8 @@ with open(config_path, 'w', encoding='utf-8') as f:
     json.dump(config, f, indent=2, ensure_ascii=False)
 print("✓ 已修复 project_root")
 
-# 更新 .kimi/mcp.json 中的路径
-mcp_config_path = os.path.join(detected_root, '.kimi', 'mcp.json')
+# 更新 .agents/mcp.json 中的路径
+mcp_config_path = os.path.join(detected_root, '.agents', 'mcp.json')
 if os.path.exists(mcp_config_path):
     with open(mcp_config_path, 'r', encoding='utf-8') as f:
         mcp_config = json.load(f)

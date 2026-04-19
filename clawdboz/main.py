@@ -2,6 +2,13 @@
 """Bot 入口模块 - 启动飞书 Bot"""
 import sys
 import os
+
+# 禁用代理，防止连接问题
+os.environ['HTTP_PROXY'] = ''
+os.environ['HTTPS_PROXY'] = ''
+os.environ['http_proxy'] = ''
+os.environ['https_proxy'] = ''
+
 import time
 import ssl
 import asyncio
@@ -10,6 +17,28 @@ from datetime import datetime
 
 # 禁用 SSL 证书验证（解决自签名证书问题）
 ssl._create_default_https_context = ssl._create_unverified_context
+
+# Monkey-patch requests 来强制禁用代理
+import requests
+_original_request = requests.request
+_original_get = requests.get
+_original_post = requests.post
+
+def _patched_request(method, url, **kwargs):
+    kwargs['proxies'] = kwargs.get('proxies', {'http': None, 'https': None})
+    return _original_request(method, url, **kwargs)
+
+def _patched_get(url, **kwargs):
+    kwargs['proxies'] = kwargs.get('proxies', {'http': None, 'https': None})
+    return _original_get(url, **kwargs)
+
+def _patched_post(url, **kwargs):
+    kwargs['proxies'] = kwargs.get('proxies', {'http': None, 'https': None})
+    return _original_post(url, **kwargs)
+
+requests.request = _patched_request
+requests.get = _patched_get
+requests.post = _patched_post
 
 import lark_oapi as lark
 from lark_oapi.ws.client import Client as WSClient, _new_ping_frame
@@ -35,6 +64,7 @@ from .handlers import (
     do_bot_p2p_chat_entered,
     do_bot_p2p_chat_create,
     do_message_read,
+    do_bot_group_chat_added,
 )
 
 
@@ -126,7 +156,7 @@ class MonitoredWSClient(WSClient):
             # 等待下次心跳
             await asyncio.sleep(self._ping_interval)
     
-    def _disconnect(self):
+    async def _disconnect(self):
         """重写断开连接方法"""
         if self._is_connected:
             duration = "未知"
@@ -134,7 +164,10 @@ class MonitoredWSClient(WSClient):
                 duration = str(datetime.now() - self._conn_start_time).split('.')[0]
             logger.warning(f"[DISCONNECT] WebSocket 连接断开，持续时长: {duration}")
             self._is_connected = False
-        super()._disconnect()
+        # 安全调用父类方法（可能是 sync 或 async）
+        result = super()._disconnect()
+        if asyncio.iscoroutine(result):
+            await result
     
     def get_stats(self):
         """获取连接统计信息"""
@@ -184,8 +217,10 @@ def main():
         .register_p2_card_action_trigger(do_card_action_trigger) \
         .register_p2_url_preview_get(do_url_preview_get) \
         .register_p2_im_chat_access_event_bot_p2p_chat_entered_v1(do_bot_p2p_chat_entered) \
-        .register_p2_customized_event('im.chat.access_event.bot_p2p_chat_create_v1', do_bot_p2p_chat_create) \
+        .register_p1_customized_event('p2p_chat_create', do_bot_p2p_chat_create) \
+        .register_p2_customized_event('p2p_chat_create', do_bot_p2p_chat_create) \
         .register_p2_im_message_message_read_v1(do_message_read) \
+        .register_p2_im_chat_member_bot_added_v1(do_bot_group_chat_added) \
         .build()
 
     # 使用带监控的 WebSocket 客户端
@@ -247,8 +282,10 @@ def run_with_bot(bot_instance: LarkBot = None):
         .register_p2_card_action_trigger(do_card_action_trigger) \
         .register_p2_url_preview_get(do_url_preview_get) \
         .register_p2_im_chat_access_event_bot_p2p_chat_entered_v1(do_bot_p2p_chat_entered) \
-        .register_p2_customized_event('im.chat.access_event.bot_p2p_chat_create_v1', do_bot_p2p_chat_create) \
+        .register_p1_customized_event('p2p_chat_create', do_bot_p2p_chat_create) \
+        .register_p2_customized_event('p2p_chat_create', do_bot_p2p_chat_create) \
         .register_p2_im_message_message_read_v1(do_message_read) \
+        .register_p2_im_chat_member_bot_added_v1(do_bot_group_chat_added) \
         .build()
     
     # 使用带监控的 WebSocket 客户端

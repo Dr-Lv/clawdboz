@@ -14,7 +14,7 @@ from .config import CONFIG, get_absolute_path, PROJECT_ROOT
 class ACPClient:
     """Kimi Code CLI ACP 客户端"""
     
-    def __init__(self, bot_ref=None, session_work_dir=None, bot_work_dir=None, system_prompt=None):
+    def __init__(self, bot_ref=None):
         self.process = None
         self.response_map = {}
         self.notifications = []
@@ -22,12 +22,6 @@ class ACPClient:
         self._reader_thread = None
         self._bot_ref = bot_ref  # 保存 bot 引用，用于日志
         self._cancelled = False  # 取消标志
-        
-        # Web 界面支持的可选参数
-        self._session_work_dir = session_work_dir  # 会话级工作目录
-        self._bot_work_dir = bot_work_dir  # Bot 级工作目录（用于加载 skills 和 .bots.md）
-        self._custom_system_prompt = system_prompt  # 自定义系统提示词
-        
         self._initialize()
 
     def _log(self, message):
@@ -37,18 +31,67 @@ class ACPClient:
         else:
             print(f"[ACP] {message}")
 
+    def _is_session_expired_error(self, error_str):
+        """检测错误是否是会话过期相关的错误
+        
+        包括:
+        - session expired
+        - context expired
+        - invalid session
+        - session not found
+        - MCP 上下文过期
+        """
+        expired_keywords = [
+            'session expired', 'context expired', 'invalid session',
+            'session not found', 'unknown session', 'session 过期',
+            '上下文过期', 'context 过期', 'expired',
+        ]
+        error_lower = error_str.lower()
+        return any(keyword in error_lower for keyword in expired_keywords)
+    
+    def _reinitialize_for_retry(self):
+        """重新初始化 ACP 连接用于重试
+        
+        清理旧进程并重新建立连接和会话
+        """
+        self._log("[REINIT] 开始重新初始化 ACP 连接...")
+        
+        # 清理旧进程
+        if self.process:
+            try:
+                self.process.terminate()
+                time.sleep(0.2)
+                if self.process.poll() is None:
+                    self.process.kill()
+            except Exception as e:
+                self._log(f"[REINIT] 清理旧进程时出错: {e}")
+        
+        # 清理旧读取线程
+        if self._reader_thread and self._reader_thread.is_alive():
+            try:
+                # 等待线程自然结束（不应该join太久，因为是daemon线程）
+                pass
+            except Exception as e:
+                self._log(f"[REINIT] 清理旧线程时出错: {e}")
+        
+        # 重置状态
+        self.response_map.clear()
+        self.notifications.clear()
+        
+        # 重新初始化
+        self._initialize()
+        self._log(f"[REINIT] 重新初始化完成，新会话 ID: {self.session_id[:20]}...")
+    
     def _initialize(self):
         """初始化 ACP 连接，自动加载项目目录下的 MCP 配置和 skills"""
-        # 从配置获取 kimi 可执行文件路径 (使用 kimi.bin_dir)
-        kimi_bin_dir = CONFIG.get('kimi', {}).get('bin_dir')
-        if kimi_bin_dir:
-            kimi_executable = os.path.join(kimi_bin_dir, 'kimi')
-        else:
-            kimi_executable = 'kimi'
-        self._log(f"[ACP] 使用 kimi 路径: {kimi_executable}")
+        # 从配置获取 agent 可执行文件路径
+        agent_executable = CONFIG.get('agent', {}).get('executable')
+        if not agent_executable:
+            agent_executable = 'kimi'
+        self._log(f"[ACP] 使用 agent 路径: {agent_executable}")
         
         self.process = subprocess.Popen(
-            [kimi_executable, 'acp'],
+            [agent_executable, 'acp'],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -67,26 +110,14 @@ class ACPClient:
         # 加载项目目录下的 MCP 配置
         mcp_servers = self._load_mcp_config()
         
-        # 加载 skills（优先使用 bot_work_dir）
-        skills = self._load_skills(self._bot_work_dir)
+        # 加载项目目录下的 skills
+        skills = self._load_skills()
         
-        # 加载系统提示词（优先使用自定义的，否则从 .bots.md 加载）
-        if self._custom_system_prompt:
-            system_prompt = self._custom_system_prompt
-            # 追加 skills 描述
-            skills_section = self._build_skills_section(skills)
-            if skills_section:
-                system_prompt = system_prompt + "\n\n" + skills_section if system_prompt else skills_section
-        else:
-            # 从 .bots.md 加载（优先使用 bot_work_dir）
-            system_prompt = self._load_bots_md(skills, self._bot_work_dir)
+        # 加载项目目录下的 .bots.md 规则文件（传入 skills 列表）
+        system_prompt = self._load_bots_md(skills)
         
-        # 确定工作目录（优先使用 session_work_dir）
-        if self._session_work_dir:
-            workplace_path = self._session_work_dir
-        else:
-            workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
-        
+        # 创建新会话，使用 WORKPLACE 作为工作目录
+        workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
         session_params = {
             'cwd': workplace_path,
             'mcpServers': mcp_servers
@@ -109,21 +140,20 @@ class ACPClient:
     def _get_builtin_mcp_config(self):
         """获取内置的 MCP 配置（基于包安装位置）
         
-        当项目目录没有 MCP 配置时，使用包自带的配置
-        
-        注：MCP 模式已弃用，改用 feishu-api-sender skill 直接调用飞书 API
-        返回空配置，飞书发送功能通过 skill 实现
+        注意：飞书相关的内置 MCP 服务已移除，由 feishu-api-sender skill 取代。
+        当项目目录没有 MCP 配置时，返回空配置。
         """
+        self._log("[ACP] 飞书相关内置 MCP 服务已移除，请使用 feishu-api-sender skill")
         return {}
     
     def _load_mcp_config(self):
-        """加载项目目录下的 MCP 配置文件 (.kimi/mcp.json)
+        """加载项目目录下的 MCP 配置文件 (.agents/mcp.json)
         
         如果项目目录没有配置，则使用包内置的 MCP 配置。
         返回格式为列表，每个元素包含 name、type 和配置信息
         注意：根据 Kimi ACP 协议，headers 需要是列表格式
         """
-        mcp_config_path = get_absolute_path('.kimi/mcp.json')
+        mcp_config_path = get_absolute_path('.agents/mcp.json')
         mcp_servers_dict = {}
         
         if os.path.exists(mcp_config_path):
@@ -179,19 +209,12 @@ class ACPClient:
             self._log(f"[ACP] 加载 MCP 配置失败: {e}")
             return []
     
-    def _load_skills(self, skills_dir=None):
-        """加载 skills（用户目录 + 内置 skills）
-        
-        Args:
-            skills_dir: 可选，自定义 skills 目录路径
-        """
+    def _load_skills(self):
+        """加载 skills（用户目录 + 内置 skills）"""
         skills = []
         
-        # 1. 加载用户项目目录下的 skills（优先使用指定的目录）
-        if skills_dir:
-            user_skills_dir = os.path.join(skills_dir, '.kimi', 'skills')
-        else:
-            user_skills_dir = get_absolute_path('.kimi/skills')
+        # 1. 加载用户项目目录下的 skills
+        user_skills_dir = get_absolute_path('.agents/skills')
         if os.path.exists(user_skills_dir):
             try:
                 for item in os.listdir(user_skills_dir):
@@ -225,7 +248,7 @@ class ACPClient:
             import inspect
             builtin_skills_dir = os.path.join(
                 os.path.dirname(os.path.abspath(inspect.getfile(self.__class__))),
-                '.kimi', 'skills'
+                '.agents', 'skills'
             )
             
             if os.path.exists(builtin_skills_dir):
@@ -262,17 +285,13 @@ class ACPClient:
         self._log(f"[ACP] 总共加载 Skills: {len(skills)} 个")
         return skills
     
-    def _load_bots_md(self, skills=None, bots_dir=None):
+    def _load_bots_md(self, skills=None):
         """加载项目目录下的 .bots.md 规则文件作为系统提示词
         
         Args:
             skills: 已加载的 skills 列表，会追加到 system prompt 中
-            bots_dir: 可选，自定义 .bots.md 所在目录
         """
-        if bots_dir:
-            bots_md_path = os.path.join(bots_dir, '.bots.md')
-        else:
-            bots_md_path = get_absolute_path('.bots.md')
+        bots_md_path = get_absolute_path('.bots.md')
         
         content = ""
         
@@ -376,66 +395,6 @@ class ACPClient:
             content = content + skills_section if content else skills_section
         
         return content if content.strip() else None
-
-    def _build_skills_section(self, skills):
-        """构建 skills 描述部分（用于自定义 system prompt）
-        
-        Args:
-            skills: 已加载的 skills 列表
-            
-        Returns:
-            skills 描述字符串，如果没有 skills 则返回空字符串
-        """
-        if not skills:
-            return ""
-        
-        section = "\n\n## 可用 Skills（功能模块）\n\n"
-        section += "**重要：当用户询问你有什么功能、技能、能做什么、支持什么时，必须主动详细介绍以下内容：**\n\n"
-        
-        for skill in skills:
-            skill_name = skill['name']
-            skill_path = skill.get('path', '')
-            skill_md_path = os.path.join(skill_path, 'SKILL.md') if skill_path else ''
-            
-            # 获取 skill 内容
-            skill_content = skill.get('content', '')
-            if not skill_content and skill_md_path and os.path.exists(skill_md_path):
-                try:
-                    with open(skill_md_path, 'r', encoding='utf-8') as f:
-                        skill_content = f.read()
-                except:
-                    pass
-            
-            if skill_content:
-                # 解析 SKILL.md 内容
-                lines = skill_content.split('\n')
-                description = ""
-                title = skill_name
-                
-                # 处理 frontmatter
-                content_start = 0
-                if lines and lines[0].strip() == '---':
-                    for i in range(1, len(lines)):
-                        if lines[i].strip() == '---':
-                            content_start = i + 1
-                            break
-                        if lines[i].startswith('description:'):
-                            description = lines[i].split(':', 1)[1].strip()
-                
-                # 获取标题
-                for i in range(content_start, len(lines)):
-                    if lines[i].strip().startswith('#'):
-                        title = lines[i].strip().lstrip('#').strip()
-                        break
-                
-                section += f"### {skill_name} - {title}\n"
-                section += f"- **功能**：{description if description else '暂无描述'}\n\n"
-            else:
-                section += f"### {skill_name}\n"
-                section += f"- 功能：暂无描述\n\n"
-        
-        section += "**规则**：当用户问\"你有什么技能\"、\"你能做什么\"、\"你有什么功能\"时，必须主动、详细地介绍以上所有 skills 的功能和使用方法。\n"
-        return section
 
     def _read_responses(self):
         """持续读取响应"""
@@ -694,8 +653,25 @@ class ACPClient:
                 if result is None and msg_id in self.response_map:
                     result = self.response_map.pop(msg_id)
                     if 'error' in result:
+                        error_str = str(result['error'])
                         # 错误日志保留
-                        self._log(f"[CHAT] 收到错误响应: {result['error']}")
+                        self._log(f"[CHAT] 收到错误响应: {error_str}")
+                        
+                        # 检测会话过期错误，自动重新初始化
+                        if self._is_session_expired_error(error_str):
+                            self._log("[CHAT] 检测到会话过期，尝试重新初始化...")
+                            try:
+                                self._reinitialize_for_retry()
+                                # 更新请求中的 session_id
+                                request['params']['sessionId'] = self.session_id
+                                # 重新发送请求
+                                retry_count = 0
+                                result = None
+                                continue  # 跳到下一次循环，重新发送
+                            except Exception as reinit_error:
+                                self._log(f"[CHAT] 会话过期后重新初始化失败: {reinit_error}")
+                                return f"ACP 会话已过期，重新初始化失败: {reinit_error}"
+                        
                         return f"错误: {result['error']}"
                     result = result.get('result')
                     # 流式日志已禁用

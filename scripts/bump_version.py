@@ -3,7 +3,7 @@
 版本号同步脚本
 
 用法:
-    python scripts/bump_version.py 2.7.0
+    python scripts/bump_version.py 3.5.0
 
 这个脚本会同步版本号到以下文件:
     - clawdboz/VERSION
@@ -76,7 +76,7 @@ def update_bots_md_template(version: str):
 def main():
     if len(sys.argv) != 2:
         print("Usage: python scripts/bump_version.py <version>")
-        print("Example: python scripts/bump_version.py 2.7.0")
+        print("Example: python scripts/bump_version.py 3.5.0")
         sys.exit(1)
     
     version = sys.argv[1]
@@ -84,7 +84,7 @@ def main():
     # 验证版本号格式
     if not re.match(r'^\d+\.\d+\.\d+$', version):
         print(f"[ERROR] Invalid version format: {version}")
-        print("Version should be in format: x.x.x (e.g., 2.7.0)")
+        print("Version should be in format: x.x.x (e.g., 3.5.0)")
         sys.exit(1)
     
     print(f"Bumping version to: {version}")

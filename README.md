@@ -1,6 +1,6 @@
 # 嗑唠的宝子 (Clawdboz) - 飞书 Bot
 
-[![Version](https://img.shields.io/badge/version-2.7.5-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](#)
 
@@ -94,7 +94,7 @@ clawdboz init
 `clawdboz init` 会自动完成：
 - ✅ 检测 Kimi CLI 安装和登录状态
 - ✅ 创建 `config.json`，自动填入 Python 路径
-- ✅ 创建 `.kimi/mcp.json`，配置飞书 MCP 工具
+- ✅ 创建 `.agents/mcp.json`，配置飞书 MCP 工具
 - ✅ 复制内置 Skills（scheduler、local-memory、find-skills）
 - ✅ 创建 `bot_manager.sh` 管理脚本
 - ✅ 创建 `bot0.py` 启动脚本
@@ -126,7 +126,7 @@ clawdboz init
 `clawdboz init` 会自动完成：
 - ✅ 检测 Kimi CLI 安装和登录状态
 - ✅ 创建 `config.json`，自动填入 Python 路径
-- ✅ 创建 `.kimi/mcp.json`，配置飞书 MCP 工具
+- ✅ 创建 `.agents/mcp.json`，配置飞书 MCP 工具
 - ✅ 复制内置 Skills（scheduler、local-memory、find-skills）
 - ✅ 创建 `bot_manager.sh` 管理脚本
 - ✅ 创建 `bot0.py` 启动脚本
@@ -223,7 +223,7 @@ bot.run()
 
 ```
 .
-├── .kimi/                      # Kimi CLI 配置目录
+├── .agents/                      # Kimi CLI 配置目录
 │   ├── mcp.json               # MCP 配置（自动生成）
 │   └── skills/                # Skills 目录（自动生成）
 │       ├── find-skills/
@@ -253,7 +253,7 @@ clawdboz/                       # 主包
 ├── simple_bot.py               # 简化版 Bot API
 ├── bot.py                      # Bot 核心类
 ├── cli.py                      # 命令行工具
-└── .kimi/                      # 内置 Skills 模板
+└── .agents/                      # 内置 Skills 模板
     └── skills/
         ├── auto-test/
         ├── feishu-api-sender/  # 飞书消息/文件发送

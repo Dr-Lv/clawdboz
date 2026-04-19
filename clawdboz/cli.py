@@ -26,7 +26,7 @@ def get_version() -> str:
         with open(version_file, 'r') as f:
             return f.read().strip()
     except Exception:
-        return "2.6.9"
+        return "3.5.0"
 
 
 def get_templates_dir() -> Path:
@@ -139,59 +139,71 @@ def ensure_bot_files(target_dir: str, verbose: bool = True) -> dict:
     return result
 
 
-def check_kimi_installation():
+def find_agent_executable():
     """
-    检测 Kimi CLI 安装和登录状态
+    按优先级查找支持的 ACP agent 可执行文件路径
     
     Returns:
-        tuple: (installed, logged_in, kimi_bin_path)
+        tuple: (agent_path, agent_name) 或 (None, None)
     """
-    # 1. 检查 kimi 是否安装
-    kimi_bin = None
+    agents = ['kimi', 'opencode', 'claude-code-acp', 'openclaw', 'hermes']
     
-    # 尝试 which kimi
-    try:
-        result = subprocess.run(['which', 'kimi'], capture_output=True, text=True, timeout=5)
-        if result.returncode == 0 and result.stdout.strip():
-            kimi_bin = result.stdout.strip()
-    except Exception:
-        pass
-    
-    # 如果 which 找不到，检查常见路径
-    if not kimi_bin:
+    for agent in agents:
+        # 尝试 which
+        try:
+            result = subprocess.run(['which', agent], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip(), agent
+        except Exception:
+            pass
+        
+        # 检查常见路径
         common_paths = [
-            os.path.expanduser('~/.local/bin/kimi'),
-            '/usr/local/bin/kimi',
-            '/usr/bin/kimi',
+            os.path.expanduser(f'~/.local/bin/{agent}'),
+            f'/usr/local/bin/{agent}',
+            f'/usr/bin/{agent}',
         ]
         for path in common_paths:
             if os.path.isfile(path) and os.access(path, os.X_OK):
-                kimi_bin = path
-                break
+                return path, agent
     
-    if not kimi_bin:
-        return False, False, None
+    return None, None
+
+
+def check_agent_installation():
+    """
+    检测 ACP agent 安装和登录状态
     
-    # 2. 检查 kimi 是否已登录
-    # 检查 credentials 文件是否存在 access_token
+    Returns:
+        tuple: (installed, logged_in, agent_path, agent_name)
+    """
+    agent_path, agent_name = find_agent_executable()
+    
+    if not agent_path:
+        return False, False, None, None
+    
+    # 检查登录状态（目前只有 kimi 需要检查 credentials）
     logged_in = False
-    credentials_paths = [
-        os.path.expanduser('~/.kimi/credentials/kimi-code.json'),
-        os.path.expanduser('~/.kimi/credentials/kimi.json'),
-    ]
-    for cred_path in credentials_paths:
-        if os.path.exists(cred_path):
-            try:
-                with open(cred_path, 'r', encoding='utf-8') as f:
-                    creds = json.load(f)
-                # 检查是否有 access_token
-                if creds.get('access_token'):
-                    logged_in = True
-                    break
-            except Exception:
-                pass
+    if agent_name == 'kimi':
+        credentials_paths = [
+            os.path.expanduser('~/.kimi/credentials/kimi-code.json'),
+            os.path.expanduser('~/.kimi/credentials/kimi.json'),
+        ]
+        for cred_path in credentials_paths:
+            if os.path.exists(cred_path):
+                try:
+                    with open(cred_path, 'r', encoding='utf-8') as f:
+                        creds = json.load(f)
+                    if creds.get('access_token'):
+                        logged_in = True
+                        break
+                except Exception:
+                    pass
+    else:
+        # 其他 agent 暂不做登录状态检查，默认认为已准备好
+        logged_in = True
     
-    return True, logged_in, kimi_bin
+    return True, logged_in, agent_path, agent_name
 
 
 def init_project(work_dir: Optional[str] = None):
@@ -203,7 +215,7 @@ def init_project(work_dir: Optional[str] = None):
     - WORKPLACE/
     - WORKPLACE/user_images/
     - WORKPLACE/user_files/
-    - .kimi/
+    - .agents/
     - logs/
     - .bots.md
     - bot_manager.sh
@@ -213,26 +225,27 @@ def init_project(work_dir: Optional[str] = None):
     
     print(f"[INIT] 初始化项目: {target_dir}")
     
-    # 检测 Kimi CLI 状态
-    kimi_installed, kimi_logged_in, kimi_bin = check_kimi_installation()
+    # 检测 ACP agent 状态
+    agent_installed, agent_logged_in, agent_bin, agent_name = check_agent_installation()
     
-    if not kimi_installed:
-        print(f"[WARN] 未检测到 Kimi CLI，请先安装:")
-        print(f"       curl -L code.kimi.com/install.sh | bash")
-        print(f"       或访问: https://platform.moonshot.cn")
-    elif not kimi_logged_in:
-        print(f"[WARN] Kimi CLI 已安装但未登录，请先登录:")
-        print(f"       {kimi_bin} auth login")
-        print(f"       或访问: https://platform.moonshot.cn")
+    if not agent_installed:
+        print(f"[WARN] 未检测到支持的 ACP agent，请安装以下任意一个:")
+        print(f"       - Kimi:    curl -L code.kimi.com/install.sh | bash")
+        print(f"       - Opencode: pip install opencode")
+        print(f"       - Claude Code ACP, OpenClaw, Hermes 等")
+    elif not agent_logged_in:
+        print(f"[WARN] {agent_name} 已安装但未登录，请先登录")
+        if agent_name == 'kimi':
+            print(f"       {agent_bin} auth login")
     else:
-        print(f"[OK] Kimi CLI 已安装并已登录: {kimi_bin}")
+        print(f"[OK] {agent_name} 已安装并已就绪: {agent_bin}")
     
     # 创建目录
     dirs = [
         'WORKPLACE',
         'WORKPLACE/user_images',
         'WORKPLACE/user_files',
-        '.kimi',
+        '.agents',
         'logs',
     ]
     
@@ -249,9 +262,6 @@ def init_project(work_dir: Optional[str] = None):
             "feishu": {
                 "app_id": "YOUR_APP_ID_HERE",
                 "app_secret": "YOUR_APP_SECRET_HERE"
-            },
-            "qveris": {
-                "api_key": "${QVERIS_API_KEY}"
             },
             "notification": {
                 "enabled": True,
@@ -271,11 +281,11 @@ def init_project(work_dir: Optional[str] = None):
                 "workplace": "WORKPLACE",
                 "user_images": "WORKPLACE/user_images",
                 "user_files": "WORKPLACE/user_files",
-                "mcp_config": ".kimi/mcp.json",
-                "skills_dir": ".kimi/skills"
+                "mcp_config": ".agents/mcp.json",
+                "skills_dir": ".agents/skills"
             },
-            "kimi": {
-                "bin_dir": os.path.expanduser("~/.local/bin")
+            "agent": {
+                "executable": (agent_bin if agent_installed else "kimi")
             },
             "start_script": "bot0.py"
         }
@@ -289,43 +299,35 @@ def init_project(work_dir: Optional[str] = None):
     else:
         print(f"[INFO] 配置文件已存在: config.json")
     
-    # 创建 .kimi/mcp.json（空配置，保留文件用于兼容性）
-    mcp_path = os.path.join(target_dir, '.kimi', 'mcp.json')
+    # 创建 .agents/mcp.json（如果不存在）
+    mcp_path = os.path.join(target_dir, '.agents', 'mcp.json')
     if not os.path.exists(mcp_path):
+        mcp_config = {"mcpServers": {}}
         with open(mcp_path, 'w', encoding='utf-8') as f:
-            json.dump({}, f, indent=2)
-        print(f"[INIT] 创建 MCP 配置: .kimi/mcp.json")
+            json.dump(mcp_config, f, indent=2)
+        print(f"[INIT] 创建 MCP 配置: .agents/mcp.json")
     
-    # 复制内置 skills 到项目目录（使用白名单机制）
-    # 只有通过确认的技能才会被复制
-    BUILTIN_SKILLS_WHITELIST = [
-        'find-skills',
-        'local-memory', 
-        'scheduler',
-        'feishu-api-sender',  # 飞书消息/文件发送
-        # 'auto-test',  # 已禁用，需要手动安装
-    ]
-    
-    pkg_kimi_dir = os.path.join(os.path.dirname(__file__), '.kimi')
+    # 复制内置 skills 到项目目录
+    pkg_kimi_dir = os.path.join(os.path.dirname(__file__), '.agents')
     if os.path.exists(pkg_kimi_dir):
         # 复制 skills
         pkg_skills_dir = os.path.join(pkg_kimi_dir, 'skills')
         if os.path.exists(pkg_skills_dir):
-            target_skills_dir = os.path.join(target_dir, '.kimi', 'skills')
+            target_skills_dir = os.path.join(target_dir, '.agents', 'skills')
             os.makedirs(target_skills_dir, exist_ok=True)
             
             for skill_name in os.listdir(pkg_skills_dir):
                 pkg_skill_path = os.path.join(pkg_skills_dir, skill_name)
-                # 只在白名单中的技能才会被复制
-                if skill_name not in BUILTIN_SKILLS_WHITELIST:
+                # 跳过 auto-test，不作为内置 skill
+                if skill_name == 'auto-test':
                     continue
                 if os.path.isdir(pkg_skill_path):
                     target_skill_path = os.path.join(target_skills_dir, skill_name)
                     if not os.path.exists(target_skill_path):
                         shutil.copytree(pkg_skill_path, target_skill_path)
-                        print(f"[INIT] 复制 Skill: .kimi/skills/{skill_name}/")
+                        print(f"[INIT] 复制 Skill: .agents/skills/{skill_name}/")
                     else:
-                        print(f"[INFO] Skill 已存在: .kimi/skills/{skill_name}/")
+                        print(f"[INFO] Skill 已存在: .agents/skills/{skill_name}/")
     
     # 创建 .bots.md 和 bot_manager.sh
     ensure_bot_files(target_dir, verbose=True)
@@ -338,7 +340,7 @@ def init_project(work_dir: Optional[str] = None):
                 content = f.read()
             # 替换版本号
             version = get_version()
-            content = content.replace('v2.6.6', f'v{version}').replace('v2.6.7', f'v{version}').replace('v2.6.8', f'v{version}').replace('v2.6.9', f'v{version}')
+            content = content.replace('v2.6.6', f'v{version}').replace('v2.6.7', f'v{version}').replace('v2.6.8', f'v{version}').replace('v2.6.9', f'v{version}').replace('v2.0.0', f'v{version}').replace('v2.7.0', f'v{version}').replace('v2.7.5', f'v{version}').replace('v3.5.0', f'v{version}')
             with open(bots_md_path, 'w', encoding='utf-8') as f:
                 f.write(content)
         except Exception:
@@ -402,7 +404,7 @@ def show_status():
         print("      运行 'clawdboz init' 初始化项目")
     
     # 检查目录
-    dirs = ['WORKPLACE', 'logs', '.kimi']
+    dirs = ['WORKPLACE', 'logs', '.agents']
     for d in dirs:
         if os.path.exists(d):
             print(f"[OK] 目录存在: {d}/")

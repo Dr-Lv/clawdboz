@@ -152,7 +152,7 @@ def _ensure_project_files(work_dir: str, verbose: bool = False):
 ## 基本信息
 
 1. 你的名字叫 **clawdboz**，中文名称叫 **嗑唠的宝子**
-2. 版本: **v2.0.0** - 模块化架构
+2. 版本: **v3.5.0** - 模块化架构
 
 ## 特殊命令
 
@@ -230,7 +230,7 @@ def _copy_builtin_skills(work_dir: str, verbose: bool = False):
     try:
         # 获取包安装目录
         package_dir = Path(__file__).parent.resolve()
-        builtin_skills_dir = package_dir / '.kimi' / 'skills'
+        builtin_skills_dir = package_dir / '.agents' / 'skills'
         
         if not builtin_skills_dir.exists():
             if verbose:
@@ -238,7 +238,7 @@ def _copy_builtin_skills(work_dir: str, verbose: bool = False):
             return result
         
         # 用户 skills 目录
-        user_skills_dir = Path(work_dir) / '.kimi' / 'skills'
+        user_skills_dir = Path(work_dir) / '.agents' / 'skills'
         
         # 遍历内置 skills
         for skill_name in os.listdir(builtin_skills_dir):
@@ -273,7 +273,7 @@ def _copy_builtin_skills(work_dir: str, verbose: bool = False):
                     print(f"[Bot] 复制 Skill 失败: {skill_name} - {e}")
         
         if verbose and result['copied']:
-            print(f"[Bot] 已复制 {len(result['copied'])} 个内置 skills 到 .kimi/skills/")
+            print(f"[Bot] 已复制 {len(result['copied'])} 个内置 skills 到 .agents/skills/")
             print(f"[Bot] 你可以在这些目录中自定义 skills，修改会立即生效")
         
     except Exception as e:
@@ -347,9 +347,11 @@ class Bot:
             **kwargs
         )
         
-        # 同步飞书配置到全局 CONFIG（供 MCP server 使用）
+        # 同步飞书和 agent 配置到全局 CONFIG（供 MCP server 和 ACP client 使用）
         if self.config.get('feishu'):
             GLOBAL_CONFIG['feishu'] = self.config['feishu'].copy()
+        if self.config.get('agent'):
+            GLOBAL_CONFIG['agent'] = self.config['agent'].copy()
         
         # 如果配置中指定了 paths.workplace，使用配置的
         if self.config.get('paths', {}).get('workplace'):
@@ -436,12 +438,7 @@ class Bot:
                     config['feishu']['app_secret'] = app_secret
                     config_updated = True
         
-        # 4. 环境变量覆盖（非飞书配置）
-        if os.environ.get('QVERIS_API_KEY'):
-            config.setdefault('qveris', {})['api_key'] = os.environ['QVERIS_API_KEY']
-            config_updated = True
-        
-        # 5. 额外参数覆盖（仅当配置文件不存在时）
+        # 4. 额外参数覆盖（仅当配置文件不存在时）
         if not config_file_exists and kwargs:
             config.update(kwargs)
             config_updated = True
@@ -455,9 +452,6 @@ class Bot:
                     "feishu": config.get('feishu', {
                         "app_id": app_id or "YOUR_APP_ID_HERE",
                         "app_secret": app_secret or "YOUR_APP_SECRET_HERE"
-                    }),
-                    "qveris": config.get('qveris', {
-                        "api_key": os.environ.get('QVERIS_API_KEY', "${QVERIS_API_KEY}")
                     }),
                     "notification": {
                         "enabled": True,
@@ -476,8 +470,8 @@ class Bot:
                         "workplace": "WORKPLACE",
                         "user_images": "WORKPLACE/user_images",
                         "user_files": "WORKPLACE/user_files",
-                        "mcp_config": ".kimi/mcp.json",
-                        "skills_dir": ".kimi/skills"
+                        "mcp_config": ".agents/mcp.json",
+                        "skills_dir": ".agents/skills"
                     },
                     "start_script": _get_caller_script()
                 }
@@ -584,10 +578,6 @@ class Bot:
         # 清理资源
         self._bot.executor.shutdown(wait=True)
         print("[Bot] 已停止")
-    
-    def _log(self, message: str):
-        """记录日志（供 ACPClient 调用）"""
-        print(message)
     
     def send_message(self, chat_id: str, message: str) -> bool:
         """

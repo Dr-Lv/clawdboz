@@ -918,13 +918,13 @@ check() {
     
     # 5. 检查 feishu-api-sender skill（替代原有的 MCP server）
     info "检查飞书发送技能..."
-    if [ -d "$PROJECT_ROOT/.kimi/skills/feishu-api-sender" ]; then
+    if [ -d "$PROJECT_ROOT/.agents/skills/feishu-api-sender" ]; then
         success "✓ feishu-api-sender skill 存在"
         log_ops "INFO" "feishu-api-sender skill 存在"
         check_results="${check_results}\n[OK] 飞书技能: 存在"
         
         # 检查核心文件
-        if [ -f "$PROJECT_ROOT/.kimi/skills/feishu-api-sender/feishu_sender.py" ]; then
+        if [ -f "$PROJECT_ROOT/.agents/skills/feishu-api-sender/feishu_sender.py" ]; then
             success "✓ feishu_sender.py 脚本存在"
             log_ops "INFO" "feishu_sender.py 脚本存在"
             check_results="${check_results}\n[OK] 飞书脚本: 存在"
@@ -943,7 +943,7 @@ check() {
     
     # 6. 检查 Skills
     info "检查 Skills..."
-    local skills_dir="$PROJECT_ROOT/.kimi/skills"
+    local skills_dir="$PROJECT_ROOT/.agents/skills"
     if [ -d "$skills_dir" ]; then
         local skill_count=$(find "$skills_dir" -name "SKILL.md" 2>/dev/null | wc -l)
         success "✓ 发现 $skill_count 个 Skills"
@@ -1005,10 +1005,10 @@ check() {
     # 检查 kimi 命令是否存在
     if command -v kimi &> /dev/null; then
         # 检查登录状态
-        local kimi_credentials_file="$HOME/.kimi/credentials/kimi-code.json"
+        local kimi_credentials_file="$HOME/.agents/credentials/kimi-code.json"
         if [ ! -f "$kimi_credentials_file" ]; then
             # 尝试其他路径
-            kimi_credentials_file="$HOME/.kimi/credentials/kimi.json"
+            kimi_credentials_file="$HOME/.agents/credentials/kimi.json"
         fi
         
         if [ -f "$kimi_credentials_file" ]; then
@@ -1128,7 +1128,7 @@ Bot 进程状态: $(check_running && echo "运行中 (PID: $(check_running))" ||
 4. 验证修复结果
 
 Bot 主脚本: clawdboz/main.py
-MCP 配置: .kimi/mcp.json
+MCP 配置: .agents/mcp.json
 日志文件: logs/bot_debug.log, logs/main.log
 
 如果需要重启 Bot，使用: ./bot_manager.sh restart
@@ -1234,8 +1234,8 @@ try:
     
     print("✓ 已更新 project_root: {}".format(detected_root))
     
-    # 更新 .kimi/mcp.json 中的路径
-    mcp_config_path = os.path.join(detected_root, '.kimi', 'mcp.json')
+    # 更新 .agents/mcp.json 中的路径
+    mcp_config_path = os.path.join(detected_root, '.agents', 'mcp.json')
     if os.path.exists(mcp_config_path):
         with open(mcp_config_path, 'r', encoding='utf-8') as f:
             mcp_config = json.load(f)
@@ -1333,8 +1333,8 @@ with open(config_path, 'w', encoding='utf-8') as f:
     json.dump(config, f, indent=2, ensure_ascii=False)
 print("✓ 已修复 project_root")
 
-# 更新 .kimi/mcp.json 中的路径
-mcp_config_path = os.path.join(detected_root, '.kimi', 'mcp.json')
+# 更新 .agents/mcp.json 中的路径
+mcp_config_path = os.path.join(detected_root, '.agents', 'mcp.json')
 if os.path.exists(mcp_config_path):
     with open(mcp_config_path, 'r', encoding='utf-8') as f:
         mcp_config = json.load(f)

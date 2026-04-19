@@ -63,7 +63,7 @@ class TestBotManager(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(bot_dir, "logs")))
             self.assertTrue(os.path.exists(os.path.join(bot_dir, "user_files")))
             self.assertTrue(os.path.exists(os.path.join(bot_dir, "user_images")))
-            self.assertTrue(os.path.exists(os.path.join(bot_dir, ".kimi", "skills")))
+            self.assertTrue(os.path.exists(os.path.join(bot_dir, ".agents", "skills")))
     
     def test_register_creates_config_json(self):
         """测试注册时生成正确的 config.json"""
@@ -179,7 +179,7 @@ def quick_test():
             print(f"    logs/: {os.path.exists(os.path.join(bot_dir, 'logs'))}")
             print(f"    user_files/: {os.path.exists(os.path.join(bot_dir, 'user_files'))}")
             print(f"    user_images/: {os.path.exists(os.path.join(bot_dir, 'user_images'))}")
-            print(f"    .kimi/skills/: {os.path.exists(os.path.join(bot_dir, '.kimi', 'skills'))}")
+            print(f"    .agents/skills/: {os.path.exists(os.path.join(bot_dir, '.agents', 'skills'))}")
             
             # 验证 config.json
             config_path = os.path.join(bot_dir, "config.json")
