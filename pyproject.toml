@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "clawdboz"
 version = "3.5.0"
-description = "嗑唠的宝子 - 基于 Kimi Code CLI 的智能飞书机器人"
+description = "嗑唠的宝子 - 基于 ACP 协议的多 Agent 智能飞书机器人，支持 Kimi、OpenCode、Claude Code、OpenClaw、Hermes 等多种 Agent"
 readme = "README.md"
 requires-python = ">=3.6"
 license = {text = "MIT"}
