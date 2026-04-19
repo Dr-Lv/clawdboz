@@ -4,12 +4,12 @@
 [![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](#)
 
-基于 Kimi Code CLI 的智能飞书机器人，OpenClaw 的平替，更适合代码任务，飞书丝滑适配，交互体验优化得很好。
+基于 ACP 协议的多 Agent 智能飞书机器人，支持 Kimi Code CLI、OpenCode、Claude Code、OpenClaw、Hermes 等多种 Agent，飞书丝滑适配，交互体验优化得很好。
 
 ## ✨ 核心亮点
 
 - 🚀 **开箱即用**：`pip install` 后三行代码即可运行
-- 🎯 **代码友好**：原生支持 Kimi Code CLI，代码编辑、文件操作、终端命令样样精通
+- 🎯 **多 Agent 支持**：原生支持 Kimi Code CLI、OpenCode、Claude Code（via claude-code-acp）、OpenClaw（via openclaw-acp）、Hermes 等多种 ACP 协议 Agent，代码编辑、文件操作、终端命令样样精通
 - 💬 **飞书适配**：自动获取群聊上下文，流式卡片输出，体验丝滑
 
 ## 📺 演示
@@ -23,7 +23,7 @@
 
 | 特性 | 说明 |
 |------|------|
-| 🤖 **AI 对话** | 基于 Kimi Code CLI 的智能对话 |
+| 🤖 **AI 对话** | 基于 ACP 协议，支持多种 Agent（Kimi、OpenCode、Claude、OpenClaw、Hermes）|
 | 📝 **流式回复** | 实时显示思考过程，Markdown 卡片美化输出 |
 | 🔧 **MCP 工具** | 支持 MCP 协议调用外部工具，内置飞书文件/消息发送 |
 | 📦 **文件处理** | 自动下载图片/文件，支持发送文件到飞书 |
@@ -47,11 +47,11 @@ bot.run()
 
 ### 1. 环境准备
 
-**⚠️ 前置依赖：请先安装 [Kimi Code CLI](https://www.kimi.com/code/docs/kimi-cli/guides/getting-started.html)**
+**⚠️ 前置依赖：请至少安装一种支持的 ACP Agent**
 
-Kimi Code CLI 是嗑唠的宝子的核心依赖，提供 AI 对话能力和工具调用支持。
+嗑唠的宝子基于 ACP 协议，支持多种 Agent，您可选择安装其中之一或多个：
 
-安装方式：
+**1. Kimi Code CLI（默认）**
 ```bash
 # 通过 pip 安装
 pip install kimi-cli
@@ -62,8 +62,41 @@ uv tool install --python 3.13 kimi-cli
 # 验证安装
 kimi --version
 
-# 注意：首次安装需要登陆kimi code
+# 注意：首次安装需要登录 kimi code
 ```
+
+**2. OpenCode**
+```bash
+# 安装方式请参考 OpenCode 官方文档
+opencode --version
+```
+
+**3. Claude Code（通过 claude-code-acp）**
+```bash
+# 先安装claude code，参考官方文档
+# 然后安装acp适配工具（claude code本身不支持acp，需要外部工具）
+pip install claude-code-acp
+
+# 验证安装
+claude-code-acp --version
+```
+
+**4. OpenClaw（通过 openclaw-acp）**
+```bash
+# 先安装openclaw，参考官方文档
+# 然后安装acp适配工具（openclaw本身的acp协议不标准，需要外部工具兼容）
+pip install openclaw-acp
+
+# 验证安装
+openclaw-acp --version
+```
+
+**5. Hermes Agent**
+```bash
+# 安装方式请参考 Hermes 官方文档
+hermes --version
+```
+
 
 ### 2. 安装嗑唠的宝子
 
@@ -79,9 +112,9 @@ cd larkbot
 pip install -e .
 ```
 
-### 3. 初始化项目（推荐）
+### 3. 初始化项目
 
-安装完成后，强烈建议先初始化项目：
+安装完成后，先初始化项目：
 
 ```bash
 # 创建项目目录并进入
@@ -92,8 +125,9 @@ clawdboz init
 ```
 
 `clawdboz init` 会自动完成：
-- ✅ 检测 Kimi CLI 安装和登录状态
-- ✅ 创建 `config.json`，自动填入 Python 路径
+- ✅ 检测已安装的 ACP Agent（Kimi CLI、OpenCode、claude-code-acp、openclaw-acp 等）
+- ✅ 创建 `config.json`，自动填入 Python 路径和默认 Agent
+> 💡 **提示**：安装完成后，可通过 `config.json` 中的 `agent.executable` 配置切换使用的 Agent的路径。
 - ✅ 创建 `.agents/mcp.json`，配置飞书 MCP 工具
 - ✅ 复制内置 Skills（scheduler、local-memory、find-skills）
 - ✅ 创建 `bot_manager.sh` 管理脚本
@@ -102,42 +136,15 @@ clawdboz init
 
 ### 4. 启动 Bot
 
-#### 方式一：三行代码（快速体验）
-
-```python
-from clawdboz import Bot
-
-bot = Bot(app_id="your-app-id", app_secret="your-app-secret")
-bot.run()
-```
-
-#### 方式二：使用 bot_manager.sh（推荐生产使用）
-
-**1. 初始化项目**
-
-```bash
-# 创建项目目录并进入
-mkdir my-bot && cd my-bot
-
-# 初始化项目（自动生成配置文件、MCP、Skills）
-clawdboz init
-```
-
-`clawdboz init` 会自动完成：
-- ✅ 检测 Kimi CLI 安装和登录状态
-- ✅ 创建 `config.json`，自动填入 Python 路径
-- ✅ 创建 `.agents/mcp.json`，配置飞书 MCP 工具
-- ✅ 复制内置 Skills（scheduler、local-memory、find-skills）
-- ✅ 创建 `bot_manager.sh` 管理脚本
-- ✅ 创建 `bot0.py` 启动脚本
-- ✅ 创建 `.bots.md` Agent 指令文件
-
-**2. 配置飞书凭证**
+**1. 配置飞书凭证**
 
 编辑生成的 `config.json`：
 
 ```json
 {
+  "agent": {
+    "executable": "kimi或其它agent路径"
+  },
   "feishu": {
     "app_id": "cli_xxxxxxxxxxxxxxxx",
     "app_secret": "xxxxxxxxxxxxxxxxxxxxxx"
@@ -145,13 +152,23 @@ clawdboz init
 }
 ```
 
+**Agent 配置说明**：
+
+| Agent | executable 配置值 | 安装方式 |
+|-------|------------------|----------|
+| Kimi Code CLI | `kimi` 或绝对路径 | `pip install kimi-cli` / `uv tool install kimi-cli` |
+| OpenCode | `opencode` 或绝对路径 | 官方文档 |
+| Claude Code | `claude-code-acp` 或绝对路径 | `pip install claude-code-acp` |
+| OpenClaw | `openclaw-acp` 或绝对路径 | `pip install openclaw-acp` |
+| Hermes | `hermes` 或绝对路径 | 官方文档 |
+
 或使用环境变量：
 ```bash
 export FEISHU_APP_ID="cli_xxxxxxxxxxxxxxxx"
 export FEISHU_APP_SECRET="xxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-**3. 管理命令**
+**2. 管理命令**
 
 ```bash
 # 启动 Bot
@@ -223,7 +240,7 @@ bot.run()
 
 ```
 .
-├── .agents/                      # Kimi CLI 配置目录
+├── .agents/                      # ACP Agent 配置目录
 │   ├── mcp.json               # MCP 配置（自动生成）
 │   └── skills/                # Skills 目录（自动生成）
 │       ├── find-skills/
