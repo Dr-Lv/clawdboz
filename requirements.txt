@@ -9,3 +9,4 @@ websockets>=12.0
 
 # SOCKS 代理支持
 python-socks>=2.0.0
+pysocks>=1.7.0
