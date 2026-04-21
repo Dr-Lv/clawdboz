@@ -82,21 +82,58 @@ class ACPClient:
         self._initialize()
         self._log(f"[REINIT] 重新初始化完成，新会话 ID: {self.session_id[:20]}...")
     
+    def _detect_agent_type(self, executable):
+        """根据可执行文件路径推断 agent 类型
+        
+        Returns:
+            str: agent 类型名称，如 'kimi', 'hermes', 'openclaw' 等
+        """
+        exe_lower = os.path.basename(executable).lower()
+        for name in ['hermes', 'openclaw', 'claude-code-acp', 'opencode', 'kimi']:
+            if name in exe_lower:
+                return name
+        return 'unknown'
+    
+    def _build_agent_cmd(self, agent_executable, workplace_path):
+        """构建 agent 启动命令
+        
+        不同 agent 的启动参数差异：
+        - kimi / opencode / claude-code-acp / hermes / openclaw: [executable, 'acp']
+        
+        同时支持 config.json 中 agent.args 自定义额外参数。
+        """
+        self.agent_type = self._detect_agent_type(agent_executable)
+        cmd = [agent_executable, 'acp']
+        
+        extra_args = CONFIG.get('agent', {}).get('args')
+        if extra_args:
+            if isinstance(extra_args, str):
+                cmd.extend(extra_args.split())
+            elif isinstance(extra_args, list):
+                cmd.extend(extra_args)
+        
+        return cmd
+    
     def _initialize(self):
         """初始化 ACP 连接，自动加载项目目录下的 MCP 配置和 skills"""
-        # 从配置获取 agent 可执行文件路径
         agent_executable = CONFIG.get('agent', {}).get('executable')
         if not agent_executable:
             agent_executable = 'kimi'
-        self._log(f"[ACP] 使用 agent 路径: {agent_executable}")
+        
+        workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+        
+        cmd = self._build_agent_cmd(agent_executable, workplace_path)
+        self._log(f"[ACP] 使用 agent 路径: {agent_executable}, 类型: {self._detect_agent_type(agent_executable)}")
+        self._log(f"[ACP] 启动命令: {' '.join(cmd)}")
         
         self.process = subprocess.Popen(
-            [agent_executable, 'acp'],
+            cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1
+            bufsize=1,
+            cwd=workplace_path
         )
 
         # 启动响应读取线程
@@ -117,7 +154,6 @@ class ACPClient:
         system_prompt = self._load_bots_md(skills)
         
         # 创建新会话，使用 WORKPLACE 作为工作目录
-        workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
         session_params = {
             'cwd': workplace_path,
             'mcpServers': mcp_servers
@@ -136,6 +172,17 @@ class ACPClient:
             raise Exception(f"创建会话失败: {error}")
         self.session_id = result['sessionId']
         self._log(f"ACP 会话创建成功: {self.session_id}")
+        
+        # OpenClaw 启动时发送默认目录切换消息
+        if getattr(self, 'agent_type', None) == 'openclaw':
+            default_msg = f"修改当前目录为 {workplace_path}"
+            self._log(f"[ACP] OpenClaw 默认启动消息: {default_msg}")
+            _, prompt_error = self.call_method('session/prompt', {
+                'sessionId': self.session_id,
+                'prompt': [{'type': 'text', 'text': default_msg}]
+            }, timeout=30)
+            if prompt_error:
+                self._log(f"[ACP] OpenClaw 默认启动消息发送错误: {prompt_error}")
     
     def _get_builtin_mcp_config(self):
         """获取内置的 MCP 配置（基于包安装位置）

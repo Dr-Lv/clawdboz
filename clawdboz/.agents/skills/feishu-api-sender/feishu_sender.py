@@ -55,6 +55,25 @@ def _get_config_value(key_path, default=None):
     return value
 
 
+def _get_mcp_context_chat_id():
+    """从 WORKPLACE/mcp_context.json 中读取 chat_id"""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(10):
+        candidate = os.path.join(current_dir, 'WORKPLACE', 'mcp_context.json')
+        if os.path.exists(candidate):
+            try:
+                with open(candidate, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return data.get('chat_id')
+            except Exception:
+                pass
+        parent = os.path.dirname(current_dir)
+        if parent == current_dir:
+            break
+        current_dir = parent
+    return None
+
+
 class FeishuSender:
     """飞书消息发送器"""
     
@@ -63,13 +82,14 @@ class FeishuSender:
         config_app_id = _get_config_value('feishu.app_id')
         config_app_secret = _get_config_value('feishu.app_secret')
         config_chat_id = _get_config_value('feishu.chat_id')
+        mcp_chat_id = _get_mcp_context_chat_id()
         
         self.app_id = app_id if app_id is not None else config_app_id
         self.app_secret = app_secret if app_secret is not None else config_app_secret
-        self.chat_id = chat_id if chat_id is not None else config_chat_id
+        self.chat_id = chat_id if chat_id is not None else (mcp_chat_id or config_chat_id)
         
         if not self.app_id or not self.app_secret or not self.chat_id:
-            raise ValueError("缺少飞书配置，请确保上级目录的 config.json 中包含 feishu.app_id、feishu.app_secret 和 feishu.chat_id")
+            raise ValueError("缺少飞书配置，请确保上级目录的 config.json 中包含 feishu.app_id、feishu.app_secret，或在 WORKPLACE/mcp_context.json 中提供 chat_id")
         
         self._token = None
     
