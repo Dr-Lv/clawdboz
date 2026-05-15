@@ -2,7 +2,7 @@
   "project_root": "/Users/suntom/code/github/clawdboz",
   "remote": {
     "enabled": true,
-    "registry_url": "ws://47.110.136.0:6902",
+    "registry_url": "https://api.clawdboz.chat",
     "instance_name": "Suntom's Instance",
     "host": "localhost",
     "port": 8443,

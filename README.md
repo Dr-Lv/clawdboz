@@ -65,7 +65,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     注册中心 (Registry)                       │
-│                    8.136.150.62:443 (WSS)                   │
+│                  api.clawdboz.chat:443 (WSS)                │
 │                    内存存储 + WebSocket 转发                 │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -147,7 +147,7 @@ clawdboz init
   },
   "remote": {
     "enabled": true,
-    "registry_url": "https://8.136.150.62",
+    "registry_url": "https://api.clawdboz.chat",
     "instance_name": "My Instance",
     "host": "your-host",
     "port": 8443,
@@ -162,7 +162,7 @@ clawdboz init
       "timeout_seconds": 120
     },
     "connection_mode": "center",
-    "registry_ws_url": "wss://8.136.150.62/ws/registry"
+    "registry_ws_url": "wss://api.clawdboz.chat/ws/registry"
   }
 }
 ```

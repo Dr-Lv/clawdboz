@@ -242,7 +242,7 @@ Host1 .bot.md → _read_bot_avatar() → heartbeat → Registry (avatar_url)
 - 执行部署、运维、日志查看、服务重启前
 
 **关键内容**：
-- Registry 服务器 (`8.136.150.62`) 和 Host1 (`47.110.136.0`) 的 SSH 密钥路径
+- Registry 服务器 (`api.clawdboz.chat`) 和 Host1 (`47.110.136.0`) 的 SSH 密钥路径
 - 各实例的安装路径（如 `/opt/clawdboz-registry`、`/tmp/clawdboz`）
 - systemd 服务名和常用运维命令
 
