@@ -11,7 +11,7 @@ from pathlib import Path
 class RemoteConfig:
     """远程功能配置"""
     enabled: bool = False
-    registry_url: str = "http://localhost:9000"
+    registry_url: str = "https://api.clawdboz.chat"
     instance_name: str = ""
     host: str = "0.0.0.0"
     port: int = 8443
@@ -26,7 +26,7 @@ class RemoteConfig:
         """从字典加载配置"""
         return cls(
             enabled=data.get("enabled", False),
-            registry_url=data.get("registry_url", "http://localhost:9000"),
+            registry_url=data.get("registry_url", "https://api.clawdboz.chat"),
             instance_name=data.get("instance_name", ""),
             host=data.get("host", "0.0.0.0"),
             port=data.get("port", 8443),
