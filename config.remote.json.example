@@ -1,0 +1,27 @@
+{
+  "project_root": "/Users/suntom/code/github/clawdboz",
+  "remote": {
+    "enabled": true,
+    "registry_url": "ws://47.110.136.0:6902",
+    "instance_name": "Suntom's Instance",
+    "host": "localhost",
+    "port": 8443,
+    "heartbeat_interval": 30,
+    "connection_timeout": 10,
+    "call_timeout": 30,
+    "max_retries": 3,
+    "sandbox": {
+      "enabled": true,
+      "docker": false,
+      "max_memory_mb": 512,
+      "timeout_seconds": 120
+    },
+    "fs_api_enabled": true,
+    "fs_max_file_size": 10485760,
+    "token_secret": "clawdboz-remote-secret-key-2024"
+  },
+  "feishu": {
+    "app_id": "",
+    "app_secret": ""
+  }
+}

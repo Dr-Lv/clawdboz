@@ -1,0 +1,24 @@
+# 包含额外文件到分发包中
+include README.md
+include requirements.txt
+
+# 递归包含文档
+global-include *.md
+
+# 包含 MCP 配置文件和内置 skills
+recursive-include .kimi *.json *.md *.py
+
+# 包含 bot_manager.sh 和 .bots.md 模板
+recursive-include clawdboz/templates *
+
+# 包含 Web 静态文件 (HTML, CSS, JS)
+recursive-include clawdboz/web/static *
+
+# 排除不需要的文件
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.so
+
+# 排除 auto-test skill（不在白名单中，需要手动安装）
+recursive-exclude clawdboz/.kimi/skills/auto-test *

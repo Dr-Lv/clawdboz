@@ -1,0 +1,490 @@
+        }
+        .modal-footer {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .modal-btn {
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
+        }
+        .modal-btn-secondary {
+            background: var(--bg);
+            color: var(--text);
+        }
+        .modal-btn-secondary:hover { background: var(--border); }
+        .modal-btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .modal-btn-primary:hover { background: #2860d9; }
+        .modal-btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 系统配置弹窗 */
+        .config-tabs {
+            width: 150px;
+            background: #f5f6f7;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 8px 0;
+            flex-shrink: 0;
+        }
+        .config-tab {
+            padding: 11px 18px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: all .2s;
+            user-select: none;
+        }
+        .config-tab:hover {
+            color: var(--text);
+            background: rgba(0,0,0,0.03);
+        }
+        .config-tab.active {
+            color: var(--primary);
+            background: rgba(51,112,255,0.08);
+            border-left-color: var(--primary);
+            font-weight: 500;
+        }
+        .config-body {
+            flex: 1;
+            padding: 20px 24px;
+            overflow-y: auto;
+            background: #fff;
+        }
+        .config-group-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 18px;
+        }
+        .config-field {
+            margin-bottom: 16px;
+        }
+        .config-field label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .config-field input[type="text"],
+        .config-field input[type="password"] {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            transition: border .2s;
+            color: var(--text);
+        }
+        .config-field input:focus {
+            border-color: var(--primary);
+        }
+        .config-field input::placeholder {
+            color: var(--text-tertiary);
+        }
+        #configSaveError {
+            display: none;
+            margin-top: 12px;
+            color: #f54a45;
+            font-size: 13px;
+            padding: 10px 12px;
+            background: #fff2f0;
+            border-radius: 6px;
+            border: 1px solid rgba(245,74,69,0.2);
+        }
+    
+        /* Bot 选择项 */
+        .bot-select-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s;
+            margin-bottom: 4px;
+        }
+        .bot-select-item:hover { background: var(--bg); }
+        .bot-select-item.selected { background: var(--primary-light); }
+        .bot-select-item.disabled { opacity: 0.5; cursor: not-allowed; }
+        .bot-select-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+        .bot-select-info { flex: 1; }
+        .bot-select-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .bot-select-id {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+        }
+        .bot-select-check {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 8px;
+        }
+        .bot-select-item.selected .bot-select-check {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        /* 侧边栏折叠按钮 */
+        .sidebar-toggle {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 12px;
+            transition: all 0.15s;
+            background: transparent;
+            border: none;
+        }
+        
+        .sidebar-toggle:hover {
+            background: rgba(0,0,0,0.05);
+            color: var(--text);
+        }
+        
+        .main {
+            transition: margin-left 0.3s ease;
+        }
+
+        /* ========== 通讯录页面样式 ========== */
+        .contacts-container {
+            display: none;
+            flex: 1;
+            flex-direction: row;
+            height: 100%;
+        }
+
+        .contacts-container.active {
+            display: flex;
+        }
+
+        .contacts-sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .contacts-header {
+            padding: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .contacts-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .contacts-detail {
+            flex: 1;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .contacts-detail-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+
+        .contacts-detail-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 40px;
+        }
+
+        .contacts-detail-name {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .contacts-detail-id {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .contacts-detail-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .contacts-detail-btn {
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .contacts-detail-btn.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .contacts-detail-btn.primary:hover {
+            background: #2860d9;
+        }
+
+        .contacts-detail-btn.secondary {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .contacts-detail-btn.secondary:hover {
+            background: var(--border);
+        }
+
+        .contacts-detail-btn.danger {
+            background: #fff;
+            color: #f54a45;
+            border: 1px solid #e0e0e0;
+        }
+
+        .contacts-detail-btn.danger:hover {
+            background: #fff2f0;
+            border-color: #f54a45;
+        }
+
+        /* Bot 详情区域 */
+        .contacts-detail-section {
+            width: 100%;
+            max-width: 320px;
+            margin: 16px 0;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            text-align: left;
+        }
+
+        .contacts-detail-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .contacts-detail-section-title i {
+            font-size: 12px;
+        }
+
+        .contacts-detail-skills-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .contacts-detail-skill-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            background: #e6f2ff;
+            color: #3370ff;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .contacts-detail-skill-tag i {
+            margin-right: 4px;
+            font-size: 10px;
+        }
+
+        .contacts-detail-memory-content {
+            font-size: 13px;
+            color: var(--text);
+            line-height: 1.5;
+            max-height: 120px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .contacts-detail-memory-empty {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            font-style: italic;
+        }
+
+        /* ========== 朋友圈页面样式 ========== */
+        .moments-container {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            height: 100%;
+            background: var(--bg);
+            overflow-y: auto;
+        }
+
+        .moments-container.active {
+            display: flex;
+        }
+
+        .moments-header {
+            height: 60px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+
+        .moments-header-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .moments-content {
+            flex: 1;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .moments-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-tertiary);
+            text-align: center;
+        }
+
+        .moments-placeholder-icon {
+            width: 120px;
+            height: 120px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+
+        .moments-placeholder-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .moments-placeholder-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        /* 朋友圈发布框 */
+        .moments-publish {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        
+        .moments-publish-textarea {
+            width: 100%;
+            min-height: 80px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            resize: vertical;
+            outline: none;
+            font-family: inherit;
+        }
+        
+        .moments-publish-textarea:focus {
+            border-color: var(--primary);
+        }
+        
+        .moments-publish-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+        }
+        
+        .moments-publish-tools {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .moments-publish-tool {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all 0.2s;

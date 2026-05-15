@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clawdboz - 登录</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #3370ff;
+            --primary-light: #e8f0ff;
+            --bg: #f5f6f7;
+            --text: #1f2329;
+            --text-secondary: #4e5969;
+            --border: #dee0e3;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 48px 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary) 0%, #2860d9 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 40px;
+            color: white;
+        }
+        
+        .title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+        
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .input-group i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 18px;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 14px 16px 14px 48px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.2s;
+            outline: none;
+        }
+        
+        .input-field:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+        
+        .input-field::placeholder {
+            color: #8f959e;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+        
+        .login-btn:hover {
+            background: #2860d9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(51, 112, 255, 0.4);
+        }
+        
+        .login-btn:active {
+            transform: translateY(0);
+        }
+        
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error-message {
+            color: #f54a45;
+            font-size: 14px;
+            margin-top: 12px;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .footer {
+            margin-top: 32px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <i class="fas fa-robot"></i>
+        </div>
+        <h1 class="title">Clawdboz</h1>
+        <p class="subtitle">AI 智能对话平台</p>
+        
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="input-group">
+                <i class="fas fa-key"></i>
+                <input 
+                    type="text" 
+                    id="tokenInput" 
+                    class="input-field" 
+                    placeholder="请输入访问令牌 (Token)" 
+                    autocomplete="off"
+                    autofocus
+                >
+            </div>
+            
+            <button type="submit" class="login-btn" id="loginBtn">
+                <span id="btnText">进入系统</span>
+            </button>
+            
+            <div class="error-message" id="errorMsg">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="errorText">Token 无效</span>
+            </div>
+        </form>
+        
+        <div class="footer">
+            <p>© 2025 Clawdboz v3.0</p>
+        </div>
+    </div>
+    
+    <script>
+        // 检查是否已经登录（URL 中有 token）
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('token')) {
+            // 已有 token，直接跳转到主页面
+            window.location.href = '/static/index.html' + window.location.search;
+        }
+        
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const token = document.getElementById('tokenInput').value.trim();
+            const btn = document.getElementById('loginBtn');
+            const btnText = document.getElementById('btnText');
+            const errorMsg = document.getElementById('errorMsg');
+            const errorText = document.getElementById('errorText');
+            
+            // 重置错误信息
+            errorMsg.classList.remove('show');
+            
+            if (!token) {
+                errorText.textContent = '请输入 Token';
+                errorMsg.classList.add('show');
+                return;
+            }
+            
+            // 显示加载状态
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="loading"></span>验证中...';
+            
+            try {
+                // 验证 token 是否有效
+                const response = await fetch(`/api/sessions?token=${encodeURIComponent(token)}`);
+                
+                if (response.ok) {
+                    // Token 有效，跳转到主页面
+                    window.location.href = `/static/index.html?token=${encodeURIComponent(token)}`;
+                } else if (response.status === 403) {
+                    errorText.textContent = 'Token 无效，请检查输入';
+                    errorMsg.classList.add('show');
+                } else {
+                    errorText.textContent = '服务器错误，请稍后重试';
+                    errorMsg.classList.add('show');
+                }
+            } catch (error) {
+                errorText.textContent = '网络错误，请检查连接';
+                errorMsg.classList.add('show');
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = '进入系统';
+            }
+        }
+        
+        // 支持回车键提交
+        document.getElementById('tokenInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                handleLogin(e);
+            }
+        });
+    </script>
+</body>
+</html>

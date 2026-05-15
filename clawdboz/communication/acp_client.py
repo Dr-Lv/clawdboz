@@ -1,0 +1,1525 @@
+#!/usr/bin/env python3
+"""ACP 客户端模块 - Kimi Code CLI ACP 协议通信"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import time
+import uuid
+
+from ..config import CONFIG, get_absolute_path, PROJECT_ROOT
+from ..utils.logger import Logger
+
+
+class ACPClient:
+    """通用 ACP 客户端 - 自动检测并支持 stdin/stdout 和 WebSocket 两种协议"""
+    
+    def __init__(self, bot_ref=None, session_work_dir=None, bot_work_dir=None, system_prompt=None, acp_client_id=None):
+        self.process = None
+        self.response_map = {}
+        self.notifications = []
+        self._lock = threading.Lock()
+        self._reader_thread = None
+        self._bot_ref = bot_ref  # 保存 bot 引用，用于日志
+        self._cancelled = False  # 取消标志
+
+        # Web 界面支持的可选参数
+        self._session_work_dir = session_work_dir  # 会话级工作目录
+        self.session_work_dir = session_work_dir   # 公共属性，供外部访问
+        self._bot_work_dir = bot_work_dir  # Bot 级工作目录（用于加载 skills 和 .bot.md）
+        self._custom_system_prompt = system_prompt  # 自定义系统提示词
+        self._acp_client_id = acp_client_id  # Bot 指定的 ACP 客户端 ID
+
+        # WebSocket 客户端支持
+        self._websocket_client = None
+        self._use_websocket = False
+
+        # OpenClaw 客户端支持
+        self._openclaw_client = None
+        self._use_openclaw = False
+
+        self._initialize()
+
+    def _log(self, message):
+        """通过 Logger 写入日志"""
+        log_msg = f"[ACP] {message}"
+        if self._bot_ref and hasattr(self._bot_ref, 'log_file'):
+            Logger.log(log_msg, self._bot_ref.log_file)
+        else:
+            Logger.log(log_msg)
+
+    def _initialize(self):
+        """初始化 ACP 连接，自动加载项目目录下的 MCP 配置和 skills"""
+        # 获取 ACP 配置
+        acp_config = CONFIG.get('acp', {})
+
+        # 优先使用新的 clients 配置格式
+        clients = acp_config.get('clients', [])
+        if clients and len(clients) > 0:
+            # 如果 Bot 指定了 ACP 客户端 ID，查找对应的客户端
+            client_config = None
+            if self._acp_client_id:
+                for c in clients:
+                    if c.get('id') == self._acp_client_id:
+                        client_config = c
+                        break
+                if client_config:
+                    self._log(f"[ACP] Bot 指定使用客户端: {client_config.get('name', self._acp_client_id)}")
+                else:
+                    self._log(f"[ACP] 警告: 未找到 Bot 指定的客户端 {self._acp_client_id}，使用默认")
+            # 如果没有指定或找不到，使用第一个启用的客户端
+            if not client_config:
+                active_clients = [c for c in clients if c.get('enabled', True)]
+                client_config = active_clients[0] if active_clients else clients[0]
+            provider = client_config.get('type', 'kimi')
+            executable = client_config.get('executable', '')
+            client_name = client_config.get('name', provider)
+
+            # 检查是否使用 WebSocket 协议
+            ws_url = client_config.get('ws_url', None)
+            if ws_url:
+                self._log(f"[ACP] 使用多客户端配置: {client_name} ({provider}) - WebSocket 模式")
+                self._initialize_websocket(ws_url, client_config)
+                return
+
+            # 检查是否使用 OpenClaw ACP
+            if provider == 'openclaw':
+                self._log(f"[ACP] 使用多客户端配置: {client_name} ({provider}) - OpenClaw ACP 模式")
+                self._initialize_openclaw(client_config)
+                return
+
+            self._log(f"[ACP] 使用多客户端配置: {client_name} ({provider}) - Stdio 模式")
+        else:
+            client_config = {}
+            # 兼容旧配置格式
+            provider = acp_config.get('provider', 'kimi')
+
+            # 优先从新的 executables 配置获取，兼容旧配置
+            executables = acp_config.get('executables', {})
+            executable = executables.get(provider, '')
+
+            # 如果没有新配置，尝试旧配置
+            if not executable:
+                executable = acp_config.get('executable', '')
+
+            # 根据提供商确定可执行文件
+            if not executable:
+                if provider == 'kimi':
+                    # 从配置获取 kimi 可执行文件路径 (使用 kimi.bin_dir)
+                    kimi_bin_dir = CONFIG.get('kimi', {}).get('bin_dir')
+                    if kimi_bin_dir:
+                        executable = os.path.join(kimi_bin_dir, 'kimi')
+                    else:
+                        executable = 'kimi'
+                elif provider == 'opencode':
+                    executable = 'opencode'
+                elif provider == 'claudecode':
+                    executable = 'claudecode'
+                else:
+                    executable = provider  # 允许自定义命令
+
+        # Claude Code CLI 本身不支持 ACP stdio 协议
+        # 无论配置中的 executable 是什么，强制使用 claude-code-acp 适配器
+        if provider == 'claude':
+            if shutil.which('claude-code-acp'):
+                executable = 'claude-code-acp'
+            else:
+                # 回退到 python -m claude_code_acp（适用于 shebang 路径不同的环境）
+                executable = sys.executable
+                # 提前设置 args，避免后续被覆盖为 ['acp']
+                if not client_config.get('args'):
+                    client_config = dict(client_config)
+                    client_config['args'] = ['-m', 'claude_code_acp']
+
+        # 如果 executable 是目录，自动拼接 provider 名称
+        if executable and os.path.isdir(executable):
+            executable = os.path.join(executable, provider)
+            self._log(f"[ACP] 检测到目录路径，自动拼接为: {executable}")
+
+        self._log(f"[ACP] 使用 {provider} 路径: {executable}")
+
+        # 构建命令行参数
+        cmd_args = client_config.get('args', [])
+        if not cmd_args:
+            if provider == 'claude':
+                cmd_args = []  # claude-code-acp 本身就是 ACP server，不需要子命令
+            else:
+                cmd_args = ['acp']  # 默认使用 'acp' 子命令
+
+        cmd = [executable] + cmd_args
+        self._log(f"[ACP] 执行命令: {' '.join(cmd)}")
+
+        self.process = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1
+        )
+
+        # 启动响应读取线程
+        self._reader_thread = threading.Thread(target=self._read_responses, daemon=True)
+        self._reader_thread.start()
+
+        # 初始化协议
+        init_result, init_error = self.call_method('initialize', {'protocolVersion': 1})
+        self._log(f"初始化结果: {init_result}, 错误: {init_error}")
+
+        # 加载项目目录下的 MCP 配置
+        mcp_servers = self._load_mcp_config()
+
+        # 加载 skills（优先使用 bot_work_dir）
+        skills = self._load_skills(self._bot_work_dir)
+
+        # 加载系统提示词（优先使用自定义的，否则从 .bot.md 加载）
+        if self._custom_system_prompt:
+            system_prompt = self._custom_system_prompt
+            # 追加 skills 描述
+            skills_section = self._build_skills_section(skills)
+            if skills_section:
+                system_prompt = system_prompt + "\n\n" + skills_section if system_prompt else skills_section
+        else:
+            # 从 .bot.md 加载（优先使用 bot_work_dir）
+            system_prompt = self._load_bots_md(skills, self._bot_work_dir)
+
+        # 确定工作目录（优先使用 session_work_dir）
+        if self._session_work_dir:
+            workplace_path = self._session_work_dir
+        else:
+            workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+
+        # 检查是否是群聊模式，如果是则追加成员信息
+        if 'groupspace' in workplace_path:
+            group_members_section = self._load_group_members(workplace_path)
+            if group_members_section:
+                if system_prompt:
+                    system_prompt = system_prompt + "\n\n" + group_members_section
+                else:
+                    system_prompt = group_members_section
+
+        # 为 session 创建 skills 软链接，指向上级目录的 skills
+        if self._session_work_dir and self._bot_work_dir and skills:
+            self._setup_skills_for_session(skills, self._session_work_dir, self._bot_work_dir)
+
+        session_params = {
+            'cwd': workplace_path,
+            'mcpServers': mcp_servers
+        }
+        if skills:
+            session_params['skills'] = skills
+        if system_prompt:
+            session_params['systemPrompt'] = system_prompt
+
+        # 保存 system_prompt 供后续 chat 使用
+        self.system_prompt = system_prompt
+
+        self._log(f"[ACP] 创建会话，cwd: {workplace_path}, MCP服务器: {[s.get('name') for s in mcp_servers]}, Skills: {len(skills)}, 系统提示词: {'已加载' if system_prompt else '未加载'}")
+        result, error = self.call_method('session/new', session_params)
+        if error:
+            raise Exception(f"创建会话失败: {error}")
+        self.session_id = result['sessionId']
+        self._log(f"ACP 会话创建成功: {self.session_id}")
+
+    def _initialize_websocket(self, ws_url, client_config):
+        """初始化 WebSocket ACP 连接"""
+        from .websocket_acp_client import WebSocketACPClientSync
+
+        self._log(f"[ACP] 初始化 WebSocket ACP 客户端: {ws_url}")
+        self._use_websocket = True
+
+        # 创建 WebSocket 客户端
+        self._websocket_client = WebSocketACPClientSync(
+            ws_url=ws_url,
+            log_callback=lambda msg: self._log(msg)
+        )
+
+        # 初始化协议
+        init_result = self._websocket_client.initialize()
+        if not init_result:
+            raise Exception("WebSocket ACP 初始化失败")
+
+        self._log("[ACP] WebSocket ACP 初始化成功")
+
+        # 继续加载配置和创建会话
+        self._load_config_and_create_session_ws(client_config)
+
+    def _load_config_and_create_session_ws(self, client_config):
+        """加载 MCP 配置和 skills，然后创建会话（WebSocket 模式）"""
+        
+        # 加载 skills（优先使用 bot_work_dir）
+        skills = self._load_skills(self._bot_work_dir)
+        
+        # 加载系统提示词（优先使用自定义的，否则从 .bot.md 加载）
+        if self._custom_system_prompt:
+            system_prompt = self._custom_system_prompt
+            # 追加 skills 描述
+            skills_section = self._build_skills_section(skills)
+            if skills_section:
+                system_prompt = system_prompt + "\n\n" + skills_section if system_prompt else skills_section
+        else:
+            # 从 .bot.md 加载（优先使用 bot_work_dir）
+            system_prompt = self._load_bots_md(skills, self._bot_work_dir)
+        
+        # 确定工作目录（优先使用 session_work_dir）
+        if self._session_work_dir:
+            workplace_path = self._session_work_dir
+        else:
+            workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+        
+        # 检查是否是群聊模式，如果是则追加成员信息
+        if 'groupspace' in workplace_path:
+            group_members_section = self._load_group_members(workplace_path)
+            if group_members_section:
+                if system_prompt:
+                    system_prompt = system_prompt + "\n\n" + group_members_section
+                else:
+                    system_prompt = group_members_section
+        
+        # 为 session 创建 skills 软链接，指向上级目录的 skills
+        if self._session_work_dir and self._bot_work_dir and skills:
+            self._setup_skills_for_session(skills, self._session_work_dir, self._bot_work_dir)
+        
+        session_params = {
+            'cwd': workplace_path,
+            'mcpServers': mcp_servers
+        }
+        if skills:
+            session_params['skills'] = skills
+        if system_prompt:
+            session_params['systemPrompt'] = system_prompt
+        
+        # 保存 system_prompt 供后续 chat 使用
+        self.system_prompt = system_prompt
+            
+        self._log(f"[ACP] 创建会话，cwd: {workplace_path}, MCP服务器: {[s.get('name') for s in mcp_servers]}, Skills: {len(skills)}, 系统提示词: {'已加载' if system_prompt else '未加载'}")
+        result, error = self.call_method('session/new', session_params)
+        if error:
+            raise Exception(f"创建会话失败: {error}")
+        self.session_id = result['sessionId']
+        self._log(f"ACP 会话创建成功: {self.session_id}")
+
+    def _initialize_openclaw(self, client_config):
+        """初始化 OpenClaw ACP 连接"""
+        from .openclaw_acp_client import OpenClawACPClient
+
+        executable = client_config.get('executable', '/opt/homebrew/bin/openclaw')
+        session = client_config.get('session', 'agent:main:main')
+
+        self._log(f"[ACP] 初始化 OpenClaw ACP 客户端: {executable}")
+        self._use_openclaw = True
+
+        # 创建 OpenClaw 客户端
+        self._openclaw_client = OpenClawACPClient(
+            executable=executable,
+            session=session,
+            log_callback=lambda msg: self._log(msg)
+        )
+
+        # 初始化协议
+        init_result = self._openclaw_client.initialize()
+        if not init_result:
+            raise Exception("OpenClaw ACP 初始化失败")
+
+        self._log("[ACP] OpenClaw ACP 初始化成功")
+
+        # 继续加载配置和创建会话
+        self._load_config_and_create_session_openclaw(client_config)
+
+    def _load_config_and_create_session_openclaw(self, client_config):
+        """加载 MCP 配置和 skills，然后创建会话（OpenClaw 模式）"""
+        # 加载 skills（优先使用 bot_work_dir）
+        skills = self._load_skills(self._bot_work_dir)
+
+        # 加载系统提示词（优先使用自定义的，否则从 .bot.md 加载）
+        if self._custom_system_prompt:
+            system_prompt = self._custom_system_prompt
+            # 追加 skills 描述
+            skills_section = self._build_skills_section(skills)
+            if skills_section:
+                system_prompt = system_prompt + "\n\n" + skills_section if system_prompt else skills_section
+        else:
+            # 从 .bot.md 加载（优先使用 bot_work_dir）
+            system_prompt = self._load_bots_md(skills, self._bot_work_dir)
+
+        # 确定工作目录（优先使用 session_work_dir）
+        if self._session_work_dir:
+            workplace_path = self._session_work_dir
+        else:
+            workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+
+        # 检查是否是群聊模式，如果是则追加成员信息
+        if 'groupspace' in workplace_path:
+            group_members_section = self._load_group_members(workplace_path)
+            if group_members_section:
+                if system_prompt:
+                    system_prompt = system_prompt + "\n\n" + group_members_section
+                else:
+                    system_prompt = group_members_section
+
+        # 为 session 创建 skills 软链接，指向上级目录的 skills
+        if self._session_work_dir and self._bot_work_dir and skills:
+            self._setup_skills_for_session(skills, self._session_work_dir, self._bot_work_dir)
+
+        # 创建会话
+        self._log(f"[ACP] 创建 OpenClaw 会话，cwd: {workplace_path}, Skills: {len(skills)}, 系统提示词: {'已加载' if system_prompt else '未加载'}")
+
+        result = self._openclaw_client.create_session(
+            cwd=workplace_path,
+            skills=skills,
+            system_prompt=system_prompt
+        )
+
+        if not result:
+            raise Exception("OpenClaw 创建会话失败")
+
+        # 从适配器获取 session_id
+        self.session_id = self._openclaw_client.session_id
+        self._log(f"[ACP] OpenClaw 会话创建成功: {self.session_id}")
+
+
+    def _load_config_and_create_session_ws(self, client_config):
+        """加载 MCP 配置和 skills，然后创建会话（WebSocket 模式）"""
+        # 加载项目目录下的 MCP 配置
+        mcp_servers = self._load_mcp_config()
+        
+        # 加载 skills（优先使用 bot_work_dir）
+        skills = self._load_skills(self._bot_work_dir)
+        
+        # 加载系统提示词（优先使用自定义的，否则从 .bot.md 加载）
+        if self._custom_system_prompt:
+            system_prompt = self._custom_system_prompt
+            # 追加 skills 描述
+            skills_section = self._build_skills_section(skills)
+            if skills_section:
+                system_prompt = system_prompt + "\\n\\n" + skills_section if system_prompt else skills_section
+        else:
+            # 从 .bot.md 加载（优先使用 bot_work_dir）
+            system_prompt = self._load_bots_md(skills, self._bot_work_dir)
+        
+        # 确定工作目录（优先使用 session_work_dir）
+        if self._session_work_dir:
+            workplace_path = self._session_work_dir
+        else:
+            workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+        
+        # 检查是否是群聊模式，如果是则追加成员信息
+        if 'groupspace' in workplace_path:
+            group_members_section = self._load_group_members(workplace_path)
+            if group_members_section:
+                if system_prompt:
+                    system_prompt = system_prompt + "\n\n" + group_members_section
+                else:
+                    system_prompt = group_members_section
+        
+        # 为 session 创建 skills 软链接，指向上级目录的 skills
+        if self._session_work_dir and self._bot_work_dir and skills:
+            self._setup_skills_for_session(skills, self._session_work_dir, self._bot_work_dir)
+        
+        # 创建会话
+        result = self._websocket_client.create_session(
+            cwd=workplace_path,
+            mcp_servers=mcp_servers,
+            skills=skills,
+            system_prompt=system_prompt
+        )
+        
+        if not result:
+            raise Exception("创建会话失败")
+        
+        self.session_id = self._websocket_client.session_id
+        self.system_prompt = system_prompt
+        
+        self._log(f"[ACP] 创建会话成功 (WebSocket), cwd: {workplace_path}, MCP服务器: {[s.get('name') for s in mcp_servers]}, Skills: {len(skills)}, 系统提示词: {'已加载' if system_prompt else '未加载'}")
+
+    def _setup_skills_for_session(self, skills, session_dir, bot_work_dir):
+        """为 session 设置 skills
+        
+        Kimi ACP 需要在 cwd 中找到 skill 文件才能正确加载和执行。
+        
+        对于群聊（groupspace）：创建真实的 .agents/skills 目录（非软链接）
+        对于单聊：创建软链接共享 bot_work_dir 中的 skills
+        """
+        import shutil
+        
+        session_kimi_dir = os.path.join(session_dir, '.agents')
+        session_skills_dir = os.path.join(session_kimi_dir, 'skills')
+        bot_skills_dir = os.path.join(bot_work_dir, '.agents', 'skills')
+        
+        # 使用绝对路径避免相对路径问题
+        session_skills_dir = os.path.abspath(session_skills_dir)
+        bot_skills_dir = os.path.abspath(bot_skills_dir)
+        
+        # 如果 session 目录已经有 skills 目录，跳过
+        if os.path.exists(session_skills_dir):
+            return
+        
+        # 如果 bot_work_dir 没有 skills，跳过
+        if not os.path.exists(bot_skills_dir):
+            return
+        
+        # 判断是否是群聊目录
+        is_group = 'groupspace' in session_dir
+        
+        try:
+            # 确保 .agents 目录存在
+            os.makedirs(os.path.dirname(session_skills_dir), exist_ok=True)
+            
+            if is_group:
+                # 群聊：创建真实的目录并复制 skills
+                shutil.copytree(bot_skills_dir, session_skills_dir)
+                self._log(f"[ACP] 群聊模式：已复制 skills 到 session 目录: {session_skills_dir}")
+            else:
+                # 单聊：创建软链接共享 skills
+                os.symlink(bot_skills_dir, session_skills_dir, target_is_directory=True)
+                self._log(f"[ACP] 单聊模式：已创建 skills 软链接: {session_skills_dir} -> {bot_skills_dir}")
+        except Exception as e:
+            # 失败时回退到复制
+            self._log(f"[ACP] 设置 skills 失败，回退到复制: {e}")
+            try:
+                if os.path.islink(session_skills_dir):
+                    os.remove(session_skills_dir)
+                elif os.path.exists(session_skills_dir):
+                    shutil.rmtree(session_skills_dir)
+                shutil.copytree(bot_skills_dir, session_skills_dir)
+                self._log(f"[ACP] 已复制 skills 到 session 目录: {session_skills_dir}")
+            except Exception as copy_e:
+                self._log(f"[ACP] 复制 skills 也失败: {copy_e}")
+    
+    def _get_builtin_mcp_config(self):
+        """获取内置的 MCP 配置（基于包安装位置）
+        
+        当项目目录没有 MCP 配置时，使用包自带的配置
+        
+        注：MCP 模式已弃用，改用 feishu-api-sender skill 直接调用飞书 API
+        返回空配置，飞书发送功能通过 skill 实现
+        """
+        return {}
+    
+    def _load_mcp_config(self):
+        """加载项目目录下的 MCP 配置文件 (.agents/mcp.json)
+        
+        如果项目目录没有配置，则使用包内置的 MCP 配置。
+        返回格式为列表，每个元素包含 name、type 和配置信息
+        注意：根据 Kimi ACP 协议，headers 需要是列表格式
+        """
+        mcp_config_path = get_absolute_path('.agents/mcp.json')
+        mcp_servers_dict = {}
+        
+        if os.path.exists(mcp_config_path):
+            try:
+                with open(mcp_config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                mcp_servers_dict = config.get('mcpServers', {})
+                self._log(f"[ACP] 从项目目录加载 MCP 配置: {mcp_config_path}")
+            except Exception as e:
+                self._log(f"[ACP] 加载 MCP 配置失败: {e}")
+        else:
+            self._log(f"[ACP] 未找到 MCP 配置文件: {mcp_config_path}")
+            # 使用内置配置
+            mcp_servers_dict = self._get_builtin_mcp_config()
+        
+        if not mcp_servers_dict:
+            return []
+        
+        try:
+            # 转换为列表格式，并添加必需的字段
+            mcp_servers = []
+            for name, server_config in mcp_servers_dict.items():
+                server_info = {
+                    'name': name,
+                    'type': 'http',  # 默认为 http 类型
+                    'headers': []    # 默认空 headers 列表
+                }
+                # 根据配置自动推断类型
+                if 'url' in server_config:
+                    url = server_config['url']
+                    if '/sse' in url or url.endswith('/sse'):
+                        server_info['type'] = 'sse'
+                server_info.update(server_config)
+                # 确保 headers 是列表
+                if 'headers' in server_info and isinstance(server_info['headers'], dict):
+                    headers_list = []
+                    for key, value in server_info['headers'].items():
+                        headers_list.append({'name': key, 'value': value})
+                    server_info['headers'] = headers_list
+                elif 'headers' not in server_info:
+                    server_info['headers'] = []
+                
+                # 确保 env 是列表 (用于 stdio 类型)
+                if 'env' in server_info and isinstance(server_info['env'], dict):
+                    env_list = []
+                    for key, value in server_info['env'].items():
+                        env_list.append({'name': key, 'value': value})
+                    server_info['env'] = env_list
+                mcp_servers.append(server_info)
+            self._log(f"[ACP] 加载 MCP 配置成功，服务器数量: {len(mcp_servers)}")
+            return mcp_servers
+        except Exception as e:
+            self._log(f"[ACP] 加载 MCP 配置失败: {e}")
+            return []
+    
+    def _load_skills(self, skills_dir=None):
+        """加载 skills（用户目录 + 内置 skills）
+        
+        Args:
+            skills_dir: 可选，自定义 skills 目录路径
+        """
+        skills = []
+        
+        # 1. 加载用户项目目录下的 skills（优先使用指定的目录）
+        if skills_dir:
+            user_skills_dir = os.path.join(skills_dir, '.agents', 'skills')
+        else:
+            user_skills_dir = get_absolute_path('.agents/skills')
+        if os.path.exists(user_skills_dir):
+            try:
+                for item in os.listdir(user_skills_dir):
+                    skill_path = os.path.join(user_skills_dir, item)
+                    if os.path.isdir(skill_path):
+                        skill_md = os.path.join(skill_path, 'SKILL.md')
+                        if os.path.exists(skill_md):
+                            # 读取 SKILL.md 内容
+                            try:
+                                with open(skill_md, 'r', encoding='utf-8') as f:
+                                    skill_content = f.read()
+                                skills.append({
+                                    'name': item,
+                                    'path': skill_path,
+                                    'content': skill_content
+                                })
+                            except Exception as e:
+                                self._log(f"[ACP] 读取 Skill {item} 失败: {e}")
+                                skills.append({
+                                    'name': item,
+                                    'path': skill_path
+                                })
+                self._log(f"[ACP] 加载用户 Skills: {len(skills)} 个")
+            except Exception as e:
+                self._log(f"[ACP] 加载用户 Skills 失败: {e}")
+        else:
+            self._log(f"[ACP] 未找到用户 skills 目录: {user_skills_dir}")
+        
+        # 2. 加载包内置的 skills
+        try:
+            import inspect
+            builtin_skills_dir = os.path.join(
+                os.path.dirname(os.path.abspath(inspect.getfile(self.__class__))),
+                '.agents', 'skills'
+            )
+            
+            if os.path.exists(builtin_skills_dir):
+                builtin_count = 0
+                for item in os.listdir(builtin_skills_dir):
+                    skill_path = os.path.join(builtin_skills_dir, item)
+                    if os.path.isdir(skill_path):
+                        skill_md = os.path.join(skill_path, 'SKILL.md')
+                        if os.path.exists(skill_md):
+                            # 避免重复加载同名 skill
+                            if not any(s['name'] == item for s in skills):
+                                # 读取 SKILL.md 内容
+                                try:
+                                    with open(skill_md, 'r', encoding='utf-8') as f:
+                                        skill_content = f.read()
+                                    skills.append({
+                                        'name': item,
+                                        'path': skill_path,
+                                        'content': skill_content
+                                    })
+                                except Exception as e:
+                                    self._log(f"[ACP] 读取内置 Skill {item} 失败: {e}")
+                                    skills.append({
+                                        'name': item,
+                                        'path': skill_path
+                                    })
+                                builtin_count += 1
+                self._log(f"[ACP] 加载内置 Skills: {builtin_count} 个")
+            else:
+                self._log(f"[ACP] 未找到内置 skills 目录: {builtin_skills_dir}")
+        except Exception as e:
+            self._log(f"[ACP] 加载内置 Skills 失败: {e}")
+        
+        self._log(f"[ACP] 总共加载 Skills: {len(skills)} 个")
+        return skills
+    
+    def _load_bots_md(self, skills=None, bots_dir=None):
+        """加载系统提示词文件（.system.md + .bot.md）
+
+        加载顺序：
+        1. 首先加载全局 .system.md（来自 WORKPLACE 目录）
+        2. 然后加载 Bot 专属的 .bot.md
+        3. 最后追加 skills 描述
+
+        Args:
+            skills: 已加载的 skills 列表，会追加到 system prompt 中
+            bots_dir: 可选，自定义 .bot.md 所在目录
+        """
+        content_parts = []
+
+        # 1. 首先加载全局 .system.md（从 WORKPLACE 目录）
+        # 从配置获取 workplace 路径
+        workplace_path = get_absolute_path(CONFIG.get('paths', {}).get('workplace', 'WORKPLACE'))
+        system_md_path = os.path.join(workplace_path, '.system.md')
+
+        if os.path.exists(system_md_path):
+            try:
+                with open(system_md_path, 'r', encoding='utf-8') as f:
+                    system_content = f.read()
+                content_parts.append(system_content)
+                self._log(f"[ACP] 加载 .system.md 成功，长度: {len(system_content)} 字符")
+            except Exception as e:
+                self._log(f"[ACP] 加载 .system.md 失败: {e}")
+        else:
+            self._log(f"[ACP] 未找到 .system.md 文件: {system_md_path}")
+
+        # 2. 加载 Bot 专属的 .bot.md
+        if bots_dir:
+            bot_md_path = os.path.join(bots_dir, '.bot.md')
+        else:
+            bot_md_path = get_absolute_path('.bot.md')
+
+        if os.path.exists(bot_md_path):
+            try:
+                with open(bot_md_path, 'r', encoding='utf-8') as f:
+                    bot_content = f.read()
+                content_parts.append(bot_content)
+                self._log(f"[ACP] 加载 .bot.md 成功，长度: {len(bot_content)} 字符")
+            except Exception as e:
+                self._log(f"[ACP] 加载 .bot.md 失败: {e}")
+        else:
+            self._log(f"[ACP] 未找到 .bot.md 文件: {bot_md_path}")
+
+        # 合并内容
+        content = "\n\n---\n\n".join(content_parts) if content_parts else ""
+        
+        # 添加可用 skills 列表到 system prompt
+        if skills:
+            skills_section = "\n\n## 可用 Skills（功能模块）\n\n"
+            skills_section += "**重要：当用户询问你有什么功能、技能、能做什么、支持什么时，必须主动详细介绍以下内容：**\n\n"
+            
+            for skill in skills:
+                skill_name = skill['name']
+                skill_path = skill['path']
+                skill_md_path = os.path.join(skill_path, 'SKILL.md')
+                
+                try:
+                    with open(skill_md_path, 'r', encoding='utf-8') as f:
+                        skill_content = f.read()
+                    
+                    # 解析 SKILL.md 内容
+                    lines = skill_content.split('\n')
+                    description = ""  # 初始化描述变量
+                    
+                    # 处理 frontmatter (--- 开头的 YAML)
+                    content_start = 0
+                    if lines and lines[0].strip() == '---':
+                        # 查找第二个 ---
+                        for i in range(1, len(lines)):
+                            if lines[i].strip() == '---':
+                                content_start = i + 1
+                                break
+                        # 从 frontmatter 提取 description
+                        for i in range(1, content_start):
+                            if lines[i].startswith('description:'):
+                                description = lines[i].split(':', 1)[1].strip()
+                                break
+                    
+                    # 获取标题（第一个 # 开头的行）
+                    title = skill_name
+                    for i in range(content_start, len(lines)):
+                        if lines[i].strip().startswith('#'):
+                            title = lines[i].strip().lstrip('#').strip()
+                            break
+                    
+                    # 如果没有从 frontmatter 获取到描述，尝试从 ## 描述/功能 部分获取
+                    if not description:
+                        in_desc = False
+                        desc_lines = []
+                        for i in range(content_start, len(lines)):
+                            line = lines[i]
+                            if line.strip().startswith('## 描述') or line.strip().startswith('## 功能'):
+                                in_desc = True
+                                continue
+                            elif line.strip().startswith('##') and in_desc:
+                                break
+                            elif in_desc and line.strip():
+                                desc_lines.append(line.strip())
+                        
+                        description = ' '.join(desc_lines) if desc_lines else "暂无描述"
+                    
+                    # 获取使用示例
+                    examples = []
+                    in_examples = False
+                    for line in lines:
+                        if '使用示例' in line or '使用场景' in line or '使用方式' in line:
+                            in_examples = True
+                            continue
+                        elif in_examples and line.strip().startswith('-'):
+                            example = line.strip().lstrip('-').strip()
+                            if example:
+                                examples.append(example)
+                        elif in_examples and line.strip().startswith('##'):
+                            break
+                    
+                    # 构建 skill 描述
+                    skills_section += f"### {skill_name} - {title}\n"
+                    skills_section += f"- **功能**：{description}\n"
+                    
+                    if examples:
+                        skills_section += "- **使用示例**：\n"
+                        for ex in examples[:3]:  # 最多3个示例
+                            skills_section += f"  - {ex}\n"
+                    
+                    skills_section += "\n"
+                    
+                except Exception as e:
+                    # 如果读取失败，使用简单描述
+                    skills_section += f"### {skill_name}\n"
+                    skills_section += f"- 功能：暂无描述\n\n"
+            
+            skills_section += "**规则**：当用户问\"你有什么技能\"、\"你能做什么\"、\"你有什么功能\"时，必须主动、详细地介绍以上所有 skills 的功能和使用方法。\n"
+            skills_section += "\n**重要提示**：请严格按照上述列出的 skill 名称介绍，不要使用其他名称（如 feishu-cron-reminder 等）来指代这些功能。\n"
+            
+            # 为 local-memory skill 添加存储位置提示
+            local_memory_names = ['local-memory', 'local_memory']
+            if any(s['name'] in local_memory_names for s in skills):
+                skills_section += "\n**Local Memory 存储配置**：\n"
+                skills_section += "- 使用 `MemoryManager()` 初始化（使用默认路径）\n"
+                skills_section += "- 记忆将存储在 Bot 工作目录的 `.agents/skills/local-memory/memory/` 文件夹中\n"
+                skills_section += "- **重要**：每个 Bot 只能访问自己的工作目录下的 memory，禁止访问其他 Bot 的记忆\n"
+                skills_section += "- 目录结构：workplace_{bot_id}/.agents/skills/local-memory/memory/ 存储数据\n"
+            
+            # 为 scheduler skill 添加存储位置提示
+            scheduler_names = ['scheduler']
+            if any(s['name'] in scheduler_names for s in skills):
+                skills_section += "\n**Scheduler 存储配置**：\n"
+                skills_section += "- 使用 `get_scheduler(data_dir='.')` 初始化（使用当前会话目录）\n"
+                skills_section += "- 任务数据将存储在当前会话目录的 `scheduler_tasks.json` 文件中\n"
+                skills_section += "- **重要**：每个会话有独立的定时任务，互不干扰\n"
+                skills_section += "- 目录结构：workplace_{bot_id}/w_{session_id}/scheduler_tasks.json\n"
+            
+            content = content + skills_section if content else skills_section
+        
+        return content if content.strip() else None
+
+    def _build_skills_section(self, skills):
+        """构建 skills 描述部分（用于自定义 system prompt）
+        
+        Args:
+            skills: 已加载的 skills 列表
+            
+        Returns:
+            skills 描述字符串，如果没有 skills 则返回空字符串
+        """
+        if not skills:
+            return ""
+        
+        section = "\n\n## 可用 Skills（功能模块）\n\n"
+        section += "**重要：当用户询问你有什么功能、技能、能做什么、支持什么时，必须主动详细介绍以下内容：**\n\n"
+        
+        for skill in skills:
+            skill_name = skill['name']
+            skill_path = skill.get('path', '')
+            skill_md_path = os.path.join(skill_path, 'SKILL.md') if skill_path else ''
+            
+            # 获取 skill 内容
+            skill_content = skill.get('content', '')
+            if not skill_content and skill_md_path and os.path.exists(skill_md_path):
+                try:
+                    with open(skill_md_path, 'r', encoding='utf-8') as f:
+                        skill_content = f.read()
+                except:
+                    pass
+            
+            if skill_content:
+                # 解析 SKILL.md 内容
+                lines = skill_content.split('\n')
+                description = ""
+                title = skill_name
+                
+                # 处理 frontmatter
+                content_start = 0
+                if lines and lines[0].strip() == '---':
+                    for i in range(1, len(lines)):
+                        if lines[i].strip() == '---':
+                            content_start = i + 1
+                            break
+                        if lines[i].startswith('description:'):
+                            description = lines[i].split(':', 1)[1].strip()
+                
+                # 获取标题
+                for i in range(content_start, len(lines)):
+                    if lines[i].strip().startswith('#'):
+                        title = lines[i].strip().lstrip('#').strip()
+                        break
+                
+                section += f"### {skill_name} - {title}\n"
+                section += f"- **功能**：{description if description else '暂无描述'}\n\n"
+            else:
+                section += f"### {skill_name}\n"
+                section += f"- 功能：暂无描述\n\n"
+        
+        section += "**规则**：当用户问\"你有什么技能\"、\"你能做什么\"、\"你有什么功能\"时，必须主动、详细地介绍以上所有 skills 的功能和使用方法。\n"
+        return section
+    
+    def _load_group_members(self, group_dir: str) -> str:
+        """加载群聊成员信息
+        
+        从 .members.md 文件读取群聊成员（User 和 Bots）的昵称和介绍
+        
+        Args:
+            group_dir: 群聊目录路径
+            
+        Returns:
+            成员信息文本，如果文件不存在则返回空字符串
+        """
+        import os
+        members_md_path = os.path.join(group_dir, '.members.md')
+        
+        if not os.path.exists(members_md_path):
+            return ""
+        
+        try:
+            with open(members_md_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            self._log(f"[ACP] 加载群聊成员信息成功，长度: {len(content)} 字符")
+            return content
+        except Exception as e:
+            self._log(f"[ACP] 加载群聊成员信息失败: {e}")
+            return ""
+
+    def _read_responses(self):
+        """持续读取响应"""
+        for line in self.process.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                response = json.loads(line)
+                msg_id = response.get('id')
+                method = response.get('method')
+
+                # 处理权限请求 - 自动批准工具调用
+                # 注意: id 可能是 0，所以不能用 "if msg_id" 来判断
+                if method == 'session/request_permission' and 'id' in response:
+                    self._log(f"收到权限请求: {msg_id}")
+                    # 自动批准
+                    approve_response = {
+                        "jsonrpc": "2.0",
+                        "id": msg_id,
+                        "result": {
+                            "outcome": {
+                                "outcome": "selected",
+                                "option_id": "approve"  # 允许本次
+                            }
+                        }
+                    }
+                    try:
+                        self.process.stdin.write(json.dumps(approve_response) + '\n')
+                        self.process.stdin.flush()
+                        self._log(f"自动批准权限请求: {msg_id}")
+                    except Exception as e:
+                        self._log(f"发送批准响应失败: {e}")
+                    continue
+
+                # 处理通知（无 id 的消息）
+                if method and msg_id is None:
+                    with self._lock:
+                        self.notifications.append(response)
+                    # 如果是 session/update 通知，打印内容
+                    if method == 'session/update':
+                        params = response.get('params', {})
+                        update = params.get('update', {})
+                        update_type = update.get('sessionUpdate')
+
+                        if update_type == 'agent_message_chunk':
+                            content = update.get('content', {})
+                            if content.get('type') == 'text':
+                                text = content.get('text', '')
+                                # 流式输出日志已禁用（减少日志噪声）
+                                # self._log(f"[ACP RAW] 消息 chunk: {repr(text)}")
+                                # print(f"[ACP] 消息: {text[:100]}...")
+
+                        elif update_type == 'thinking' or update_type == 'agent_thought_chunk':
+                            # 思考内容
+                            content = update.get('content', {})
+                            if content.get('type') == 'text':
+                                text = content.get('text', '')
+                                # 流式输出日志已禁用（减少日志噪声）
+                                # self._log(f"[ACP RAW] 思考 chunk: {repr(text)}")
+                                # print(f"[ACP] 思考: {text[:100]}...")
+
+                        elif update_type == 'tool_call':
+                            # 工具调用开始
+                            tool_call_id = update.get('toolCallId', '')
+                            title = update.get('title', 'Unknown Tool')
+                            # 流式输出日志已禁用（减少日志噪声）
+                            # print(f"[ACP] 工具调用: {title} ({tool_call_id})")
+
+                        elif update_type == 'tool_call_update':
+                            # 工具调用状态更新
+                            tool_call_id = update.get('toolCallId', '')
+                            status = update.get('status', '')
+                            # 流式输出日志已禁用（减少日志噪声）
+                            # print(f"[ACP] 工具状态: {tool_call_id} -> {status}")
+
+                            # 如果工具完成，提取结果内容
+                            if status == 'completed' or status == 'failed':
+                                content = update.get('content', [])
+                                if content:
+                                    # 流式输出日志已禁用（减少日志噪声）
+                                    # print(f"[ACP] 工具结果: {content[:200] if len(str(content)) > 200 else content}...")
+                                    pass
+
+                    continue
+
+                # 处理请求响应
+                if msg_id is not None:
+                    with self._lock:
+                        self.response_map[msg_id] = response
+            except json.JSONDecodeError as e:
+                print(f"[DEBUG] JSON 解析错误: {e}, 行: {line}")
+            except Exception as e:
+                print(f"[DEBUG] 读取响应错误: {e}")
+
+    def call_method(self, method, params, timeout=120):
+        """调用 ACP 方法"""
+        # OpenClaw 模式
+        if self._use_openclaw and self._openclaw_client:
+            return self._openclaw_client.call_method(method, params, timeout)
+
+        # WebSocket 模式
+        if self._use_websocket and self._websocket_client:
+            return self._websocket_client.call_method(method, params, timeout)
+
+        # Stdio 模式
+        msg_id = str(uuid.uuid4())
+        request = {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "method": method,
+            "params": params
+        }
+
+        # 发送请求，支持自动重试
+        max_retries = 2
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # 检查进程是否存活
+                if self.process.poll() is not None:
+                    self._log(f"[CALL] ACP 进程已终止，尝试重新初始化")
+                    self._initialize()
+                
+                self.process.stdin.write(json.dumps(request) + '\n')
+                self.process.stdin.flush()
+                self._log(f"发送请求: {method}, id: {msg_id[:8]}...")
+                break  # 发送成功，跳出重试循环
+                
+            except BrokenPipeError:
+                retry_count += 1
+                self._log(f"[CALL] Broken pipe 错误 (重试 {retry_count}/{max_retries})")
+                
+                if retry_count >= max_retries:
+                    return None, "ACP 连接已断开"
+                
+                # 尝试重新初始化
+                try:
+                    if self.process:
+                        try:
+                            self.process.kill()
+                        except:
+                            pass
+                    self._initialize()
+                    time.sleep(0.5)
+                except Exception as reinit_error:
+                    return None, f"重新初始化失败: {reinit_error}"
+                    
+            except Exception as e:
+                return None, f"发送请求失败: {str(e)}"
+
+        # 等待响应
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            with self._lock:
+                if msg_id in self.response_map:
+                    response = self.response_map.pop(msg_id)
+                    if 'error' in response:
+                        self._log(f"收到错误响应: {response['error']}")
+                        return None, response['error']
+                    self._log(f"收到响应: {list(response.keys())[:3]}...")
+                    return response.get('result'), None
+            time.sleep(0.05)
+
+        self._log(f"请求超时: {method}")
+        return None, "请求超时"
+
+    def chat(self, message, on_chunk=None, on_thinking=None, on_tool_call=None, timeout=120, include_thinking_in_result=True):
+        """发送聊天消息，支持流式接收
+
+        Args:
+            message: 用户消息
+            on_chunk: 回调函数，接收正式消息内容
+            on_thinking: 回调函数，接收思考过程内容
+            on_tool_call: 回调函数，接收工具调用状态变化
+                参数: {'type': 'start'|'update', 'id': str, 'title': str, 'status': str, 'kind': str}
+            timeout: 超时时间（秒）
+        """
+        # OpenClaw 模式
+        if self._use_openclaw and self._openclaw_client:
+            response = self._openclaw_client.chat(message, on_thinking=on_thinking, timeout=timeout)
+            if on_chunk:
+                on_chunk(response)
+            return response
+
+        # WebSocket 模式 - simplified version
+        if self._use_websocket and self._websocket_client:
+            response = self._websocket_client.chat(message, timeout=timeout)
+            if on_chunk:
+                on_chunk(response)
+            return response
+
+        # Stdio 模式 - existing streaming implementation
+        # 收集思考内容、工具调用和消息内容
+        collected_thinking = []
+        collected_tools = {}  # 使用字典存储工具调用，key 为 tool_call_id
+        collected_messages = []
+        processed_notifications = set()  # 跟踪已处理的通知
+
+        # 清空旧的通知
+        with self._lock:
+            self.notifications.clear()
+
+        # 记录开始时间
+        chat_start_time = time.time()
+        last_chunk_time = chat_start_time
+
+        # 构建完整消息：system_prompt + user message
+        # ACP 可能不处理 session/new 中的 systemPrompt，所以在每次 chat 时前置
+        full_message = message
+        if hasattr(self, 'system_prompt') and self.system_prompt:
+            full_message = f"{self.system_prompt}\n\n---\n\n{message}"
+        
+        # 发送 prompt（不等待响应，直接开始监听通知）
+        msg_id = str(uuid.uuid4())
+        request = {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "method": "session/prompt",
+            "params": {
+                'sessionId': self.session_id,
+                'prompt': [{'type': 'text', 'text': full_message}]
+            }
+        }
+        
+        # 发送请求，支持自动重试
+        max_retries = 2
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # 检查进程是否仍然存活
+                if self.process.poll() is not None:
+                    self._log("[CHAT] ACP 进程已终止，尝试重新初始化")
+                    self._initialize()
+                    self._log("[CHAT] 重新初始化完成")
+                
+                self.process.stdin.write(json.dumps(request) + '\n')
+                self.process.stdin.flush()
+                break  # 发送成功，跳出重试循环
+                
+            except BrokenPipeError:
+                retry_count += 1
+                self._log(f"[CHAT] Broken pipe 错误，ACP 进程可能已崩溃 (重试 {retry_count}/{max_retries})")
+                
+                if retry_count >= max_retries:
+                    return "ACP 连接已断开，请稍后重试"
+                
+                # 尝试重新初始化
+                try:
+                    self._log("[CHAT] 尝试重新初始化 ACP 连接...")
+                    # 清理旧进程
+                    if self.process:
+                        try:
+                            self.process.kill()
+                        except:
+                            pass
+                    # 重新初始化
+                    self._initialize()
+                    self._log("[CHAT] 重新初始化成功，准备重试...")
+                    # 需要更新 session_id 到请求中
+                    request['params']['sessionId'] = self.session_id
+                    time.sleep(0.5)  # 短暂延迟确保连接稳定
+                except Exception as reinit_error:
+                    self._log(f"[CHAT] 重新初始化失败: {reinit_error}")
+                    return f"ACP 连接已断开，重新初始化失败: {reinit_error}"
+                    
+            except Exception as e:
+                return f"发送请求失败: {str(e)}"
+
+        # 等待响应完成（检查 stopReason）
+        last_callback_text = ""  # 记录上次回调的内容，避免重复调用
+        last_thinking_text = ""  # 记录上次思考内容，避免重复调用
+        result = None
+        
+        while time.time() - chat_start_time < timeout:
+            time.sleep(0.01)  # 更短的睡眠间隔，更快响应
+            
+            # 检查是否被取消
+            if self._cancelled:
+                self._log("[CHAT] 检测到取消标志，停止接收新内容")
+                break  # 跳出循环，继续组装已收集的内容
+
+            # 快速获取锁，复制新通知，然后释放锁
+            new_notifications = []
+            unprocessed_count = 0
+            with self._lock:
+                # 检查是否有 prompt 的响应
+                if result is None and msg_id in self.response_map:
+                    result = self.response_map.pop(msg_id)
+                    if 'error' in result:
+                        # 错误日志保留
+                        self._log(f"[CHAT] 收到错误响应: {result['error']}")
+                        return f"错误: {result['error']}"
+                    result = result.get('result')
+                    # 流式日志已禁用
+                    # self._log(f"[CHAT] 收到 prompt 响应")
+                
+                # 只获取未处理的通知
+                current_count = len(self.notifications)
+                unprocessed_count = current_count - len(processed_notifications)
+                if unprocessed_count > 0:
+                    for idx in range(len(processed_notifications), current_count):
+                        new_notifications.append(self.notifications[idx])
+                        processed_notifications.add(idx)
+            
+            # 流式日志已禁用
+            # if unprocessed_count > 0:
+            #     self._log(f"[CHAT] 获取 {unprocessed_count} 个新通知")
+            
+            # 在锁外处理通知（不阻塞 _read_responses）
+            # 分批处理，每批最多10个通知，每批处理后回调
+            batch_size = 10
+            for i in range(0, len(new_notifications), batch_size):
+                batch = new_notifications[i:i+batch_size]
+                
+                for notification in batch:
+                    # 检查是否被取消
+                    if self._cancelled:
+                        self._log("[CHAT] 处理通知时检测到取消标志")
+                        break  # 跳出内层循环
+                    
+                    params = notification.get('params', {})
+                    update = params.get('update', {})
+                    update_type = update.get('sessionUpdate')
+
+                    if update_type == 'thinking' or update_type == 'agent_thought_chunk':
+                        content = update.get('content', {})
+                        if content.get('type') == 'text':
+                            text = content.get('text', '')
+                            if text:
+                                collected_thinking.append(text)
+                                last_chunk_time = time.time()
+
+                    elif update_type == 'tool_call':
+                        tool_call_id = update.get('toolCallId', '')
+                        title = update.get('title', 'Unknown Tool')
+                        kind = update.get('kind', 'other')
+                        collected_tools[tool_call_id] = {
+                            'id': tool_call_id,
+                            'title': title,
+                            'kind': kind,
+                            'status': 'pending',
+                            'start_time': time.time()  # 记录工具开始时间
+                        }
+                        last_chunk_time = time.time()
+                        # 回调工具调用开始
+                        if on_tool_call:
+                            on_tool_call({
+                                'type': 'start',
+                                'id': tool_call_id,
+                                'title': title,
+                                'status': 'pending',
+                                'kind': kind
+                            })
+
+                    elif update_type == 'tool_call_update':
+                        tool_call_id = update.get('toolCallId', '')
+                        status = update.get('status', '')
+                        if tool_call_id in collected_tools:
+                            old_status = collected_tools[tool_call_id]['status']
+                            collected_tools[tool_call_id]['status'] = status
+                            # 当状态变为 in_progress 时，更新开始时间
+                            if status == 'in_progress' and old_status != 'in_progress':
+                                collected_tools[tool_call_id]['start_time'] = time.time()
+                            # 当状态变为 completed 时，记录完成时间
+                            if status == 'completed' and old_status != 'completed':
+                                collected_tools[tool_call_id]['complete_time'] = time.time()
+                            # 回调工具状态更新
+                            if on_tool_call and old_status != status:
+                                self._log(f"[TOOL] Calling on_tool_call: {tool_call_id[:8]} status={status}")
+                                on_tool_call({
+                                    'type': 'update',
+                                    'id': tool_call_id,
+                                    'title': collected_tools[tool_call_id]['title'],
+                                    'status': status,
+                                    'kind': collected_tools[tool_call_id]['kind']
+                                })
+                        last_chunk_time = time.time()
+
+                    elif update_type == 'agent_message_chunk':
+                        content = update.get('content', {})
+                        if content.get('type') == 'text':
+                            text = content.get('text', '')
+                            if text:
+                                collected_messages.append(text)
+                                last_chunk_time = time.time()
+
+                # 每批处理后回调（流式更新）- 回调前检查取消标志
+                if self._cancelled:
+                    self._log("[CHAT] 回调前检测到取消标志，继续组装已收集内容")
+                
+                # 分别回调思考内容和正式内容
+                thinking_text = ''.join(collected_thinking).strip()
+                message_text = ''.join(collected_messages).strip()
+                
+                # 回调思考内容（如果有更新且提供了回调）
+                if on_thinking and thinking_text:
+                    if thinking_text != last_thinking_text:
+                        on_thinking(thinking_text)
+                        last_thinking_text = thinking_text
+                
+                # 回调正式内容
+                if on_chunk:
+                    # 构建工具调用显示
+                    tools_text = ""
+                    if collected_tools:
+                        tools_text = "\n\n🔧 **工具调用**\n"
+                        for tool in collected_tools.values():
+                            status_emoji = {
+                                'pending': '⏳',
+                                'in_progress': '🔄',
+                                'completed': '✅',
+                                'failed': '❌'
+                            }.get(tool['status'], '📌')
+                            tools_text += f"- {status_emoji} {tool['title']}\n"
+
+                    # 组合最终内容（不包括思考过程，因为已经通过 on_thinking 回调了）
+                    combined_parts = []
+                    if tools_text:
+                        combined_parts.append(tools_text)
+                    if message_text:
+                        combined_parts.append(message_text)
+
+                    callback_data = '\n\n'.join(combined_parts) if combined_parts else ''
+                    
+                    # 只有内容变化时才回调
+                    if callback_data != last_callback_text:
+                        on_chunk(callback_data)
+                        last_callback_text = callback_data
+
+            # 检查是否有工具正在运行（提前检查，供后续使用）
+            has_in_progress_tool = any(
+                tool.get('status') == 'in_progress' 
+                for tool in collected_tools.values()
+            )
+            
+            # 检查是否完成（result 会有 stopReason）
+            # 注意：收到 stopReason 后不要立即退出，给流式通知处理时间
+            if result and isinstance(result, dict):
+                stop_reason = result.get('stopReason')
+                if stop_reason:
+                    # 如果还有工具在运行，继续等待，不要退出
+                    if has_in_progress_tool:
+                        # 流式日志已禁用
+                        # self._log(f"[CHAT] 收到 stopReason: {stop_reason}，但工具仍在运行，继续等待...")
+                        pass
+                    # 如果收到了 stopReason 且没有工具在运行，等待0.5秒确保收集完所有通知
+                    elif time.time() - last_chunk_time > 0.5:  # 0.5秒
+                        # 流式日志已禁用
+                        # self._log(f"[CHAT] 收到 stopReason: {stop_reason}，且工具已完成，退出")
+                        break
+            
+            # 计算工具运行时间，以及最后一个工具完成的时间
+            tool_running_time = 0
+            last_tool_complete_time = 0
+            if collected_tools:
+                for tool in collected_tools.values():
+                    if tool.get('status') == 'in_progress' and 'start_time' in tool:
+                        run_time = time.time() - tool['start_time']
+                        if run_time > tool_running_time:
+                            tool_running_time = run_time
+                    elif tool.get('status') == 'completed' and 'start_time' in tool:
+                        # 记录最后一个完成工具的时间
+                        complete_time = tool.get('complete_time', 0)
+                        if complete_time > last_tool_complete_time:
+                            last_tool_complete_time = complete_time
+            
+            # 如果所有工具都完成了，记录当前时间为最后完成时间（用于后续判断）
+            if collected_tools and not has_in_progress_tool and all(
+                t.get('status') == 'completed' for t in collected_tools.values()
+            ):
+                if not hasattr(self, '_all_tools_completed_time'):
+                    self._all_tools_completed_time = time.time()
+                    # 流式日志已禁用
+                    # self._log(f"[CHAT] 所有工具已完成，开始缓冲期...")
+            else:
+                # 重置标记
+                if hasattr(self, '_all_tools_completed_time'):
+                    delattr(self, '_all_tools_completed_time')
+            
+            # 统一超时时间：30分钟（1800秒）
+            TIMEOUT_30_MIN = 1800
+            
+            # 检查是否处于工具完成后的缓冲期（给30分钟让服务器发送后续消息）
+            tools_completed_buffer = 0
+            if hasattr(self, '_all_tools_completed_time'):
+                tools_completed_buffer = time.time() - self._all_tools_completed_time
+            
+            # 如果超过 30 分钟没有新 chunk，且没有正在运行的工具，且不在缓冲期内，认为已完成
+            idle_time = time.time() - last_chunk_time
+            if (idle_time > TIMEOUT_30_MIN and not has_in_progress_tool and 
+                tools_completed_buffer > TIMEOUT_30_MIN and  # 所有工具完成后至少等30分钟
+                (collected_thinking or collected_tools or collected_messages)):
+                # 流式日志已禁用
+                # self._log(f"[CHAT] 30分钟无新内容，工具已完成{tools_completed_buffer:.1f}秒，准备退出...")
+                # 退出前等待一小段时间，确保所有通知都被处理
+                exit_wait_start = time.time()
+                while time.time() - exit_wait_start < 10:  # 最后确认等待10秒
+                    time.sleep(0.05)
+                    # 检查是否还有新通知
+                    with self._lock:
+                        current_count = len(self.notifications)
+                        unprocessed = current_count - len(processed_notifications)
+                        if unprocessed > 0:
+                            # 有新通知，重置等待时间
+                            # 流式日志已禁用
+                            # self._log(f"[CHAT] 退出前发现 {unprocessed} 个新通知，继续处理")
+                            break
+                else:
+                    # 10秒内没有新通知，可以安全退出
+                    # 流式日志已禁用
+                    # self._log(f"[CHAT] 确认无新内容，退出")
+                    # 清理标记
+                    if hasattr(self, '_all_tools_completed_time'):
+                        delattr(self, '_all_tools_completed_time')
+                    break
+            elif has_in_progress_tool and tool_running_time > TIMEOUT_30_MIN:
+                # 有工具运行超过30分钟，提示超时
+                # 流式日志已禁用
+                # self._log(f"[CHAT] 工具运行超过30分钟，提示超时")
+                timeout_warning = "\n\n⚠️ **提示**：部分工具调用耗时过长（超过30分钟），可能已超时。如未收到完整结果，请重试。"
+                collected_messages.append(timeout_warning)
+                break
+        
+        # 退出前最后处理一次所有剩余通知
+        # 流式日志已禁用
+        # self._log(f"[CHAT] 最后处理剩余通知...")
+        with self._lock:
+            current_count = len(self.notifications)
+            if current_count > len(processed_notifications):
+                for idx in range(len(processed_notifications), current_count):
+                    notification = self.notifications[idx]
+                    params = notification.get('params', {})
+                    update = params.get('update', {})
+                    update_type = update.get('sessionUpdate')
+                    
+                    if update_type == 'thinking' or update_type == 'agent_thought_chunk':
+                        content = update.get('content', {})
+                        if content.get('type') == 'text':
+                            collected_thinking.append(content.get('text', ''))
+                    elif update_type == 'agent_message_chunk':
+                        content = update.get('content', {})
+                        if content.get('type') == 'text':
+                            collected_messages.append(content.get('text', ''))
+                # 流式日志已禁用
+                # self._log(f"[CHAT] 最后处理了 {current_count - len(processed_notifications)} 个通知")
+        
+        # 组合最终回复
+        thinking_text = ''.join(collected_thinking).strip()
+        message_text = ''.join(collected_messages).strip()
+
+        # 构建工具调用显示
+        tools_text = ""
+        failed_tools = []  # 记录失败的工具
+        if collected_tools:
+            tools_text = "\n\n🔧 **工具调用**\n"
+            for tool in collected_tools.values():
+                status_emoji = {
+                    'pending': '⏳',
+                    'in_progress': '🔄',
+                    'completed': '✅',
+                    'failed': '❌'
+                }.get(tool['status'], '📌')
+                tools_text += f"- {status_emoji} {tool['title']}\n"
+                if tool['status'] == 'failed':
+                    failed_tools.append(tool['title'])
+
+        # 组合最终内容
+        combined_parts = []
+        if thinking_text and include_thinking_in_result:
+            combined_parts.append(f"💭 **思考过程**\n```\n{thinking_text}\n```")
+        if tools_text:
+            combined_parts.append(tools_text)
+        if message_text:
+            combined_parts.append(message_text)
+
+        reply = '\n\n'.join(combined_parts)
+        
+        # 如果被取消，添加取消标记
+        if self._cancelled:
+            cancel_marker = "\n\n---\n⏹️ **生成已取消**"
+            reply = reply + cancel_marker if reply else "⏹️ **生成已取消**"
+            self._log("[CHAT] 添加取消标记到回复末尾")
+        
+        # 如果有回复内容，直接返回
+        if reply:
+            return reply
+        
+        # 处理空结果情况：构建详细的错误信息
+        error_parts = ["⚠️ **处理完成，但无有效回复**"]
+        
+        if failed_tools:
+            error_parts.append(f"\n❌ **工具调用失败**: {', '.join(failed_tools)}")
+        
+        if collected_tools and not failed_tools:
+            error_parts.append("\n⏳ 工具调用已完成，但未返回有效结果")
+        
+        error_parts.append("\n可能原因:")
+        error_parts.append("1. MCP 服务未正确响应")
+        error_parts.append("2. 工具执行超时或异常")
+        error_parts.append("3. 没有调用任何工具完成任务")
+        
+        return "\n".join(error_parts)
+
+    def cancel(self):
+        """取消当前生成任务"""
+        self._log("[CANCEL] 设置取消标志")
+        self._cancelled = True
+    
+    def reset_cancel(self):
+        """重置取消标志（用于新任务）"""
+        self._cancelled = False
+
+    def close(self):
+        """关闭 ACP 连接"""
+        # OpenClaw 模式
+        if self._use_openclaw and self._openclaw_client:
+            self._openclaw_client.close()
+            return
+
+        # WebSocket 模式
+        if self._use_websocket and self._websocket_client:
+            self._websocket_client.close()
+            return
+
+        # Stdio 模式
+        """关闭连接"""
+        if self.process:
+            self.process.terminate()
+            if self._reader_thread:
+                self._reader_thread.join(timeout=2)
+            self.process.wait()

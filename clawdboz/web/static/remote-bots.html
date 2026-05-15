@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Bots - Clawdboz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95em;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+            border: none;
+            background: none;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .bot-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .bot-item {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s;
+        }
+
+        .bot-item:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .bot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .bot-name {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .bot-instance {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .bot-description {
+            color: #666;
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        .bot-meta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background: #28a745;
+        }
+
+        .status-offline {
+            background: #dc3545;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 0.95em;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Remote Bots</h1>
+            <p>Manage remote bot connections and federated groups</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('published')">Published Bots</button>
+            <button class="tab" onclick="switchTab('friends')">Friend Instances</button>
+            <button class="tab" onclick="switchTab('federation')">Federated Groups</button>
+            <button class="tab" onclick="switchTab('monitoring')">Monitoring</button>
+        </div>
+
+        <!-- Published Bots Tab -->
+        <div id="published-tab" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">My Published Bots</h2>
+                    <button class="btn btn-primary" onclick="showPublishModal()">+ Publish Bot</button>
+                </div>
+                <div id="published-bots-list" class="bot-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading published bots...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Friend Instances Tab -->
+        <div id="friends-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Friend Instances</h2>
+                    <button class="btn btn-primary" onclick="showAddFriendModal()">+ Add Friend</button>
+                </div>
+                <div id="friends-list" class="bot-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading friend instances...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Federated Groups Tab -->
+        <div id="federation-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Federated Groups</h2>
+                    <button class="btn btn-primary" onclick="showCreateGroupModal()">+ Create Group</button>
+                </div>
+                <div id="federation-list" class="bot-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading federated groups...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitoring Tab -->
+        <div id="monitoring-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">System Monitoring</h2>
+                </div>
+                <div id="metrics-display">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading metrics...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Publish Bot Modal -->
+    <div id="publish-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Publish Bot</h3>
+                <button class="close-btn" onclick="closeModal('publish-modal')">&times;</button>
+            </div>
+            <form id="publish-form" onsubmit="handlePublish(event)">
+                <div class="form-group">
+                    <label class="form-label">Bot ID</label>
+                    <select class="form-control" id="publish-bot-id" required>
+                        <option value="">Select a local bot...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Display Name</label>
+                    <input type="text" class="form-control" id="publish-display-name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" id="publish-description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Capabilities</label>
+                    <input type="text" class="form-control" id="publish-capabilities" placeholder="e.g., chat,analysis,coding">
+                </div>
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="publish-sandboxed">
+                    <label for="publish-sandboxed">Run in sandboxed container</label>
+                </div>
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="publish-fs-access" checked>
+                    <label for="publish-fs-access">Allow file system access</label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('publish-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Publish</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const WS_URL = `ws://${window.location.host}/ws`;
+        const API_BASE = '/api/remote';
+        let ws = null;
+
+        // WebSocket connection
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket closed, reconnecting...');
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        function handleWebSocketMessage(data) {
+            if (data.type === 'remote_status_update') {
+                refreshAllTabs();
+            } else if (data.type === 'new_message') {
+                // Update monitoring metrics
+                loadMetrics();
+            }
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+
+            // Load tab-specific data
+            switch(tabName) {
+                case 'published':
+                    loadPublishedBots();
+                    break;
+                case 'friends':
+                    loadFriends();
+                    break;
+                case 'federation':
+                    // Federation groups not implemented yet
+                    document.getElementById('federation-list').innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔄</div>
+                            <h3>Coming Soon</h3>
+                            <p>Federation groups feature is under development</p>
+                        </div>
+                    `;
+                    break;
+                case 'monitoring':
+                    // Monitoring metrics not implemented yet
+                    document.getElementById('metrics-display').innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📊</div>
+                            <h3>Coming Soon</h3>
+                            <p>Monitoring metrics feature is under development</p>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        // Load published bots
+        async function loadPublishedBots() {
+            const container = document.getElementById('published-bots-list');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/published`);
+                const data = await response.json();
+
+                if (data.published_bots && data.published_bots.length > 0) {
+                    container.innerHTML = data.published_bots.map(bot => `
+                        <div class="bot-item">
+                            <div class="bot-header">
+                                <div>
+                                    <div class="bot-name">${bot.display_name}</div>
+                                    <div class="bot-instance">${bot.bot_id}</div>
+                                </div>
+                                <div>
+                                    ${bot.enabled
+                                        ? '<span class="badge badge-success">Enabled</span>'
+                                        : '<span class="badge badge-warning">Disabled</span>'}
+                                </div>
+                            </div>
+                            <p class="bot-description">${bot.description || 'No description'}</p>
+                            <div class="bot-meta">
+                                <div class="meta-item">
+                                    <span>📦</span>
+                                    <span>${bot.capabilities || 'general'}</span>
+                                </div>
+                                ${bot.is_sandboxed ? '<div class="meta-item"><span>🔒</span><span>Sandboxed</span></div>' : ''}
+                                ${bot.requires_fs_access ? '<div class="meta-item"><span>📁</span><span>FS Access</span></div>' : ''}
+                            </div>
+                            <div style="margin-top: 15px;">
+                                <button class="btn ${bot.enabled ? 'btn-danger' : 'btn-success'}"
+                                        onclick="toggleBot('${bot.bot_id}', ${!bot.enabled})">
+                                    ${bot.enabled ? 'Disable' : 'Enable'}
+                                </button>
+                                <button class="btn btn-primary" onclick="unpublishBot('${bot.bot_id}')">Unpublish</button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🤖</div>
+                            <h3>No Published Bots</h3>
+                            <p>Publish your local bots to make them available to friend instances</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-error">Failed to load published bots: ${error.message}</div>`;
+            }
+        }
+
+        // Load friends
+        async function loadFriends() {
+            const container = document.getElementById('friends-list');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/friends`);
+                const data = await response.json();
+
+                if (data.friends && data.friends.length > 0) {
+                    container.innerHTML = data.friends.map(friend => `
+                        <div class="bot-item">
+                            <div class="bot-header">
+                                <div class="bot-name">${friend.instance_id}</div>
+                                <div>
+                                    <span class="status-indicator ${friend.online ? 'status-online' : 'status-offline'}"></span>
+                                    ${friend.online
+                                        ? '<span class="badge badge-success">Online</span>'
+                                        : '<span class="badge badge-danger">Offline</span>'}
+                                </div>
+                            </div>
+                            ${friend.websocket_url ? `<div class="bot-instance">${friend.websocket_url}</div>` : ''}
+                            ${friend.last_seen ? `<div class="bot-meta"><div class="meta-item">🕒 Last seen: ${new Date(friend.last_seen * 1000).toLocaleString()}</div></div>` : ''}
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🤝</div>
+                            <h3>No Friend Instances</h3>
+                            <p>Add friend instances to enable remote bot communication</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-error">Failed to load friends: ${error.message}</div>`;
+            }
+        }
+
+        // Load federated groups
+        async function loadFederatedGroups() {
+            const container = document.getElementById('federation-list');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/federation/groups`);
+                const data = await response.json();
+
+                if (data.groups && data.groups.length > 0) {
+                    container.innerHTML = data.groups.map(group => `
+                        <div class="bot-item">
+                            <div class="bot-header">
+                                <div class="bot-name">${group.name}</div>
+                                <span class="badge badge-success">${group.member_instances.length} members</span>
+                            </div>
+                            <div class="bot-instance">${group.group_id}</div>
+                            <div class="bot-meta">
+                                <div class="meta-item">
+                                    <span>🔄</span>
+                                    <span>${group.merge_strategy}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span>${group.context_isolation ? '🔒 Isolated' : '🔓 Shared'}</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <strong>Members:</strong>
+                                ${group.member_instances.map(inst => `<span class="badge badge-warning">${inst}</span>`).join(' ')}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">👥</div>
+                            <h3>No Federated Groups</h3>
+                            <p>Create federated groups to chat across multiple instances</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-error">Failed to load federated groups: ${error.message}</div>`;
+            }
+        }
+
+        // Load metrics
+        async function loadMetrics() {
+            const container = document.getElementById('metrics-display');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/metrics`);
+                const data = await response.json();
+
+                container.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                        <div class="bot-item">
+                            <div class="bot-name">Messages</div>
+                            <div style="font-size: 2em; font-weight: bold; color: #667eea;">
+                                ${data.messages?.total || 0}
+                            </div>
+                            <div class="bot-meta">
+                                <div class="meta-item">📤 Sent: ${data.messages?.sent || 0}</div>
+                                <div class="meta-item">📥 Received: ${data.messages?.received || 0}</div>
+                            </div>
+                        </div>
+                        <div class="bot-item">
+                            <div class="bot-name">Errors</div>
+                            <div style="font-size: 2em; font-weight: bold; color: #dc3545;">
+                                ${data.errors?.total || 0}
+                            </div>
+                            <div class="bot-meta">
+                                ${Object.entries(data.errors?.by_type || {}).map(([type, count]) =>
+                                    `<div class="meta-item">${type}: ${count}</div>`
+                                ).join('')}
+                            </div>
+                        </div>
+                        <div class="bot-item">
+                            <div class="bot-name">Latency</div>
+                            <div style="font-size: 2em; font-weight: bold; color: #28a745;">
+                                ${data.latency?.avg_ms?.toFixed(2) || 0} ms
+                            </div>
+                            <div class="bot-meta">
+                                <div class="meta-item">Min: ${data.latency?.min_ms?.toFixed(2) || 0} ms</div>
+                                <div class="meta-item">Max: ${data.latency?.max_ms?.toFixed(2) || 0} ms</div>
+                            </div>
+                        </div>
+                        <div class="bot-item">
+                            <div class="bot-name">Availability</div>
+                            <div style="font-size: 2em; font-weight: bold; color: #667eea;">
+                                ${data.uptime?.availability_percent?.toFixed(2) || 100}%
+                            </div>
+                            <div class="bot-meta">
+                                <div class="meta-item">Uptime: ${Math.floor((data.uptime?.total_seconds || 0) / 3600)}h</div>
+                                <div class="meta-item">Downtime: ${Math.floor((data.uptime?.downtime_seconds || 0) / 60)}m</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-error">Failed to load metrics: ${error.message}</div>`;
+            }
+        }
+
+        // Modal functions
+        function showPublishModal() {
+            document.getElementById('publish-modal').classList.add('active');
+            loadLocalBots();
+        }
+
+        function showAddFriendModal() {
+            // TODO: Implement add friend modal
+            alert('Add friend modal - TODO');
+        }
+
+        function showCreateGroupModal() {
+            // TODO: Implement create group modal
+            alert('Create group modal - TODO');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Load local bots for publish modal
+        async function loadLocalBots() {
+            const select = document.getElementById('publish-bot-id');
+            select.innerHTML = '<option value="">Select a local bot...</option>';
+
+            try {
+                const response = await fetch('/api/bots');
+                const data = await response.json();
+
+                data.bots.forEach(bot => {
+                    const option = document.createElement('option');
+                    option.value = bot.bot_id;
+                    option.textContent = bot.display_name || bot.bot_id;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load local bots:', error);
+            }
+        }
+
+        // Handle publish form
+        async function handlePublish(event) {
+            event.preventDefault();
+
+            const botId = document.getElementById('publish-bot-id').value;
+            const displayName = document.getElementById('publish-display-name').value;
+            const description = document.getElementById('publish-description').value;
+            const capabilities = document.getElementById('publish-capabilities').value;
+            const isSandboxed = document.getElementById('publish-sandboxed').checked;
+            const requiresFsAccess = document.getElementById('publish-fs-access').checked;
+
+            try {
+                const response = await fetch(`${API_BASE}/publish`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bot_id: botId,
+                        display_name: displayName,
+                        description,
+                        capabilities: capabilities ? capabilities.split(',') : [],
+                        is_sandboxed: isSandboxed,
+                        requires_fs_access: requiresFsAccess
+                    })
+                });
+
+                if (response.ok) {
+                    closeModal('publish-modal');
+                    loadPublishedBots();
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to publish bot: ${error.detail}`);
+                }
+            } catch (error) {
+                alert(`Failed to publish bot: ${error.message}`);
+            }
+        }
+
+        // Toggle bot enabled state
+        async function toggleBot(botId, enabled) {
+            try {
+                const response = await fetch(`${API_BASE}/bots/${botId}/toggle`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+
+                if (response.ok) {
+                    loadPublishedBots();
+                } else {
+                    alert('Failed to toggle bot');
+                }
+            } catch (error) {
+                alert(`Failed to toggle bot: ${error.message}`);
+            }
+        }
+
+        // Unpublish bot
+        async function unpublishBot(botId) {
+            if (!confirm(`Are you sure you want to unpublish bot "${botId}"?`)) {
+                return;
+            }
+
+            try:
+                const response = await fetch(`${API_BASE}/unpublish/${botId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadPublishedBots();
+                } else {
+                    alert('Failed to unpublish bot');
+                }
+            } catch (error) {
+                alert(`Failed to unpublish bot: ${error.message}`);
+            }
+        }
+
+        // Refresh all tabs
+        function refreshAllTabs() {
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab) {
+                const tabName = activeTab.textContent.toLowerCase().replace(' ', '');
+                switch(tabName) {
+                    case 'publishedbots':
+                        loadPublishedBots();
+                        break;
+                    case 'friendinstances':
+                        loadFriends();
+                        break;
+                    case 'federatedgroups':
+                        loadFederatedGroups();
+                        break;
+                    case 'monitoring':
+                        loadMetrics();
+                        break;
+                }
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            loadPublishedBots();
+        });
+    </script>
+</body>
+</html>

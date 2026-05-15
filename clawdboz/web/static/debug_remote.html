@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>调试远程Bot搜索</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f5f5f5; }
+        .log { background: white; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        #botList { margin-top: 20px; }
+        .bot-item { padding: 10px; margin: 5px 0; background: white; border-left: 3px solid #ddd; }
+        .bot-item.remote { border-left-color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <h1>🔍 远程Bot搜索调试</h1>
+
+    <div>
+        <button onclick="debugFetchRemoteBots()">1. 测试获取远程Bot</button>
+        <button onclick="debugLocalBots()">2. 测试获取本地Bot</button>
+        <button onclick="debugCombined()">3. 测试合并搜索</button>
+    </div>
+
+    <div id="log" class="log">
+        <div class="info">等待操作...</div>
+    </div>
+
+    <div id="botList"></div>
+
+    <script>
+        const REGISTRY_SERVER_URL = 'http://47.110.136.0:6902';
+        const TOKEN = 'clawdboz-test-2024';
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            logDiv.innerHTML += `<div class="${className}">[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type}] ${message}`);
+        }
+
+        async function debugFetchRemoteBots() {
+            log('开始测试获取远程Bot...', 'info');
+
+            try {
+                log(`调用API: ${REGISTRY_SERVER_URL}/api/registry/bots`, 'info');
+
+                const res = await fetch(`${REGISTRY_SERVER_URL}/api/registry/bots`);
+                log(`响应状态: ${res.status} ${res.statusText}`, res.ok ? 'success' : 'error');
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+
+                const data = await res.json();
+                log(`获取成功: ${data.bots.length} 个bot`, 'success');
+
+                // 查找doc-writer
+                const docWriter = data.bots.find(b => b.bot_id === 'doc-writer');
+                if (docWriter) {
+                    log(`✅ 找到 doc-writer: ${docWriter.full_bot_id}`, 'success');
+                    log(`  来源: ${docWriter.instance_name}`, 'info');
+                    log(`  状态: ${docWriter.status}`, 'info');
+                } else {
+                    log(`❌ 未找到 doc-writer`, 'error');
+                }
+
+                // 显示所有bot
+                displayBots('远程Bot', data.bots, true);
+
+            } catch (e) {
+                log(`❌ 错误: ${e.message}`, 'error');
+                console.error(e);
+            }
+        }
+
+        async function debugLocalBots() {
+            log('开始测试获取本地Bot...', 'info');
+
+            try {
+                const res = await fetch(`/api/bots?token=${TOKEN}`);
+                log(`响应状态: ${res.status} ${res.statusText}`, res.ok ? 'success' : 'error');
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+
+                const data = await res.json();
+                log(`获取成功: ${data.bots.length} 个本地bot`, 'success');
+
+                // 显示所有本地bot
+                displayBots('本地Bot', data.bots, false);
+
+            } catch (e) {
+                log(`❌ 错误: ${e.message}`, 'error');
+                console.error(e);
+            }
+        }
+
+        async function debugCombined() {
+            log('开始测试合并搜索...', 'info');
+
+            try {
+                // 1. 获取本地bot
+                const localRes = await fetch(`/api/bots?token=${TOKEN}`);
+                const localData = await localRes.json();
+                const localBots = localData.bots || [];
+                log(`本地bot: ${localBots.length} 个`, 'info');
+
+                // 2. 获取远程bot
+                const remoteRes = await fetch(`${REGISTRY_SERVER_URL}/api/registry/bots`);
+                const remoteData = await remoteRes.json();
+                const remoteBots = remoteData.bots || [];
+                log(`远程bot: ${remoteBots.length} 个`, 'info');
+
+                // 3. 合并
+                const allBots = [
+                    ...localBots.map(b => ({...b, type: 'local'})),
+                    ...remoteBots.map(b => ({
+                        id: b.full_bot_id,
+                        name: b.display_name,
+                        type: 'remote',
+                        instance_name: b.instance_name
+                    }))
+                ];
+
+                log(`合并后: ${allBots.length} 个bot`, 'success');
+
+                // 4. 搜索
+                const searchTerm = 'doc';
+                const filtered = allBots.filter(bot => {
+                    const name = (bot.name || bot.id).toLowerCase();
+                    return name.includes(searchTerm);
+                });
+
+                log(`搜索"${searchTerm}": ${filtered.length} 个结果`, 'success');
+
+                filtered.forEach(bot => {
+                    log(`  - ${bot.name || bot.id} (${bot.type === 'remote' ? '远程' : '本地'})`, 'info');
+                });
+
+                // 显示结果
+                displayBots('搜索结果', filtered, true);
+
+            } catch (e) {
+                log(`❌ 错误: ${e.message}`, 'error');
+                console.error(e);
+            }
+        }
+
+        function displayBots(title, bots, isRemote) {
+            const listDiv = document.getElementById('botList');
+            listDiv.innerHTML = `<h3>${title} (${bots.length}个)</h3>`;
+
+            if (bots.length === 0) {
+                listDiv.innerHTML += '<p>无结果</p>';
+                return;
+            }
+
+            bots.forEach(bot => {
+                const isRemote = bot.type === 'remote' || isRemote;
+                const div = document.createElement('div');
+                div.className = `bot-item ${isRemote ? 'remote' : ''}`;
+                div.innerHTML = `
+                    <strong>${bot.name || bot.id || bot.bot_id}</strong>
+                    ${isRemote ? '<span style="color:#3b82f6;margin-left:10px;">🌐 远程</span>' : '<span style="color:#666;margin-left:10px;">🏠 本地</span>'}
+                    <br><small>ID: ${bot.id || bot.full_bot_id || bot.bot_id}</small>
+                    ${bot.instance_name ? `<br><small>来源: ${bot.instance_name}</small>` : ''}
+                `;
+                listDiv.appendChild(div);
+            });
+        }
+
+        // 页面加载时自动测试
+        window.onload = () => {
+            log('页面已加载', 'success');
+            log(`REGISTRY_SERVER_URL = ${REGISTRY_SERVER_URL}`, 'info');
+
+            // 延迟1秒后自动测试
+            setTimeout(() => {
+                debugFetchRemoteBots();
+            }, 1000);
+        };
+    </script>
+</body>
+</html>
