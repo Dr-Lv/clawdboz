@@ -3974,9 +3974,25 @@
                             </div>
                         </div>
 
+                        <!-- 好友列表 -->
+                        <div id="botFriendList" style="padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">
+                                <i class="fas fa-users" style="margin-right: 6px;"></i>好友列表
+                                <span id="botFriendCount" style="margin-left: 4px; color: #64748b;">(加载中...)</span>
+                            </div>
+                            <div id="botFriendListContent" style="display: flex; flex-direction: column; gap: 6px;">
+                                <div style="font-size: 13px; color: #94a3b8; text-align: center; padding: 8px;">
+                                    <i class="fas fa-spinner fa-spin" style="margin-right: 6px;"></i>加载中...
+                                </div>
+                            </div>
+                        </div>
+
                         ${actionButtons}
                     </div>
                 `;
+
+                // 异步加载好友列表
+                loadBotFriendList(bot.instance_id, bot.bot_id);
 
                 // 动态绑定按钮事件
                 const addBtn = body.querySelector('.detail-add-friend-btn');
@@ -4012,6 +4028,51 @@
                     <div style="text-align: center; padding: 40px; color: #dc2626;">
                         <i class="fas fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px; color: #ef4444;"></i>
                         <div>加载失败: ${e.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadBotFriendList(instanceId, botId) {
+            const countEl = document.getElementById('botFriendCount');
+            const contentEl = document.getElementById('botFriendListContent');
+            if (!countEl || !contentEl) return;
+
+            try {
+                const res = await fetch(`/api/remote/bot-friends?token=${token}&instance_id=${encodeURIComponent(instanceId)}&bot_id=${encodeURIComponent(botId)}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const friends = data.friends || [];
+
+                countEl.textContent = `(${friends.length})`;
+
+                if (friends.length === 0) {
+                    contentEl.innerHTML = `
+                        <div style="font-size: 13px; color: #94a3b8; text-align: center; padding: 8px;">
+                            <i class="fas fa-user-slash" style="margin-right: 6px;"></i>暂无好友
+                        </div>
+                    `;
+                    return;
+                }
+
+                contentEl.innerHTML = friends.map(f => `
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e2e8f0;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #c084fc, #a855f7); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-server" style="font-size: 12px; color: white;"></i>
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-size: 13px; font-weight: 500; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.instance_name || f.instance_id}</div>
+                            <div style="font-size: 11px; color: #94a3b8;">@${f.instance_id}</div>
+                        </div>
+                        ${f.bot_id ? `<span style="font-size: 10px; padding: 2px 6px; background: #f0fdf4; color: #16a34a; border-radius: 4px; flex-shrink: 0;">bot: ${f.bot_id}</span>` : ''}
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('[loadBotFriendList] 失败:', e);
+                countEl.textContent = '(?)';
+                contentEl.innerHTML = `
+                    <div style="font-size: 13px; color: #ef4444; text-align: center; padding: 8px;">
+                        <i class="fas fa-exclamation-circle" style="margin-right: 6px;"></i>加载失败
                     </div>
                 `;
             }

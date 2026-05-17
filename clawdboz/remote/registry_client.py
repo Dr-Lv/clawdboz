@@ -317,6 +317,41 @@ class RegistryClient:
             traceback.print_exc()
             return []
 
+    async def get_bot_friends(self, instance_id: str, bot_id: str) -> List[dict]:
+        """
+        获取添加了这个 bot 为好友的实例列表
+
+        Args:
+            instance_id: bot 所属实例 ID
+            bot_id: bot ID
+
+        Returns:
+            好友实例列表
+        """
+        url = f"{self.registry_url}/api/registry/bot-friends"
+
+        try:
+            if self.session is None:
+                print(f"[Registry] Session is None, cannot get bot friends")
+                return []
+
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+                async with session.get(url, params={"instance_id": instance_id, "bot_id": bot_id}, ssl=False) as resp:
+                    if resp.status != 200:
+                        print(f"[Registry] 获取 bot 好友列表失败: HTTP {resp.status}")
+                        return []
+
+                    data = await resp.json()
+                    friends = data.get("friends", [])
+                    print(f"[Registry] 获取到 {len(friends)} 个好友实例")
+                    return friends
+
+        except Exception as e:
+            print(f"[Registry] 获取 bot 好友列表异常: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
     async def start_heartbeat(self, interval: int = 30):
         """
         启动心跳线程

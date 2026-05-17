@@ -87,6 +87,26 @@ def setup_remote_routes(server: "WebChatServer"):
         all_bots = await remote_mgr.get_all_bots_realtime(bots)
         return {"success": True, "bots": list(all_bots.values())}
 
+    @router.get("/bot-friends")
+    async def get_bot_friends(instance_id: str = Query(...), bot_id: str = Query(...)):
+        """
+        获取添加了这个 bot 为好友的实例列表
+
+        Args:
+            instance_id: bot 所属实例 ID
+            bot_id: bot ID
+
+        Returns:
+            好友实例列表
+        """
+        remote_mgr = get_remote_manager()
+        try:
+            friends = await remote_mgr.get_bot_friends(instance_id, bot_id)
+            return {"success": True, "friends": friends}
+        except Exception as e:
+            print(f"[API] 获取 bot 好友列表失败: {e}")
+            return {"success": False, "error": str(e), "friends": []}
+
     @router.post("/publish")
     async def publish_bot(request: PublishBotRequest):
         """

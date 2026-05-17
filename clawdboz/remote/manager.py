@@ -1007,6 +1007,30 @@ class RemoteBotManager:
         print(f"[RemoteBot] get_friends returning {len(unique_friends)} unique friend entries")
         return unique_friends
 
+    async def get_bot_friends(self, instance_id: str, bot_id: str) -> List[dict]:
+        """获取添加了这个 bot 为好友的实例列表
+
+        Args:
+            instance_id: bot 所属实例 ID
+            bot_id: bot ID
+
+        Returns:
+            好友实例列表
+        """
+        if not self.registry_client:
+            print(f"[RemoteBot] registry_client is None, cannot get bot friends")
+            return []
+
+        try:
+            friends = await self.registry_client.get_bot_friends(instance_id, bot_id)
+            print(f"[RemoteBot] get_bot_friends({instance_id}:{bot_id}) returned {len(friends)} friends")
+            return friends
+        except Exception as e:
+            print(f"[RemoteBot] 获取 bot 好友列表失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
     async def remove_friend(self, instance_id: str, bot_id: str = "") -> bool:
         """移除好友（支持 Bot 级别）
 

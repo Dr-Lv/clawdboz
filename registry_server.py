@@ -478,6 +478,60 @@ class RegistryServer:
 
         return {"success": True, "removed_requests": len(requests_to_remove)}
 
+    def get_bot_friends(self, instance_id: str, bot_id: str) -> List[dict]:
+        """获取添加了这个 bot 为好友的实例列表
+
+        Args:
+            instance_id: bot 所属实例 ID
+            bot_id: bot ID
+
+        Returns:
+            好友实例列表，每项包含 instance_id, instance_name, bot_id
+        """
+        friends = []
+        seen = set()
+        full_bot_id = f"{instance_id}:{bot_id}"
+
+        for req in self.friend_requests.values():
+            if req["status"] != "accepted":
+                continue
+
+            # 情况1: 该 bot 是目标（to）
+            if req["to_instance"] == instance_id and req.get("to_bot_id") == bot_id:
+                friend_inst_id = req["from_instance"]
+                friend_bot_id = req.get("from_bot_id", "")
+                key = (friend_inst_id, friend_bot_id)
+                if key not in seen:
+                    seen.add(key)
+                    inst = self.instances.get(friend_inst_id, {})
+                    friends.append({
+                        "instance_id": friend_inst_id,
+                        "instance_name": inst.get("name", friend_inst_id),
+                        "bot_id": friend_bot_id,
+                        "full_bot_id": f"{friend_inst_id}:{friend_bot_id}" if friend_bot_id else friend_inst_id,
+                        "added_at": req.get("accepted_at", 0)
+                    })
+
+            # 情况2: 该 bot 是发起方（from）
+            elif req["from_instance"] == instance_id and req.get("from_bot_id") == bot_id:
+                friend_inst_id = req["to_instance"]
+                friend_bot_id = req.get("to_bot_id", "")
+                key = (friend_inst_id, friend_bot_id)
+                if key not in seen:
+                    seen.add(key)
+                    inst = self.instances.get(friend_inst_id, {})
+                    friends.append({
+                        "instance_id": friend_inst_id,
+                        "instance_name": inst.get("name", friend_inst_id),
+                        "bot_id": friend_bot_id,
+                        "full_bot_id": f"{friend_inst_id}:{friend_bot_id}" if friend_bot_id else friend_inst_id,
+                        "added_at": req.get("accepted_at", 0)
+                    })
+
+        # 按添加时间排序
+        friends.sort(key=lambda x: x["added_at"], reverse=True)
+        return friends
+
     async def handle_instance_websocket(self, websocket: WebSocket, instance_id: str, token: str):
         """
         处理实例的 WebSocket 连接（中心转发模式）
@@ -751,6 +805,16 @@ async def remove_friend(req: FriendRemove):
         return result
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/registry/bot-friends")
+async def get_bot_friends(instance_id: str = Query(...), bot_id: str = Query(...)):
+    """获取添加了这个 bot 为好友的实例列表"""
+    try:
+        friends = registry.get_bot_friends(instance_id, bot_id)
+        return {"success": True, "friends": friends}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
