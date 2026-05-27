@@ -42,7 +42,7 @@ def get_version() -> str:
         with open(version_file, 'r') as f:
             return f.read().strip()
     except Exception:
-        return "2.7.5"
+        return "5.0.0"
 
 
 def get_templates_dir() -> Path:
@@ -308,9 +308,9 @@ class WebCLIClient:
         return self._get("/api/remote/bots", params={"token": self.token})
 
     # ========== 好友管理 ==========
-    def send_friend_request(self, to_instance: str, message: str = "") -> dict:
+    def send_friend_request(self, to_instance: str, message: str = "", to_bot_id: str = "") -> dict:
         """发送好友请求"""
-        data = {"to_instance": to_instance, "message": message}
+        data = {"to_instance": to_instance, "message": message, "to_bot_id": to_bot_id}
         return self._post("/api/remote/friend-request", data, params={"token": self.token})
 
     def accept_friend_request(self, request_id: str, accept: bool = True) -> dict:
@@ -325,6 +325,15 @@ class WebCLIClient:
     def get_friends(self) -> dict:
         """获取好友列表"""
         return self._get("/api/remote/friends", params={"token": self.token})
+
+    def remove_friend(self, instance_id: str, bot_id: str = "") -> dict:
+        """移除好友（Bot 级别）"""
+        actual_bot_id = bot_id or "__all__"
+        return self._delete(f"/api/remote/friends/{instance_id}/{actual_bot_id}")
+
+    def get_bot_friends(self, bot_id: str) -> dict:
+        """获取订阅了指定 bot 的实例列表（谁添加了我的 bot）"""
+        return self._get("/api/remote/bot-friends", params={"token": self.token, "bot_id": bot_id})
 
     # ========== 聊天 ==========
     async def _chat_with_bots_async(self, bot_ids: List[str], message: str, chat_id: str,
@@ -635,14 +644,36 @@ def init_project_web(work_dir: Optional[str] = None):
     # 创建 config.json（Web-first 配置）
     config_path = os.path.join(target_dir, 'config.json')
     if not os.path.exists(config_path):
+        web_port = 8443
         config = {
             "project_root": target_dir,
             "webchat": {
-                "port": 8443,
+                "port": web_port,
                 "https": False,
                 "cert": "ssl/server.crt",
                 "key": "ssl/server.key",
                 "token": f"clawdboz-{uuid.uuid4().hex[:16]}"
+            },
+            "remote": {
+                "enabled": True,
+                "registry_url": "https://api.clawdboz.chat",
+                "instance_name": "",
+                "host": "0.0.0.0",
+                "port": web_port,
+                "heartbeat_interval": 30,
+                "connection_timeout": 10,
+                "call_timeout": 30,
+                "max_retries": 3,
+                "sandbox": {
+                    "enabled": False,
+                    "docker": False,
+                    "max_memory_mb": 512,
+                    "timeout_seconds": 120
+                },
+                "fs_api_enabled": True,
+                "fs_max_file_size": 10485760,
+                "token_secret": "",
+                "connection_mode": "center"
             },
             "python": {
                 "venv": os.environ.get('VIRTUAL_ENV', '.venv'),
@@ -705,6 +736,36 @@ def init_project_web(work_dir: Optional[str] = None):
                         print(f"[INIT] 复制 Skill: .agents/skills/{skill_name}/")
                     else:
                         print(f"[INFO] Skill 已存在: .agents/skills/{skill_name}/")
+
+    # 创建默认 Bot（bot0）
+    default_bot_id = "bot0"
+    default_bot_dir = os.path.join(target_dir, 'WORKPLACE', f'workplace_{default_bot_id}')
+    os.makedirs(default_bot_dir, exist_ok=True)
+
+    default_bot_md = os.path.join(default_bot_dir, '.bot.md')
+    if not os.path.exists(default_bot_md):
+        bot_md_content = f"""# {default_bot_id}
+
+ID: {default_bot_id}
+Name: 助手
+Bio: 你是一个友好的AI助手，擅长回答问题、编写代码和协助各种任务。
+Avatar Color: from-blue-400 to-blue-600
+Avatar Icon: fa-robot
+Created: {time.strftime('%Y-%m-%d %H:%M:%S')}
+"""
+        with open(default_bot_md, 'w', encoding='utf-8') as f:
+            f.write(bot_md_content)
+        print(f"[INIT] 创建默认 Bot: {default_bot_id}")
+    else:
+        print(f"[INFO] 默认 Bot 已存在: {default_bot_id}")
+
+    # 复制 bot0.py 启动脚本
+    bot0_script = os.path.join(target_dir, 'bot0.py')
+    if not os.path.exists(bot0_script):
+        template_bot0 = os.path.join(os.path.dirname(__file__), 'templates', 'bot0.py')
+        if os.path.exists(template_bot0):
+            shutil.copy2(template_bot0, bot0_script)
+            print(f"[INIT] 复制启动脚本: bot0.py")
 
     print(f"[INIT] Web Chat 项目初始化完成！")
     print(f"\n下一步:")
@@ -1007,13 +1068,25 @@ def main():
 
     friends_add = friends_sub.add_parser('add', help='发送好友请求')
     friends_add.add_argument('instance_id', help='目标实例 ID')
+    friends_add.add_argument('--bot-id', help='目标 Bot ID（bot 级别好友，推荐指定）')
     friends_add.add_argument('--message', help='附加消息')
 
-    friends_accept = friends_sub.add_parser('accept', help='确认/拒绝好友请求')
+    friends_accept = friends_sub.add_parser('accept', help='接受好友请求')
     friends_accept.add_argument('request_id', help='请求 ID')
-    friends_accept.add_argument('--reject', action='store_true', help='拒绝请求')
+    friends_accept.add_argument('--reject', action='store_true', help='拒绝请求（兼容旧用法，推荐用 reject 子命令）')
+
+    friends_reject = friends_sub.add_parser('reject', help='拒绝好友请求')
+    friends_reject.add_argument('request_id', help='请求 ID')
 
     friends_sub.add_parser('requests', help='待处理的好友请求')
+
+    friends_remove = friends_sub.add_parser('remove', help='移除好友（Bot 级别）')
+    friends_remove.add_argument('target', help='目标（格式: instance_id 或 instance_id:bot_id）')
+    friends_remove.add_argument('--bot-id', help='目标 Bot ID（不指定则移除整个实例关系，优先级低于 target 中的 :bot_id）')
+
+    # remote bot-friends 子命令
+    bot_friends_parser = remote_sub.add_parser('bot-friends', help='查看已发布 Bot 的好友列表（谁添加了我的 Bot）')
+    bot_friends_parser.add_argument('bot_id', nargs='?', help='Bot ID（不传则列出所有已发布 Bot 的好友情况）')
 
     # ========== chat 命令 ==========
     chat_parser = subparsers.add_parser('chat', help='会话管理与聊天')
@@ -1430,23 +1503,12 @@ def main():
                         if pub_res.get("success"):
                             published_bots = pub_res.get("published_bots", [])
 
-                        # 获取好友列表（用于过滤）
-                        friends_res = client.get_friends()
-                        friend_ids = set()
-                        if friends_res.get("success"):
-                            friend_ids = {f.get("instance_id", "") for f in friends_res.get("friends", [])}
-
-                        # 获取所有远程bot
+                        # 获取所有远程bot（包括好友和非好友）
                         res = client.discover_remote_bots()
                         remote_bots = []
                         if res.get("success"):
                             all_bots = res.get("bots", [])
-                            # 过滤出远程非好友bot
-                            remote_bots = [
-                                b for b in all_bots
-                                if b.get("type") == "remote"
-                                and b.get("instance_id", "") not in friend_ids
-                            ]
+                            remote_bots = [b for b in all_bots if b.get("type") == "remote"]
 
                         rows = []
                         # 本地已发布bots
@@ -1455,30 +1517,34 @@ def main():
                                 pb.get("bot_id", ""),
                                 pb.get("display_name", ""),
                                 "本地已发布",
-                                "启用" if pb.get("enabled") else "禁用"
+                                "启用" if pb.get("enabled") else "禁用",
+                                "-"
                             ])
 
-                        # 远程非好友bots
+                        # 远程bots（包括好友和非好友）
                         for rb in remote_bots:
                             inst_id = rb.get("instance_id", "")
                             bot_id = rb.get("id", "")
                             name = rb.get("name", "")
                             instance = rb.get("instance_name", inst_id)
+                            is_friend = "✓ 好友" if rb.get("is_friend") else "-"
                             rows.append([
                                 bot_id,
                                 name,
                                 f"远程 · {instance}",
-                                rb.get("status", "unknown")
+                                rb.get("status", "unknown"),
+                                is_friend
                             ])
 
                         if not rows:
                             print("暂无可发现的在线 Bot")
                             print("提示: 发布本地bot或添加远程实例为好友")
                         else:
-                            print_table(["Bot ID", "名称", "来源", "状态"], rows)
+                            print_table(["Bot ID", "名称", "来源", "状态", "好友"], rows)
                             pub_count = len(published_bots)
                             remote_count = len(remote_bots)
-                            print(f"\n共 {len(rows)} 个在线 Bot（本地已发布 {pub_count}，远程 {remote_count}）")
+                            friend_count = sum(1 for r in rows if r[4] == "✓ 好友")
+                            print(f"\n共 {len(rows)} 个在线 Bot（本地已发布 {pub_count}，远程 {remote_count}，好友 {friend_count}）")
 
                     elif args.remote_bots_cmd == 'search':
                         keyword = args.keyword.lower()
@@ -1489,22 +1555,12 @@ def main():
                         if pub_res.get("success"):
                             published_bots = pub_res.get("published_bots", [])
 
-                        # 获取好友列表（用于过滤）
-                        friends_res = client.get_friends()
-                        friend_ids = set()
-                        if friends_res.get("success"):
-                            friend_ids = {f.get("instance_id", "") for f in friends_res.get("friends", [])}
-
-                        # 获取所有远程bot
+                        # 获取所有远程bot（包括好友和非好友）
                         res = client.discover_remote_bots()
                         remote_bots = []
                         if res.get("success"):
                             all_bots = res.get("bots", [])
-                            remote_bots = [
-                                b for b in all_bots
-                                if b.get("type") == "remote"
-                                and b.get("instance_id", "") not in friend_ids
-                            ]
+                            remote_bots = [b for b in all_bots if b.get("type") == "remote"]
 
                         rows = []
                         # 本地已发布 bots
@@ -1517,10 +1573,11 @@ def main():
                                     bot_id,
                                     display,
                                     "本地已发布",
-                                    "启用" if pb.get("enabled") else "禁用"
+                                    "启用" if pb.get("enabled") else "禁用",
+                                    "-"
                                 ])
 
-                        # 远程非好友 bots
+                        # 远程 bots（包括好友和非好友）
                         for rb in remote_bots:
                             inst_id = rb.get("instance_id", "")
                             bot_id = rb.get("id", "")
@@ -1530,17 +1587,19 @@ def main():
                             if (keyword in bot_id.lower() or keyword in name.lower()
                                     or keyword in inst_id.lower() or keyword in instance.lower()
                                     or keyword in desc.lower()):
+                                is_friend = "✓ 好友" if rb.get("is_friend") else "-"
                                 rows.append([
                                     bot_id,
                                     name,
                                     f"远程 · {instance}",
-                                    rb.get("status", "unknown")
+                                    rb.get("status", "unknown"),
+                                    is_friend
                                 ])
 
                         if not rows:
                             print(f'未找到匹配 "{args.keyword}" 的在线 Bot')
                         else:
-                            print_table(["Bot ID", "名称", "来源", "状态"], rows)
+                            print_table(["Bot ID", "名称", "来源", "状态", "好友"], rows)
                             print(f"\n共找到 {len(rows)} 个匹配结果")
 
                 elif args.remote_cmd == 'friends':
@@ -1554,23 +1613,32 @@ def main():
                             else:
                                 rows = [[
                                     f.get("instance_id", ""),
-                                    f.get("name", ""),
-                                    f.get("status", "unknown")
+                                    f.get("instance_name", ""),
+                                    f.get("bot_id", ""),
+                                    f.get("bot_name", ""),
+                                    "在线" if f.get("online") else "离线"
                                 ] for f in friends]
-                                print_table(["实例 ID", "名称", "状态"], rows)
+                                print_table(["实例 ID", "实例名称", "Bot ID", "Bot 名称", "状态"], rows)
                                 print(f"\n共 {len(friends)} 个好友")
                         else:
                             print(f"获取失败: {res.get('error')}")
 
                     elif args.remote_friends_cmd == 'add':
                         message = getattr(args, 'message', '') or ''
-                        res = client.send_friend_request(args.instance_id, message)
+                        to_bot_id = getattr(args, 'bot_id', '') or ''
+                        res = client.send_friend_request(args.instance_id, message, to_bot_id)
                         if res.get("success"):
                             req_id = res.get("request_id", "")
                             print(f"✓ 好友请求已发送")
                             print(f"  请求 ID: {req_id}")
                             print(f"  目标实例: {args.instance_id}")
-                            print(f"\n提示: 请对方使用 'clawdboz remote friends requests' 查看待处理请求")
+                            if to_bot_id:
+                                print(f"  目标 Bot: {to_bot_id}")
+                                print(f"\n提示: 请对方使用 'clawdboz remote friends requests' 查看待处理请求")
+                            else:
+                                print(f"\n⚠️  警告: 未指定 Bot ID，对方实例的所有 Bot 将成为好友")
+                                print(f"   建议: clawdboz remote friends add {args.instance_id} --bot-id <bot_id>")
+                                print(f"\n提示: 请对方使用 'clawdboz remote friends requests' 查看待处理请求")
                             print(f"       使用 'clawdboz remote friends accept {req_id}' 接受请求")
                         else:
                             print(f"✗ 发送失败: {res.get('error')}")
@@ -1586,6 +1654,14 @@ def main():
                         else:
                             print(f"✗ 操作失败: {res.get('error')}")
 
+                    elif args.remote_friends_cmd == 'reject':
+                        request_id = args.request_id
+                        res = client.accept_friend_request(request_id, accept=False)
+                        if res.get("success"):
+                            print(f"✓ 已拒绝好友请求: {request_id}")
+                        else:
+                            print(f"✗ 拒绝失败: {res.get('error')}")
+
                     elif args.remote_friends_cmd == 'requests':
                         res = client.get_friend_requests()
                         if res.get("success"):
@@ -1596,15 +1672,81 @@ def main():
                                 rows = [[
                                     r.get("request_id", ""),
                                     r.get("from_instance", ""),
+                                    r.get("to_bot_id", "") or "__all__",
                                     r.get("message", "")[:30],
                                     r.get("created_at", "")
                                 ] for r in friend_requests]
-                                print_table(["请求 ID", "来自实例", "消息", "时间"], rows)
+                                print_table(["请求 ID", "来自实例", "目标 Bot", "消息", "时间"], rows)
                                 print(f"\n共 {len(friend_requests)} 个待处理请求")
                                 print(f"\n接受请求: clawdboz remote friends accept <request_id>")
                                 print(f"拒绝请求: clawdboz remote friends accept <request_id> --reject")
                         else:
                             print(f"获取失败: {res.get('error')}")
+
+                    elif args.remote_friends_cmd == 'remove':
+                        target = args.target
+                        explicit_bot_id = getattr(args, 'bot_id', '') or ''
+
+                        # 解析 instance_id:bot_id 格式
+                        if ':' in target:
+                            instance_id, parsed_bot_id = target.split(':', 1)
+                            bot_id = explicit_bot_id or parsed_bot_id
+                        else:
+                            instance_id = target
+                            bot_id = explicit_bot_id
+
+                        res = client.remove_friend(instance_id, bot_id)
+                        if res.get("success"):
+                            display = f"{instance_id}:{bot_id}" if bot_id else instance_id
+                            print(f"✓ 已移除好友: {display}")
+                            if not bot_id:
+                                print(f"  提示: 移除了整个实例的好友关系（包括所有 Bot）")
+                        else:
+                            print(f"✗ 移除失败: {res.get('error')}")
+
+                elif args.remote_cmd == 'bot-friends':
+                    bot_id = getattr(args, 'bot_id', '') or ''
+                    if bot_id:
+                        # 查询指定 bot
+                        res = client.get_bot_friends(bot_id)
+                        if res.get("success"):
+                            friends = res.get("friends", [])
+                            if not friends:
+                                print(f'Bot "{bot_id}" 还没有被任何实例添加为好友')
+                            else:
+                                rows = [[
+                                    f.get("instance_id", ""),
+                                    f.get("instance_name", ""),
+                                    f.get("added_at", "")
+                                ] for f in friends]
+                                print_table(["实例 ID", "实例名称", "添加时间"], rows)
+                                print(f"\n共 {len(friends)} 个实例添加了 Bot '{bot_id}'")
+                        else:
+                            print(f"查询失败: {res.get('error')}")
+                    else:
+                        # 查询所有已发布 bot
+                        res = client.get_published_bots()
+                        if res.get("success"):
+                            bots = res.get("published_bots", [])
+                            if not bots:
+                                print("没有已发布的本地 Bot")
+                            else:
+                                print("已发布 Bot 的好友情况：\n")
+                                for bot in bots:
+                                    bid = bot.get("bot_id", "")
+                                    bname = bot.get("display_name", bid)
+                                    bf_res = client.get_bot_friends(bid)
+                                    friends = bf_res.get("friends", []) if bf_res.get("success") else []
+                                    friend_count = len(friends)
+                                    if friends:
+                                        print(f"  📌 {bname} ({bid}) - {friend_count} 个好友")
+                                        for f in friends:
+                                            print(f"     └─ {f.get('instance_name', f.get('instance_id', ''))}")
+                                    else:
+                                        print(f"  📌 {bname} ({bid}) - 暂无好友")
+                                print(f"\n共 {len(bots)} 个已发布 Bot")
+                        else:
+                            print(f"获取 Bot 列表失败: {res.get('error')}")
 
             # Moments 命令
             elif args.command == 'moments':

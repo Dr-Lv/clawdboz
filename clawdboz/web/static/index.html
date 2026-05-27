@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Clawdboz Web Chat v3.2.0</title>
+    <title>Clawdboz Web Chat v5.0.0</title>
     <script src="vendor/tailwindcss.js"></script>
     <script src="vendor/marked.min.js"></script>
     <link rel="stylesheet" href="vendor/highlight.js/styles/github-dark.min.css">
@@ -801,6 +801,58 @@
         <div class="context-menu-item delete" onclick="deleteSession()">
             <i class="fas fa-trash-alt"></i>
             <span>删除会话</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item delete" onclick="enterSessionBatchDeleteMode()">
+            <i class="fas fa-check-square"></i>
+            <span>多选删除</span>
+        </div>
+    </div>
+    
+    <!-- 消息右键菜单 -->
+    <div id="messageContextMenu" class="context-menu">
+        <div class="context-menu-item" onclick="deleteSingleMessage()">
+            <i class="fas fa-trash-alt"></i>
+            <span>删除此消息</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="enterBatchDeleteMode()">
+            <i class="fas fa-check-square"></i>
+            <span>多选删除</span>
+        </div>
+    </div>
+    
+    <!-- 消息批量删除操作栏 -->
+    <div id="batchDeleteBar" class="batch-delete-bar" style="display: none;">
+        <div class="batch-delete-left">
+            <label class="batch-checkbox-label">
+                <input type="checkbox" id="batchSelectAll" onchange="toggleSelectAllMessages()">
+                <span>全选</span>
+            </label>
+            <span id="batchDeleteCount" class="batch-delete-count">已选择 0 条</span>
+        </div>
+        <div class="batch-delete-right">
+            <button class="batch-btn batch-btn-secondary" onclick="exitBatchDeleteMode()">取消</button>
+            <button class="batch-btn batch-btn-delete" onclick="deleteSelectedMessages()">
+                <i class="fas fa-trash-alt"></i> 删除选中
+            </button>
+        </div>
+    </div>
+    
+    <!-- 会话批量删除操作栏 -->
+    <div id="sessionBatchDeleteBar" class="batch-delete-bar" style="display: none;">
+        <div class="batch-delete-left">
+            <label class="batch-checkbox-label">
+                <input type="checkbox" id="sessionBatchSelectAll" onchange="toggleSelectAllSessions()">
+                <span>全选</span>
+            </label>
+            <span id="sessionBatchDeleteCount" class="batch-delete-count">已选择 0 条</span>
+        </div>
+        <div class="batch-delete-right">
+            <button class="batch-btn batch-btn-secondary" onclick="exitSessionBatchDeleteMode()">取消</button>
+            <button class="batch-btn batch-btn-delete" onclick="deleteSelectedSessions()">
+                <i class="fas fa-trash-alt"></i> 删除选中
+            </button>
         </div>
     </div>
     
@@ -1724,7 +1776,12 @@
             if (cfg.image) {
                 return `<div class="${baseClasses}" style="${extraStyle || ''} background: transparent;"><img src="${cfg.image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;"></div>`;
             }
-            return `<div class="${baseClasses} ${cfg.color} text-white" style="${extraStyle || ''}"><i class="fas ${cfg.icon}" style="color: white;"></i></div>`;
+            // 如果 cfg.color 为空或无效，使用默认内联样式
+            const hasValidColor = cfg.color && cfg.color.includes('gradient');
+            const colorClass = hasValidColor ? cfg.color : '';
+            const inlineBg = hasValidColor ? '' : 'background: linear-gradient(135deg, #6366f1, #8b5cf6);';
+            const icon = cfg.icon || 'fa-robot';
+            return `<div class="${baseClasses} ${colorClass} text-white" style="${extraStyle || ''} ${inlineBg}"><i class="fas ${icon}" style="color: white;"></i></div>`;
         }
         
         // ========== IndexedDB ==========
@@ -1851,6 +1908,12 @@
                     };
                     cursorRequest.onerror = () => reject(cursorRequest.error);
                 });
+                
+                // 等待 transaction 完成，确保 IndexedDB 删除持久化
+                await new Promise((resolve, reject) => {
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
             } catch (e) {
                 console.error('[删除会话] 本地删除失败:', e);
             }
@@ -1926,7 +1989,7 @@
         }
 
         // 创建飞书 Bot 回复消息（非流式，直接显示完整内容）
-        function createFeishuBotMessage(content, botId) {
+        async function createFeishuBotMessage(content, botId) {
             document.querySelector('.empty-state')?.remove();
             addTimeDivider();
 
@@ -1963,17 +2026,30 @@
             wrapper.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
 
             smartScrollToBottom();
+
+            const dbId = await saveMessageToDB({
+                type: 'bot',
+                botId: botId,
+                content: content,
+                msgId: msgId,
+                senderName: bot.name || botId,
+                avatarColor: cfg.color,
+                avatarIcon: cfg.icon
+            });
+            if (dbId) wrapper.dataset.dbId = dbId;
         }
 
         // 创建带发送者信息的消息
-        function createUserMessageWithSender(content, sender) {
+        async function createUserMessageWithSender(content, sender) {
             document.querySelector('.empty-state')?.remove();
             addTimeDivider();
 
             const cfg = getUserAvatarConfig();
+            const msgId = 'feishu_user_' + Date.now();
             const wrapper = document.createElement('div');
             wrapper.className = 'message-item-wrapper';
             wrapper.setAttribute('data-sender-type', 'user');
+            wrapper.id = 'msg-' + msgId;
             wrapper.innerHTML = `
                 <div class="message-container">
                     <div class="message-item message-self">
@@ -1992,6 +2068,17 @@
             `;
             document.getElementById('messages').appendChild(wrapper);
             smartScrollToBottom();
+
+            const botId = currentBotId || Array.from(selectedBots)[0];
+            if (botId) {
+                const dbId = await saveMessageToDB({
+                    type: 'user',
+                    botId: botId,
+                    content: content,
+                    msgId: msgId
+                });
+                if (dbId) wrapper.dataset.dbId = dbId;
+            }
         }
 
         async function sendSessionIntro(sessionId, botIds) {
@@ -2037,19 +2124,23 @@
             }
         }
         
-        function saveMessageToDB(messageData) {
-            if (!db || !currentSessionId) return;
+        async function saveMessageToDB(messageData) {
+            if (!db || !currentSessionId) return null;
             
-            const transaction = db.transaction(['messages'], 'readwrite');
-            const store = transaction.objectStore('messages');
-            
-            const record = {
-                ...messageData,
-                timestamp: Date.now(),
-                sessionId: currentSessionId
-            };
-            
-            store.add(record);
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['messages'], 'readwrite');
+                const store = transaction.objectStore('messages');
+                
+                const record = {
+                    ...messageData,
+                    timestamp: messageData.timestamp || Date.now(),
+                    sessionId: currentSessionId
+                };
+                
+                const request = store.add(record);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
         }
         
         async function loadMessagesFromDB(sessionId) {
@@ -3263,18 +3354,16 @@
                 }
             });
 
-            // 2. 远程非好友bot（排除已发布的本地bot，避免重复显示）
+            // 2. 远程bot（排除已发布的本地bot，避免重复显示）
             const publishedBotIds = new Set(localPublishedBots.map(p => p.bot_id));
-            const remoteNonFriendBots = bots.filter(b => {
+            const remoteBots = bots.filter(b => {
                 if (b.type !== 'remote' || !b.instance_id) return false;
-                // 好友实例的bot：只保留已发布的（非发布的在通讯录显示）
-                if (isBotFriend(b) && !b.is_published) return false;
                 // 跳过那些bot_id已在本地发布列表中的远程bot（避免自己已发布的bot显示为远程）
                 const remoteBotId = b.id.includes(':') ? b.id.split(':')[1] : b.id;
                 if (publishedBotIds.has(remoteBotId)) return false;
                 return true;
             });
-            onlineBots.push(...remoteNonFriendBots);
+            onlineBots.push(...remoteBots);
 
             if (countEl) countEl.textContent = onlineBots.length;
 
@@ -3289,20 +3378,54 @@
                 return;
             }
 
+            // 头像内联渐变颜色池
+            const avatarBgColors = [
+                'linear-gradient(135deg, #3b82f6, #2563eb)',
+                'linear-gradient(135deg, #22c55e, #16a34a)',
+                'linear-gradient(135deg, #a855f7, #9333ea)',
+                'linear-gradient(135deg, #ec4899, #f43f5e)',
+                'linear-gradient(135deg, #f97316, #d97706)',
+                'linear-gradient(135deg, #ef4444, #f97316)',
+                'linear-gradient(135deg, #14b8a6, #06b6d4)',
+                'linear-gradient(135deg, #6366f1, #9333ea)',
+                'linear-gradient(135deg, #06b6d4, #0ea5e9)',
+                'linear-gradient(135deg, #10b981, #16a34a)',
+            ];
+
             container.innerHTML = onlineBots.map((bot) => {
-                const cfg = getBotAvatarConfig(bot.id);
                 const isActive = bot.id === selectedContactId;
                 const isLocalPublished = bot._isLocalPublished;
                 const isRemote = bot.type === 'remote';
+
+                // 内联样式头像（不依赖 Tailwind 渐变类）
+                let avatarHtml = '';
+                if (bot.avatar_image) {
+                    avatarHtml = `<div style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; background: transparent;"><img src="${bot.avatar_image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;"></div>`;
+                } else {
+                    let hash = 0;
+                    for (let i = 0; i < bot.id.length; i++) {
+                        hash = ((hash << 5) - hash) + bot.id.charCodeAt(i);
+                        hash = hash & hash;
+                    }
+                    const colorIdx = Math.abs(hash) % avatarBgColors.length;
+                    const bgStyle = avatarBgColors[colorIdx];
+                    const icon = bot.avatar_icon || 'fa-robot';
+                    avatarHtml = `<div style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; background: ${bgStyle};"><i class="fas ${icon}" style="color: white;"></i></div>`;
+                }
 
                 let cornerBadge = '';
                 let subtitle = `@${bot.id}`;
                 let borderColor = 'transparent';
 
+                const isAddedBot = bot.is_added === true;
                 if (isLocalPublished) {
                     cornerBadge = `<div style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background: #f59e0b; border-radius: 50%; border: 2px solid #1e1e2e; display: flex; align-items: center; justify-content: center; font-size: 7px; color: white;" title="已发布"><i class="fas fa-cloud" style="font-size: 6px;"></i></div>`;
                     subtitle = `@${bot.id} · 已发布`;
                     borderColor = '#f59e0b';
+                } else if (isAddedBot) {
+                    cornerBadge = `<div style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background: #22c55e; border-radius: 50%; border: 2px solid #1e1e2e; display: flex; align-items: center; justify-content: center; font-size: 7px; color: white;" title="已添加"><i class="fas fa-check" style="font-size: 6px;"></i></div>`;
+                    subtitle = `@${bot.id} · 已添加 · ${bot.instance_name || bot.instance_id}`;
+                    borderColor = '#22c55e';
                 } else if (isRemote) {
                     cornerBadge = `<div style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background: #3b82f6; border-radius: 50%; border: 2px solid #1e1e2e; display: flex; align-items: center; justify-content: center; font-size: 7px; color: white;" title="远程"><i class="fas fa-signal" style="font-size: 6px;"></i></div>`;
                     subtitle = `@${bot.id} · ${bot.instance_name || bot.instance_id}`;
@@ -3313,17 +3436,43 @@
                     <div class="sidebar-item ${isActive ? 'active' : ''}" onclick="${isLocalPublished ? `selectSidebarContact('${bot.id}', {isLocalPublished: true})` : isRemote ? `selectSidebarContact('${bot.id}', {isRemoteOnline: true})` : `showBotDetail('${bot.id}', {isPublished: false, isFriend: false})`}" style="border-left: 3px solid ${borderColor};">
                         <div class="sidebar-item-content">
                             <div style="position: relative; width: 40px; height: 40px; margin-right: 12px; flex-shrink: 0;">
-                                ${getBotAvatarElementHtml(cfg, 'sidebar-avatar', 'width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px;')}
+                                ${avatarHtml}
                                 ${cornerBadge}
                             </div>
                             <div class="sidebar-info" style="overflow: hidden;">
                                 <div class="sidebar-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${bot.name || bot.id}">${bot.name || bot.id}</div>
-                                <div class="sidebar-subtitle">${subtitle}</div>
+                                <div class="sidebar-subtitle" style="display: flex; align-items: center; gap: 6px;">
+                                    <span>${subtitle}</span>
+                                    ${isLocalPublished ? `<span id="online-bot-friends-${bot.id}" style="font-size: 11px; color: #3b82f6; background: #eff6ff; padding: 1px 6px; border-radius: 4px; flex-shrink: 0;">
+                                        <i class="fas fa-users" style="margin-right: 3px;"></i>...
+                                    </span>` : ''}
+                                </div>
                             </div>
                         </div>
                     </div>
                 `;
             }).join('');
+
+            // 异步加载每个本地发布在线 bot 的好友数量
+            const localInstanceId = getLocalInstanceId();
+            onlineBots.forEach(async bot => {
+                if (!bot._isLocalPublished) return;
+                const el = document.getElementById(`online-bot-friends-${bot.id}`);
+                if (!el) return;
+                try {
+                    const res = await fetch(`/api/remote/bot-friends?token=${token}&instance_id=${encodeURIComponent(localInstanceId)}&bot_id=${encodeURIComponent(bot.id)}`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    const count = (data.friends || []).length;
+                    if (count > 0) {
+                        el.innerHTML = `<i class="fas fa-users" style="margin-right: 3px;"></i>${count}`;
+                    } else {
+                        el.innerHTML = `<i class="fas fa-users" style="margin-right: 3px;"></i>0`;
+                    }
+                } catch (e) {
+                    el.style.display = 'none';
+                }
+            });
         }
 
         function filterSidebarContacts() {
@@ -3438,7 +3587,9 @@
                             <div class="sidebar-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                 ${bot.display_name || bot.bot_id}
                             </div>
-                            <div class="sidebar-subtitle">${bot.bot_id}</div>
+                            <div class="sidebar-subtitle" style="display: flex; align-items: center; gap: 8px;">
+                                <span>${bot.bot_id}</span>
+                            </div>
                         </div>
                         <div style="margin-left: auto;" onclick="event.stopPropagation(); togglePublishedBot('${bot.bot_id}', ${!bot.enabled})">
                             <div class="sidebar-item-action" style="padding: 6px 10px; background: ${bot.enabled ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}; border-radius: 6px; color: ${bot.enabled ? '#ef4444' : '#22c55e'}; font-size: 11px; cursor: pointer;">
@@ -3448,6 +3599,8 @@
                     </div>
                 </div>
             `).join('');
+
+
         }
 
         // 显示已发布 Bot 详情弹窗
@@ -3500,6 +3653,19 @@
                                 </div>
                             </div>
 
+                            <!-- 好友列表 -->
+                            <div id="publishedBotFriendList" style="padding: 12px; background: #f8fafc; border-radius: 8px; margin-bottom: 16px;">
+                                <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">
+                                    <i class="fas fa-users" style="margin-right: 6px;"></i>好友列表
+                                    <span id="publishedBotFriendCount" style="margin-left: 4px; color: #64748b;">(加载中...)</span>
+                                </div>
+                                <div id="publishedBotFriendListContent" style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div style="font-size: 13px; color: #94a3b8; text-align: center; padding: 8px;">
+                                        <i class="fas fa-spinner fa-spin" style="margin-right: 6px;"></i>加载中...
+                                    </div>
+                                </div>
+                            </div>
+
                             <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; display: flex; flex-direction: column; gap: 12px;">
                                 <div style="display: flex; gap: 12px;">
                                     <button onclick="togglePublishedBot('${bot.bot_id}', ${!bot.enabled}); closePublishedBotDetailModal();" style="flex: 1; padding: 10px; border: none; border-radius: 8px; background: ${bot.enabled ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)'}; color: ${bot.enabled ? '#ef4444' : '#22c55e'}; font-size: 14px; font-weight: 500; cursor: pointer;">
@@ -3528,6 +3694,10 @@
                 const modalContainer = document.createElement('div');
                 modalContainer.innerHTML = modalHtml;
                 document.body.appendChild(modalContainer);
+
+                // 异步加载好友列表
+                const localInstanceId = getLocalInstanceId();
+                loadBotFriendList(localInstanceId, bot.bot_id, 'publishedBotFriendCount', 'publishedBotFriendListContent');
             } catch (e) {
                 console.error('[showPublishedBotDetail] 失败:', e);
                 showToast('加载Bot信息失败', 'error');
@@ -4033,9 +4203,9 @@
             }
         }
 
-        async function loadBotFriendList(instanceId, botId) {
-            const countEl = document.getElementById('botFriendCount');
-            const contentEl = document.getElementById('botFriendListContent');
+        async function loadBotFriendList(instanceId, botId, countId = 'botFriendCount', contentId = 'botFriendListContent') {
+            const countEl = document.getElementById(countId);
+            const contentEl = document.getElementById(contentId);
             if (!countEl || !contentEl) return;
 
             try {
@@ -4064,7 +4234,10 @@
                             <div style="font-size: 13px; font-weight: 500; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.instance_name || f.instance_id}</div>
                             <div style="font-size: 11px; color: #94a3b8;">@${f.instance_id}</div>
                         </div>
-                        ${f.bot_id ? `<span style="font-size: 10px; padding: 2px 6px; background: #f0fdf4; color: #16a34a; border-radius: 4px; flex-shrink: 0;">bot: ${f.bot_id}</span>` : ''}
+                        <div style="padding: 4px 8px; background: rgba(239,68,68,0.1); border-radius: 4px; color: #ef4444; font-size: 11px; cursor: pointer; flex-shrink: 0;"
+                             onclick="removeFriendBot('${f.instance_id}', '${botId}', '${countId}', '${contentId}', '${instanceId}')">
+                            <i class="fas fa-user-minus" style="margin-right: 3px;"></i>移除
+                        </div>
                     </div>
                 `).join('');
             } catch (e) {
@@ -4307,7 +4480,7 @@
                             <div class="contacts-detail-section-title">
                                 <i class="fas fa-align-left"></i> 描述
                             </div>
-                            <div style="font-size: 14px; color: #475569; line-height: 1.5;">${bot.description}</div>
+                            <div style="font-size: 14px; color: #475569; line-height: 1.5; word-break: break-word; overflow-wrap: break-word;">${bot.description}</div>
                         </div>
                         ` : ''}
 
@@ -4433,7 +4606,7 @@
                     ${avatarHtml}
                     <div class="contacts-detail-name">${bot.name || bot.id}</div>
                     <div class="contacts-detail-id">${idText}</div>
-                    ${bot.bio ? `<div style="text-align: center; color: var(--text-secondary); font-size: 14px; margin: 12px 20px; line-height: 1.5;">${bot.bio}</div>` : ''}
+                    ${bot.bio ? `<div style="text-align: left; color: var(--text-secondary); font-size: 14px; margin: 12px 20px; line-height: 1.5; word-break: break-word; overflow-wrap: break-word;">${bot.bio}</div>` : ''}
 
                     ${skills.length > 0 ? `
                     <div class="contacts-detail-section" style="margin-top: 20px;">
@@ -4459,12 +4632,39 @@
                     </div>
                     ` : ''}
 
+                    ${isLocalPublished ? `
+                    <div class="contacts-detail-section" style="margin-top: 16px;" id="sidebarBotFriendListSection">
+                        <div class="contacts-detail-section-title">
+                            <i class="fas fa-users"></i> 好友列表
+                            <span id="sidebarBotFriendCount" style="margin-left: 4px; color: #64748b;">(加载中...)</span>
+                        </div>
+                        <div id="sidebarBotFriendListContent" style="display: flex; flex-direction: column; gap: 6px;">
+                            <div style="font-size: 13px; color: #94a3b8; text-align: center; padding: 8px;">
+                                <i class="fas fa-spinner fa-spin" style="margin-right: 6px;"></i>加载中...
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+
                     <div class="contacts-detail-actions" style="margin-top: 24px;">
                         ${actionButtons}
                     </div>
                 </div>
             `;
             botDetailPanel.style.display = 'flex';
+
+            // 异步加载好友列表（仅本地发布的 bot）
+            if (isLocalPublished) {
+                const localInstanceId = getLocalInstanceId();
+                let targetInstanceId, targetBotId;
+                if (bot.type === 'remote' && bot.id.includes(':')) {
+                    [targetInstanceId, targetBotId] = bot.id.split(':');
+                } else {
+                    targetInstanceId = localInstanceId;
+                    targetBotId = bot.id;
+                }
+                loadBotFriendList(targetInstanceId, targetBotId, 'sidebarBotFriendCount', 'sidebarBotFriendListContent');
+            }
         }
         
         async function startChatWithBot(botId) {
@@ -4544,6 +4744,32 @@
         }
 
         // 从 sidebar Bot 详情面板解除好友
+        async function removeFriendBot(subscriberInstanceId, botId, countId, contentId, instanceId) {
+            if (!subscriberInstanceId || !botId) {
+                showToast('无法获取订阅者信息', 'error');
+                return;
+            }
+            if (!confirm(`确定要移除实例 ${subscriberInstanceId} 对 Bot ${botId} 的订阅吗？`)) return;
+            try {
+                const res = await fetch(`/api/remote/remove-bot-subscriber?token=${token}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({instance_id: subscriberInstanceId, bot_id: botId})
+                });
+                if (res.ok) {
+                    showToast('订阅者已移除', 'success');
+                    // 重新加载好友列表
+                    loadBotFriendList(instanceId, botId, countId, contentId);
+                } else {
+                    const err = await res.json();
+                    showToast('移除失败: ' + (err.detail || err.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                console.error('[removeFriendBot] 失败:', e);
+                showToast('移除失败', 'error');
+            }
+        }
+
         async function removeFriendFromSidebarBot() {
             if (!selectedContactId) return;
             const bot = bots.find(b => b.id === selectedContactId);
@@ -5586,7 +5812,7 @@
             
             messages.forEach(msg => {
                 if (msg.type === 'user') {
-                    restoreUserMessage(msg.content, msg.timestamp);
+                    restoreUserMessage(msg);
                 } else if (msg.type === 'bot') {
                     restoreBotMessage(msg);
                 }
@@ -5606,7 +5832,9 @@
             await autoRenameSession(sid);
         }
         
-        function restoreUserMessage(content, timestamp) {
+        function restoreUserMessage(msg) {
+            const content = msg.content;
+            const timestamp = msg.timestamp;
             const time = new Date(timestamp);
             const timeStr = `${time.getMonth()+1}月${time.getDate()}日 ${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
             
@@ -5622,6 +5850,8 @@
             const wrapper = document.createElement('div');
             wrapper.className = 'message-item-wrapper';
             wrapper.setAttribute('data-sender-type', 'user');
+            if (msg.id) wrapper.dataset.dbId = msg.id;
+            if (msg.msgId) wrapper.id = `msg-${msg.msgId}`;
             const userAvatarHtml = cfg.image
                 ? `<img src="${cfg.image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
                 : `<i class="fas ${cfg.icon}" style="color: white;"></i>`;
@@ -5666,34 +5896,40 @@
             let mainContent = msg.content || '';
             const thinkingMatch = mainContent.match(/💭 \*\*思考过程\*\*\n```\n([\s\S]*?)\n```\n\n/);
             
+            // 如果当前 thinkingMode 关闭，从历史记录内容中移除 thinking 部分
             if (thinkingMatch) {
-                const thinkingText = thinkingMatch[1];
-                const thinkingId = `hist-think-${msg.msgId || Date.now()}`;
                 mainContent = mainContent.replace(thinkingMatch[0], '');
                 
-                thinkingHtml = `
-                    <div id="thinking-${thinkingId}" class="thinking-section finished" style="display: block; margin-bottom: 8px;">
-                        <div class="thinking-header" onclick="toggleThinking('${thinkingId}')">
-                            <div class="thinking-header-left">
-                                <span class="thinking-toggle-btn">
-                                    <i class="fas fa-chevron-right"></i>
-                                </span>
-                                <span class="thinking-label">
-                                    <i class="fas fa-brain"></i>
-                                    思考
-                                </span>
+                // 只有在 thinkingMode 开启时才渲染 thinking 区域
+                if (thinkingMode) {
+                    const thinkingText = thinkingMatch[1];
+                    const thinkingId = `hist-think-${msg.msgId || Date.now()}`;
+                    
+                    thinkingHtml = `
+                        <div id="thinking-${thinkingId}" class="thinking-section finished" style="display: block; margin-bottom: 8px;">
+                            <div class="thinking-header" onclick="toggleThinking('${thinkingId}')">
+                                <div class="thinking-header-left">
+                                    <span class="thinking-toggle-btn">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </span>
+                                    <span class="thinking-label">
+                                        <i class="fas fa-brain"></i>
+                                        思考
+                                    </span>
+                                </div>
+                            </div>
+                            <div id="thinking-content-${thinkingId}" class="thinking-content" style="display: none;">
+                                ${marked.parse('```\n' + thinkingText + '\n```')}
                             </div>
                         </div>
-                        <div id="thinking-content-${thinkingId}" class="thinking-content" style="display: none;">
-                            ${marked.parse('```\n' + thinkingText + '\n```')}
-                        </div>
-                    </div>
-                `;
+                    `;
+                }
             }
             
             const wrapper = document.createElement('div');
             wrapper.className = 'message-item-wrapper';
             wrapper.setAttribute('data-bot-id', msg.botId);
+            if (msg.id) wrapper.dataset.dbId = msg.id;
             if (msg.msgId) {
                 wrapper.id = `msg-${msg.msgId}`;
             }
@@ -6468,6 +6704,22 @@
                 console.log('[Init] 从服务器加载会话...');
                 const serverSessions = await loadSessionsFromServer();
                 
+                // 服务器加载成功后，先清空本地 IndexedDB 的 sessions，避免残留旧数据
+                if (db) {
+                    try {
+                        const transaction = db.transaction(['sessions'], 'readwrite');
+                        const store = transaction.objectStore('sessions');
+                        await new Promise((resolve, reject) => {
+                            const request = store.clear();
+                            request.onsuccess = () => resolve();
+                            request.onerror = () => reject(request.error);
+                        });
+                        console.log('[Init] 已清空本地 sessions 缓存');
+                    } catch (dbErr) {
+                        console.error('[Init] 清空本地 sessions 缓存失败:', dbErr);
+                    }
+                }
+                
                 if (serverSessions.length > 0) {
                     sessions = serverSessions;
                     console.log(`[Init] 从服务器加载了 ${sessions.length} 个会话`);
@@ -6653,12 +6905,16 @@
                     const isFeishu = session.source === 'feishu';
                     const feishuIcon = isFeishu ? '<i class="fas fa-link" style="color: #3370ff; margin-right: 4px; font-size: 10px;"></i>' : '';
                     const feishuStyle = isFeishu ? 'border-left: 2px solid #3370ff;' : '';
+                    const isSelected = selectedSessionIds.has(session.id);
+                    const checkboxHtml = isSessionBatchMode ? `<input type="checkbox" class="session-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleSessionSelection('${session.id}')" style="margin-right:8px;cursor:pointer;width:16px;height:16px;flex-shrink:0;">` : '';
+                    const deleteBtn = isSessionBatchMode ? '' : `<div class="sidebar-delete-btn" onclick="event.stopPropagation(); confirmDeleteSession('${session.id}', event);"><i class="fas fa-trash-alt"></i> 删除</div>`;
+                    const clickHandler = isSessionBatchMode ? `onclick="event.stopPropagation(); toggleSessionSelection('${session.id}')"` : `onclick="selectSessionWithMobileClose('${session.id}')"`;
+                    const selectedClass = isSelected ? 'selected' : '';
                     return `
-                        <div class="sidebar-item ${isActive ? 'active' : ''}" data-session-id="${session.id}" oncontextmenu="showSessionContextMenu(event, '${session.id}')" style="${feishuStyle}">
-                            <div class="sidebar-delete-btn" onclick="event.stopPropagation(); confirmDeleteSession('${session.id}', event);">
-                                <i class="fas fa-trash-alt"></i> 删除
-                            </div>
-                            <div class="sidebar-item-content" onclick="selectSessionWithMobileClose('${session.id}')">
+                        <div class="sidebar-item ${isActive ? 'active' : ''} ${selectedClass}" data-session-id="${session.id}" oncontextmenu="${isSessionBatchMode ? 'return false;' : `showSessionContextMenu(event, '${session.id}')`}" style="${feishuStyle}">
+                            ${deleteBtn}
+                            <div class="sidebar-item-content" ${clickHandler}>
+                                ${checkboxHtml}
                                 ${avatarHtml}
                                 <div class="sidebar-info" style="overflow:hidden;">
                                     <div class="sidebar-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${session.name}">${feishuIcon}${session.name}</div>
@@ -6706,12 +6962,16 @@
                                     const isFeishu = session.source === 'feishu';
                                     const feishuIcon = isFeishu ? `<i class="fas fa-link" style="color: #3370ff; margin-right: 4px; font-size: 10px;"></i>` : '';
                                     const feishuStyle = isFeishu ? 'border-left: 2px solid #3370ff;' : '';
+                                    const isSelected2 = selectedSessionIds.has(session.id);
+                                    const checkboxHtml2 = isSessionBatchMode ? `<input type="checkbox" class="session-checkbox" ${isSelected2 ? 'checked' : ''} onclick="event.stopPropagation(); toggleSessionSelection('${session.id}')" style="margin-right:8px;cursor:pointer;width:16px;height:16px;flex-shrink:0;">` : '';
+                                    const deleteBtn2 = isSessionBatchMode ? '' : `<div class="sidebar-delete-btn" onclick="event.stopPropagation(); confirmDeleteSession('${session.id}', event);"><i class="fas fa-trash-alt"></i> 删除</div>`;
+                                    const clickHandler2 = isSessionBatchMode ? `onclick="event.stopPropagation(); toggleSessionSelection('${session.id}')"` : `onclick="selectSessionWithMobileClose('${session.id}')"`;
+                                    const selectedClass2 = isSelected2 ? 'selected' : '';
                                     return `
-                                        <div class="sidebar-item ${isActive ? 'active' : ''}" data-session-id="${session.id}" oncontextmenu="showSessionContextMenu(event, '${session.id}')" style="${feishuStyle}">
-                                            <div class="sidebar-delete-btn" onclick="event.stopPropagation(); confirmDeleteSession('${session.id}', event);">
-                                                <i class="fas fa-trash-alt"></i> 删除
-                                            </div>
-                                            <div class="sidebar-item-content" onclick="selectSessionWithMobileClose('${session.id}')" style="padding-left: 36px;">
+                                        <div class="sidebar-item ${isActive ? 'active' : ''} ${selectedClass2}" data-session-id="${session.id}" oncontextmenu="${isSessionBatchMode ? 'return false;' : `showSessionContextMenu(event, '${session.id}')`}" style="${feishuStyle}">
+                                            ${deleteBtn2}
+                                            <div class="sidebar-item-content" ${clickHandler2} style="padding-left: 36px;">
+                                                ${checkboxHtml2}
                                                 <div class="sidebar-info" style="overflow:hidden;">
                                                     <div class="sidebar-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${session.name}">${feishuIcon}${session.name}</div>
                                                     <div class="sidebar-subtitle">${formatTime(session.createdAt)}${isFeishu ? ' · 飞书' : ''}</div>
@@ -7039,6 +7299,9 @@
             // Bug2 修复 C：保存 pending 后清空 streamingMessages，避免 element 指向被 loadChatHistory 清空的旧 DOM
             streamingMessages.clear();
             activeStreams.clear();
+            
+            // 切换会话时退出消息批量删除模式
+            exitBatchDeleteMode();
             
             currentSessionId = sessionId;
             const session = sessions.find(s => s.id === sessionId);
@@ -7656,12 +7919,13 @@
                         const records = event.target.result;
                         const existingRecord = records.find(r => r.msgId === data.msg_id);
                         
+                        let saveRequest;
                         if (existingRecord) {
                             existingRecord.content = textContent;
                             existingRecord.timestamp = Date.now();
-                            store.put(existingRecord);
+                            saveRequest = store.put(existingRecord);
                         } else {
-                            store.add({
+                            saveRequest = store.add({
                                 type: 'bot',
                                 botId: botId,
                                 content: textContent,
@@ -7670,6 +7934,13 @@
                                 msgId: data.msg_id
                             });
                         }
+                        
+                        saveRequest.onsuccess = () => {
+                            const wrapper = document.getElementById(`msg-${data.msg_id}`);
+                            if (wrapper) {
+                                wrapper.dataset.dbId = existingRecord ? existingRecord.id : saveRequest.result;
+                            }
+                        };
                     };
                 }
             }
@@ -7720,7 +7991,7 @@
             }
         }
         
-        function createUserMsg(text) {
+        async function createUserMsg(text) {
             document.querySelector('.empty-state')?.remove();
             addTimeDivider();
             
@@ -7749,9 +8020,11 @@
             });
             
             const cfg = getUserAvatarConfig();
+            const msgId = 'user_' + Date.now();
             const wrapper = document.createElement('div');
             wrapper.className = 'message-item-wrapper';
             wrapper.setAttribute('data-sender-type', 'user');
+            wrapper.id = 'msg-' + msgId;
             const userAvatarHtml = cfg.image
                 ? `<img src="${cfg.image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
                 : `<i class="fas ${cfg.icon}" style="color: white;"></i>`;
@@ -7779,11 +8052,13 @@
             
             const botId = currentBotId || Array.from(selectedBots)[0];
             if (botId) {
-                saveMessageToDB({
+                const dbId = await saveMessageToDB({
                     type: 'user',
                     botId: botId,
-                    content: text
+                    content: text,
+                    msgId: msgId
                 });
+                if (dbId) wrapper.dataset.dbId = dbId;
             }
         }
         
@@ -7958,7 +8233,7 @@
             });
         }
         
-        function createMCPMessage(data) {
+        async function createMCPMessage(data) {
             document.querySelector('.empty-state')?.remove();
             addTimeDivider();
             
@@ -7967,21 +8242,11 @@
             const bot = bots.find(b => b.id === senderId);
             const botName = bot?.name || senderId;
             const cfg = getBotAvatarConfig(senderId);
-            
-            // 保存到历史记录
-            if (data.save_to_history !== false && currentSessionId) {
-                saveMessageToDB({
-                    type: 'bot',
-                    botId: senderId,
-                    content: data.content || '',
-                    senderName: botName,
-                    avatarColor: cfg.color,
-                    avatarIcon: cfg.icon
-                });
-            }
+            const msgId = 'mcp_' + Date.now();
             
             const wrapper = document.createElement('div');
             wrapper.className = 'message-item-wrapper';
+            wrapper.id = 'msg-' + msgId;
             wrapper.innerHTML = `
                 <div class="message-container">
                     <div class="message-item">
@@ -8005,6 +8270,20 @@
             `;
             document.getElementById('messages').appendChild(wrapper);
             smartScrollToBottom();
+
+            // 保存到历史记录
+            if (data.save_to_history !== false && currentSessionId) {
+                const dbId = await saveMessageToDB({
+                    type: 'bot',
+                    botId: senderId,
+                    content: data.content || '',
+                    msgId: msgId,
+                    senderName: botName,
+                    avatarColor: cfg.color,
+                    avatarIcon: cfg.icon
+                });
+                if (dbId) wrapper.dataset.dbId = dbId;
+            }
         }
         
         function createMCPFile(data) {
@@ -9084,6 +9363,242 @@
             document.getElementById('sessionContextMenu').classList.remove('show');
             contextMenuSessionId = null;
         }
+        
+        // ========== 消息右键菜单与批量删除 ==========
+        
+        let messageContextMenuTarget = null;
+        let isBatchDeleteMode = false;
+        
+        function showMessageContextMenu(event, wrapper) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            if (isBatchDeleteMode) {
+                toggleMessageSelection(wrapper);
+                return;
+            }
+            
+            messageContextMenuTarget = wrapper;
+            
+            const menu = document.getElementById('messageContextMenu');
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            menu.classList.add('show');
+            
+            setTimeout(() => {
+                document.addEventListener('click', hideMessageContextMenu, { once: true });
+            }, 0);
+        }
+        
+        function hideMessageContextMenu() {
+            document.getElementById('messageContextMenu').classList.remove('show');
+            messageContextMenuTarget = null;
+        }
+        
+        function deleteSingleMessage() {
+            if (!messageContextMenuTarget) return;
+            const wrapper = messageContextMenuTarget;
+            const dbId = wrapper.dataset.dbId;
+            
+            wrapper.remove();
+            
+            if (dbId && db) {
+                const transaction = db.transaction(['messages'], 'readwrite');
+                const store = transaction.objectStore('messages');
+                store.delete(Number(dbId));
+            }
+            
+            hideMessageContextMenu();
+        }
+        
+        function enterBatchDeleteMode() {
+            hideMessageContextMenu();
+            isBatchDeleteMode = true;
+            document.getElementById('batchDeleteBar').style.display = 'flex';
+            
+            document.querySelectorAll('.message-item-wrapper').forEach(wrapper => {
+                wrapper.classList.add('batch-mode');
+                if (!wrapper.querySelector('.message-checkbox')) {
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'message-checkbox';
+                    checkbox.onclick = (e) => {
+                        e.stopPropagation();
+                        toggleMessageSelection(wrapper);
+                    };
+                    wrapper.appendChild(checkbox);
+                }
+            });
+            
+            updateBatchDeleteCount();
+        }
+        
+        function exitBatchDeleteMode() {
+            isBatchDeleteMode = false;
+            document.getElementById('batchDeleteBar').style.display = 'none';
+            document.getElementById('batchSelectAll').checked = false;
+            
+            document.querySelectorAll('.message-item-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('batch-mode', 'selected');
+                const checkbox = wrapper.querySelector('.message-checkbox');
+                if (checkbox) checkbox.checked = false;
+            });
+        }
+        
+        function toggleMessageSelection(wrapper) {
+            if (!isBatchDeleteMode) return;
+            wrapper.classList.toggle('selected');
+            const checkbox = wrapper.querySelector('.message-checkbox');
+            if (checkbox) checkbox.checked = wrapper.classList.contains('selected');
+            updateBatchDeleteCount();
+        }
+        
+        function toggleSelectAllMessages() {
+            const selectAll = document.getElementById('batchSelectAll').checked;
+            document.querySelectorAll('.message-item-wrapper').forEach(wrapper => {
+                wrapper.classList.toggle('selected', selectAll);
+                const checkbox = wrapper.querySelector('.message-checkbox');
+                if (checkbox) checkbox.checked = selectAll;
+            });
+            updateBatchDeleteCount();
+        }
+        
+        function updateBatchDeleteCount() {
+            const count = document.querySelectorAll('.message-item-wrapper.selected').length;
+            document.getElementById('batchDeleteCount').textContent = `已选择 ${count} 条`;
+        }
+        
+        async function deleteSelectedMessages() {
+            const selected = document.querySelectorAll('.message-item-wrapper.selected');
+            if (selected.length === 0) {
+                showToast('请先选择要删除的消息', 'warning');
+                return;
+            }
+            
+            if (!confirm(`确定要删除选中的 ${selected.length} 条消息吗？`)) return;
+            
+            const dbIds = [];
+            selected.forEach(wrapper => {
+                if (wrapper.dataset.dbId) dbIds.push(Number(wrapper.dataset.dbId));
+                wrapper.remove();
+            });
+            
+            if (dbIds.length > 0 && db) {
+                const transaction = db.transaction(['messages'], 'readwrite');
+                const store = transaction.objectStore('messages');
+                dbIds.forEach(id => store.delete(id));
+            }
+            
+            exitBatchDeleteMode();
+            showToast(`已删除 ${selected.length} 条消息`, 'success');
+        }
+        
+        // ========== 会话批量删除 ==========
+        
+        let isSessionBatchMode = false;
+        let selectedSessionIds = new Set();
+        
+        function enterSessionBatchDeleteMode() {
+            closeContextMenu();
+            isSessionBatchMode = true;
+            selectedSessionIds.clear();
+            document.getElementById('sessionBatchDeleteBar').style.display = 'flex';
+            renderSessionList();
+            updateSessionBatchDeleteCount();
+        }
+        
+        function exitSessionBatchDeleteMode() {
+            isSessionBatchMode = false;
+            selectedSessionIds.clear();
+            document.getElementById('sessionBatchDeleteBar').style.display = 'none';
+            document.getElementById('sessionBatchSelectAll').checked = false;
+            renderSessionList();
+        }
+        
+        function toggleSessionSelection(sessionId) {
+            if (!isSessionBatchMode) return;
+            if (selectedSessionIds.has(sessionId)) {
+                selectedSessionIds.delete(sessionId);
+            } else {
+                selectedSessionIds.add(sessionId);
+            }
+            renderSessionList();
+            updateSessionBatchDeleteCount();
+        }
+        
+        function toggleSelectAllSessions() {
+            const selectAll = document.getElementById('sessionBatchSelectAll').checked;
+            if (selectAll) {
+                sessions.forEach(s => selectedSessionIds.add(s.id));
+            } else {
+                selectedSessionIds.clear();
+            }
+            renderSessionList();
+            updateSessionBatchDeleteCount();
+        }
+        
+        function updateSessionBatchDeleteCount() {
+            document.getElementById('sessionBatchDeleteCount').textContent = `已选择 ${selectedSessionIds.size} 条`;
+        }
+        
+        async function deleteSelectedSessions() {
+            if (selectedSessionIds.size === 0) {
+                showToast('请先选择要删除的会话', 'warning');
+                return;
+            }
+            
+            if (!confirm(`确定要删除选中的 ${selectedSessionIds.size} 个会话吗？聊天记录将无法恢复。`)) return;
+            
+            let deletedCurrent = false;
+            for (const sessionId of Array.from(selectedSessionIds)) {
+                const success = await deleteSessionFromDB(sessionId);
+                if (success) {
+                    sessions = sessions.filter(s => s.id !== sessionId);
+                    if (currentSessionId === sessionId) deletedCurrent = true;
+                }
+            }
+            
+            if (deletedCurrent) {
+                currentSessionId = null;
+                if (sessions.length > 0) {
+                    await selectSession(sessions[0].id);
+                } else {
+                    document.getElementById('messages').innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🤖</div>
+                            <div>点击右上角"+"创建新会话</div>
+                        </div>
+                    `;
+                    document.getElementById('headerTitle').textContent = '选择一个会话';
+                    selectedBots.clear();
+                    updatePlaceholder();
+                }
+            }
+            
+            const deletedCount = selectedSessionIds.size;
+            exitSessionBatchDeleteMode();
+            showToast(`已删除 ${deletedCount} 个会话`, 'success');
+        }
+        
+        // 消息列表事件委托
+        document.addEventListener('DOMContentLoaded', () => {
+            const messagesContainer = document.getElementById('messages');
+            if (messagesContainer) {
+                messagesContainer.addEventListener('contextmenu', function(event) {
+                    const wrapper = event.target.closest('.message-item-wrapper');
+                    if (wrapper) {
+                        showMessageContextMenu(event, wrapper);
+                    }
+                });
+                messagesContainer.addEventListener('click', function(event) {
+                    if (!isBatchDeleteMode) return;
+                    const wrapper = event.target.closest('.message-item-wrapper');
+                    if (wrapper && !event.target.closest('.message-checkbox')) {
+                        toggleMessageSelection(wrapper);
+                    }
+                });
+            }
+        });
         
         let renameTargetSessionId = null;
         

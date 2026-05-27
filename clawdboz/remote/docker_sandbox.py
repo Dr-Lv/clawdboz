@@ -73,10 +73,18 @@ class DockerSandboxManager:
                 print(f"[DockerSandbox] 镜像 {self.config.image} 已存在")
 
     def _check_docker(self) -> bool:
-        """检查 Docker 是否可用"""
+        """检查 Docker daemon 是否实际可用"""
         try:
+            # 先检查 docker CLI 是否存在
             result = subprocess.run(
                 ["docker", "--version"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode != 0:
+                return False
+            # 再检查 daemon 是否可连接
+            result = subprocess.run(
+                ["docker", "info"],
                 capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0

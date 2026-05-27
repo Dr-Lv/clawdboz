@@ -3,6 +3,7 @@
 集成远程 Bot 发布、发现和调用功能
 """
 import asyncio
+import json
 from typing import Dict, List, Optional
 from pathlib import Path
 
@@ -91,6 +92,138 @@ class RemoteBotManager:
         # Docker 沙箱管理器
         self._sandbox_mgr = None
 
+        # RSA 加密管理器
+        from clawdboz.remote.crypto import InstanceCrypto
+        self.crypto = InstanceCrypto(base_workplace)
+
+        # 本地 Bot 订阅者存储 {bot_id: {subscriber_instance_id: {instance_name, added_at}}}
+        self.bot_subscribers: Dict[str, Dict[str, dict]] = {}
+        self._load_bot_subscribers()
+
+    def _load_bot_subscribers(self):
+        """从本地文件加载 bot 订阅者"""
+        try:
+            subs_file = Path(self.base_workplace) / ".remote" / "bot_subscribers.json"
+            if subs_file.exists():
+                import json
+                with open(subs_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.bot_subscribers = data
+                print(f"[RemoteBot] 加载了 {len(data)} 个 bot 的订阅者")
+        except Exception as e:
+            print(f"[RemoteBot] 加载 bot_subscribers 失败: {e}")
+            self.bot_subscribers = {}
+
+    def _save_bot_subscribers(self):
+        """保存 bot 订阅者到本地文件"""
+        try:
+            subs_file = Path(self.base_workplace) / ".remote" / "bot_subscribers.json"
+            subs_file.parent.mkdir(parents=True, exist_ok=True)
+            import json
+            with open(subs_file, 'w', encoding='utf-8') as f:
+                json.dump(self.bot_subscribers, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"[RemoteBot] 保存 bot_subscribers 失败: {e}")
+
+    def add_bot_subscriber(self, subscriber_instance_id: str, subscriber_name: str, bot_id: str):
+        """添加一个 bot 订阅者"""
+        if bot_id not in self.bot_subscribers:
+            self.bot_subscribers[bot_id] = {}
+        self.bot_subscribers[bot_id][subscriber_instance_id] = {
+            "instance_name": subscriber_name or subscriber_instance_id,
+            "added_at": asyncio.get_event_loop().time() if hasattr(asyncio, 'get_event_loop') else 0
+        }
+        self._save_bot_subscribers()
+        print(f"[RemoteBot] Bot {bot_id} 新增订阅者: {subscriber_instance_id}")
+
+    def remove_bot_subscriber(self, subscriber_instance_id: str, bot_id: str):
+        """移除一个 bot 订阅者。如果 bot_id 为空，则移除该实例的所有订阅"""
+        removed = False
+        if bot_id:
+            if bot_id in self.bot_subscribers and subscriber_instance_id in self.bot_subscribers[bot_id]:
+                del self.bot_subscribers[bot_id][subscriber_instance_id]
+                if not self.bot_subscribers[bot_id]:
+                    del self.bot_subscribers[bot_id]
+                removed = True
+                print(f"[RemoteBot] Bot {bot_id} 移除订阅者: {subscriber_instance_id}")
+        else:
+            # bot_id 为空，移除该实例的所有订阅
+            bots_to_remove = []
+            for b_id, subscribers in self.bot_subscribers.items():
+                if subscriber_instance_id in subscribers:
+                    del subscribers[subscriber_instance_id]
+                    if not subscribers:
+                        bots_to_remove.append(b_id)
+                    removed = True
+                    print(f"[RemoteBot] Bot {b_id} 移除订阅者: {subscriber_instance_id}")
+            for b_id in bots_to_remove:
+                del self.bot_subscribers[b_id]
+        if removed:
+            self._save_bot_subscribers()
+
+    def _add_to_added_bots(self, instance_id: str, bot_id: str):
+        """将远程 bot 添加到本地 added_bots.json（用于双向添加）"""
+        try:
+            remote_bots_file = Path(self.base_workplace) / ".remote" / "added_bots.json"
+            remote_bots_file.parent.mkdir(parents=True, exist_ok=True)
+
+            added_bots = {}
+            if remote_bots_file.exists():
+                with open(remote_bots_file, 'r', encoding='utf-8') as f:
+                    added_bots = json.load(f)
+
+            full_bot_id = f"{instance_id}:{bot_id}"
+            if full_bot_id not in added_bots:
+                added_bots[full_bot_id] = {
+                    "instance_id": instance_id,
+                    "bot_id": bot_id,
+                    "added_at": 0
+                }
+                with open(remote_bots_file, 'w', encoding='utf-8') as f:
+                    json.dump(added_bots, f, indent=2, ensure_ascii=False)
+                print(f"[RemoteBot] 双向添加: {full_bot_id} 已写入 added_bots.json")
+        except Exception as e:
+            print(f"[RemoteBot] 双向添加失败: {e}")
+
+    def get_bot_subscribers(self, bot_id: str) -> List[dict]:
+        """获取订阅了某个 bot 的实例列表"""
+        subscribers = self.bot_subscribers.get(bot_id, {})
+        return [
+            {
+                "instance_id": sid,
+                "instance_name": info.get("instance_name", sid),
+                "added_at": info.get("added_at", 0)
+            }
+            for sid, info in subscribers.items()
+        ]
+
+    async def _notify_target_instance(self, target_instance_id: str, payload: dict):
+        """向目标实例发送订阅/解除通知"""
+        # 从注册服务器获取目标实例信息
+        if not self.registry_client:
+            return False
+        try:
+            instances = await self.registry_client.discover()
+            target = None
+            for inst in instances:
+                if inst.instance_id == target_instance_id:
+                    target = inst
+                    break
+            if not target:
+                print(f"[RemoteBot] 未找到目标实例: {target_instance_id}")
+                return False
+
+            url = f"{target.http_url}/api/remote/subscribe-notification"
+            token = self.token_manager.generate_instance_token(self.instance_id)
+            import aiohttp
+            use_ssl = url.startswith("https://")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, headers={"X-Instance-Token": token}, ssl=use_ssl, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    return resp.status == 200
+        except Exception as e:
+            print(f"[RemoteBot] 通知目标实例失败: {e}")
+            return False
+
     def set_dependencies(self, acp_mgr, workspace_mgr):
         """Set dependencies for bot calls"""
         self._acp_mgr = acp_mgr
@@ -148,8 +281,84 @@ class RemoteBotManager:
             if self.config.auto_register:
                 await self.registry_client.start_heartbeat(self.config.heartbeat_interval)
 
-            # 初始化好友管理器
-            self.friend_manager = FriendManager(self.registry_client)
+            # 初始化好友管理器（去中心化 + RSA）
+            async def on_friend_accepted(from_instance, bot_id):
+                """好友请求被接受后，通过 WS 发送自己的公钥给对方
+                同时在本地 bot_subscribers 中记录对方订阅了这个 bot
+                并更新 added_bots.json（记录自己添加了对方的 bot）
+                """
+                try:
+                    # 记录对方实例订阅了这个 bot（接受方视角）
+                    if bot_id:
+                        self.add_bot_subscriber(
+                            from_instance,
+                            self.discovered_instances.get(from_instance, {}).name if hasattr(self.discovered_instances.get(from_instance, {}), 'name') else from_instance,
+                            bot_id
+                        )
+                        print(f"[RemoteBot] 已记录订阅者: {from_instance} 订阅了 {bot_id}")
+                except Exception as e:
+                    print(f"[RemoteBot] 记录 bot 订阅者失败（非阻塞）: {e}")
+
+                # FIX: 主动接受好友请求时，也要在本地 added_bots.json 中记录对方的 bot
+                try:
+                    if bot_id:
+                        self._add_to_added_bots(from_instance, bot_id)
+                        print(f"[RemoteBot] 已记录添加的远程 bot: {from_instance}:{bot_id}")
+                except Exception as e:
+                    print(f"[RemoteBot] 记录 added_bots 失败（非阻塞）: {e}")
+
+                # 3. 通过 WS 通知对方（去中心化）
+                ws_sent = False
+                try:
+                    if self._registry_ws_client and self._registry_ws_client.is_connected:
+                        await self._registry_ws_client.send_to_instance(
+                            from_instance,
+                            {
+                                "type": "friend_accept",
+                                "from_instance": self.instance_id,
+                                "bot_id": bot_id,
+                                "public_key": self.crypto.get_public_key_pem()
+                            }
+                        )
+                        print(f"[RemoteBot] 已通过 WS 发送接受通知给 {from_instance}")
+                        ws_sent = True
+                except Exception as e:
+                    print(f"[RemoteBot] 发送好友接受通知失败（非阻塞）: {e}")
+
+                # 4. HTTP fallback：无论 WS 是否成功，都通过 HTTP 直接通知对方
+                #    因为 WS 发送可能成功但注册中心未实际转发，双通道确保可靠性
+                try:
+                    await self._notify_target_instance(
+                        from_instance,
+                        {
+                            "action": "add",
+                            "subscriber_instance_id": self.instance_id,
+                            "subscriber_instance_name": getattr(self.registry_client.instance_info, 'name', self.instance_id),
+                            "bot_id": bot_id
+                        }
+                    )
+                    print(f"[RemoteBot] 已通过 HTTP fallback 通知 {from_instance} 添加好友关系")
+                except Exception as e:
+                    print(f"[RemoteBot] HTTP fallback 通知失败（非阻塞）: {e}")
+
+            async def on_friend_removed(instance_id, bot_id):
+                """收到对方解除好友通知后的清理"""
+                try:
+                    # 清理 bot_subscribers.json
+                    self.remove_bot_subscriber(instance_id, bot_id or "")
+                    # 清理 added_bots.json
+                    self._remove_added_bot(instance_id, bot_id or "")
+                    print(f"[RemoteBot] 已自动清理 {instance_id} 的订阅/添加记录")
+                except Exception as e:
+                    print(f"[RemoteBot] 自动清理失败（非阻塞）: {e}")
+
+            self.friend_manager = FriendManager(
+                self.registry_client,
+                crypto=self.crypto,
+                base_workplace=self.base_workplace,
+                on_friend_accepted=on_friend_accepted,
+                on_friend_removed=on_friend_removed
+            )
 
             # 初始化 Docker 沙箱管理器（必须在 BotPublisher 之前）
             try:
@@ -365,27 +574,8 @@ class RemoteBotManager:
                             result = self.registry_client.send_heartbeat()
                         else:
                             print(f"[RemoteBot] 重新注册失败")
-                    # 处理心跳返回的好友列表（被对方接受的好友请求）
-                    if result and result.get("success") and self.friend_manager:
-                        # 同步 bot 级别好友
-                        friend_bots = result.get("friend_bots", {})
-                        for friend_instance_id, bot_ids in friend_bots.items():
-                            for bot_id in bot_ids:
-                                if bot_id == "__all__":
-                                    if not self.friend_manager.is_friend(friend_instance_id):
-                                        print(f"[RemoteBot] 心跳同步: 添加好友实例 {friend_instance_id}")
-                                        self.friend_manager.add_friend(friend_instance_id)
-                                elif not self.friend_manager.is_friend(friend_instance_id, bot_id):
-                                    print(f"[RemoteBot] 心跳同步: 添加好友 bot {friend_instance_id}:{bot_id}")
-                                    self.friend_manager.add_friend(friend_instance_id, bot_id)
-
-                        # 向后兼容：同步实例级别好友
-                        friends = result.get("friends", [])
-                        for friend_inst in friends:
-                            friend_id = friend_inst.get("instance_id")
-                            if friend_id and not self.friend_manager.is_friend(friend_id):
-                                print(f"[RemoteBot] 心跳同步: 添加好友实例 {friend_id}")
-                                self.friend_manager.add_friend(friend_id)
+                    # 注册中心不再返回好友关系（去中心化设计）
+                    # 好友关系由各实例本地管理，通过 WS 直接通信
             except Exception as e:
                 print(f"[RemoteBot] 心跳失败: {e}")
                 import traceback
@@ -540,9 +730,51 @@ class RemoteBotManager:
                     message_id=message_id
                 ))
 
+            elif payload_type == "friend_request_notification":
+                # 收到好友请求通知（注册中心转发）
+                print(f"[RemoteBot] 收到好友请求通知 from {from_instance}")
+                if self.friend_manager:
+                    self.friend_manager.receive_friend_request(payload)
+
+            elif payload_type == "friend_accept":
+                # 收到好友接受通知
+                print(f"[RemoteBot] 收到好友接受通知 from {from_instance}")
+                if self.friend_manager:
+                    self.friend_manager.receive_friend_accept(payload)
+                # 同步更新 added_bots.json（记录自己添加了对方的 bot）
+                try:
+                    bot_id = payload.get("bot_id", "")
+                    if bot_id:
+                        self._add_to_added_bots(from_instance, bot_id)
+                        print(f"[RemoteBot] 收到接受通知后已更新 added_bots: {from_instance}:{bot_id}")
+                except Exception as e:
+                    print(f"[RemoteBot] 更新 added_bots 失败（非阻塞）: {e}")
+
+            elif payload_type == "friend_remove":
+                # 收到好友解除通知
+                print(f"[RemoteBot] 收到好友解除通知 from {from_instance}")
+                if self.friend_manager:
+                    self.friend_manager.receive_friend_remove(payload)
+
     async def _handle_center_bot_call(self, from_instance: str, bot_id: str, method: str, params: dict, message_id: str):
         """处理中心转发模式的 bot 调用"""
         try:
+            # 检查好友关系（Bot 级别）
+            if self.friend_manager and not self.friend_manager.is_friend(from_instance, bot_id):
+                print(f"[RemoteBot] 拒绝调用: {from_instance} 不是 {bot_id} 的好友")
+                if self._registry_ws_client and self._registry_ws_client.is_connected:
+                    response_payload = {
+                        "type": "bot_response",
+                        "message_id": message_id,
+                        "result": {
+                            "success": False,
+                            "error": "NOT_FRIEND",
+                            "error_message": "对方已解除好友关系，无法发送消息"
+                        }
+                    }
+                    await self._registry_ws_client.send_to_instance(from_instance, response_payload)
+                return
+
             if not self._acp_mgr or not self._workspace_mgr:
                 raise Exception("Bot dependencies not set (acp_mgr, workspace_mgr)")
 
@@ -686,12 +918,14 @@ class RemoteBotManager:
                 "context_history": params.get("context_history", [])
             }
 
-            # 调用沙箱容器执行
+            # 调用沙箱容器执行（传入 ACP 配置以确保挂载正确）
+            from clawdboz.config import CONFIG
             result = await self._sandbox_mgr.execute_bot(
                 bot_id=bot_id,
                 method=method,
                 params=execute_params,
-                timeout=180
+                timeout=180,
+                acp_config=CONFIG.get("acp", {})
             )
 
             if result.get("success"):
@@ -744,6 +978,7 @@ class RemoteBotManager:
                 return None
 
             instance_id, remote_bot_id = parts
+            full_bot_id = f"{instance_id}:{remote_bot_id}"
 
             # 获取远程实例
             instance = self.discovered_instances.get(instance_id)
@@ -751,11 +986,14 @@ class RemoteBotManager:
                 print(f"[RemoteBot] 远程实例不存在: {instance_id}")
                 return None
 
-            # 检查是否是好友 (TEMPORARILY DISABLED FOR TESTING)
-            # if not instance.is_friend:
-            #     print(f"[RemoteBot] 实例不是好友: {instance_id}")
-            #     return None
-            print(f"[RemoteBot] WARNING: 跳过好友检查，允许与非好友实例通信")
+            # 检查本地是否还添加了这个 bot（调用方视角）
+            if not self._check_added_bot(instance_id, remote_bot_id):
+                print(f"[RemoteBot] 本地未添加该 bot: {full_bot_id}")
+                return {
+                    "success": False,
+                    "error": "NOT_ADDED",
+                    "error_message": "您尚未添加该 Bot，请先添加好友"
+                }
 
             # 获取或创建客户端
             client = self.remote_clients.get(instance_id)
@@ -794,6 +1032,23 @@ class RemoteBotManager:
                 chat_id=chat_id,
                 timeout=timeout
             )
+
+            # 检查是否被对方解除好友（NOT_SUBSCRIBED 来自直接 WS，NOT_FRIEND 来自中心转发）
+            if result and isinstance(result, dict):
+                remote_error = result.get("error", "")
+                if remote_error in ("NOT_SUBSCRIBED", "NOT_FRIEND"):
+                    print(f"[RemoteBot] 被对方解除好友: {full_bot_id} (error={remote_error})")
+                    # 从本地 added_bots.json 中删除
+                    self._remove_added_bot(instance_id, remote_bot_id)
+                    # 同时清理本地好友关系（如果还有的话）
+                    if self.friend_manager:
+                        self.friend_manager.remove_friend(instance_id, remote_bot_id)
+                    # 返回带明确提示的错误
+                    return {
+                        "success": False,
+                        "error": "NOT_FRIEND",
+                        "error_message": "对方已解除好友关系，无法发送消息"
+                    }
 
             return result
 
@@ -903,6 +1158,18 @@ class RemoteBotManager:
                 "description": getattr(bot, '_system_prompt', '')[:100]
             }
 
+        # 读取已添加的远程bot
+        added_bot_keys = set()
+        try:
+            remote_bots_file = Path(self.base_workplace) / ".remote" / "added_bots.json"
+            if remote_bots_file.exists():
+                import json
+                with open(remote_bots_file, 'r', encoding='utf-8') as f:
+                    added_bots_data = json.load(f)
+                added_bot_keys = set(added_bots_data.keys())
+        except Exception as e:
+            print(f"[RemoteBot] 读取已添加bot失败: {e}")
+
         # 实时从注册中心获取远程 Bot
         if self.registry_client:
             try:
@@ -942,7 +1209,9 @@ class RemoteBotManager:
                         "status": bot.get("status", "unknown"),
                         "last_seen": bot.get("last_seen", 0),
                         "registered_at": bot.get("registered_at", 0),
-                        "is_published": True
+                        "is_published": True,
+                        "is_added": full_bot_id in added_bot_keys,
+                        "is_friend": self.friend_manager.is_friend(instance_id, bot_id) if self.friend_manager else False
                     }
             except Exception as e:
                 print(f"[RemoteBot] 实时获取远程 Bot 失败: {e}")
@@ -950,65 +1219,48 @@ class RemoteBotManager:
         return all_bots
 
     async def get_friends(self) -> List[dict]:
-        """获取好友列表（Bot 级别，从注册中心同步最新状态）"""
-        print(f"[RemoteBot] get_friends called, friend_manager={self.friend_manager is not None}, registry_client={self.registry_client is not None}")
-        if not self.friend_manager or not self.registry_client:
+        """获取好友列表（Bot 级别，从本地内存读取）"""
+        print(f"[RemoteBot] get_friends called, friend_manager={self.friend_manager is not None}")
+        if not self.friend_manager:
             return []
 
-        # 从注册中心获取实例列表（包含 friend_bots）
-        try:
-            instances = await self.registry_client.discover()
-            print(f"[RemoteBot] discover returned {len(instances)} instances")
-            for inst in instances:
-                friend_bots = getattr(inst, 'friend_bots', [])
-                print(f"[RemoteBot]   - {inst.instance_id}: is_friend={inst.is_friend}, friend_bots={friend_bots}")
-        except Exception as e:
-            print(f"[RemoteBot] 从注册中心获取好友状态失败: {e}")
-            import traceback
-            traceback.print_exc()
-            instances = []
+        # 去中心化设计：好友关系只从本地 FriendManager 读取
+        friends = self.friend_manager.get_friends()
 
-        # 筛选好友（排除自己）
-        # 注意：不要在这里 add_friend 到本地缓存，get_friends 只是查询接口
-        # 本地缓存的更新应该在 accept_friend_request 和 remove_friend 中进行
+        # 补充实例信息和 bot 名称
         friend_list = []
-        for inst in instances:
-            if inst.instance_id == self.instance_id:
-                continue
+        for f in friends:
+            instance_id = f["instance_id"]
+            bot_id = f["bot_id"]
 
-            friend_bots = getattr(inst, 'friend_bots', [])
-            if friend_bots:
-                # Bot 级别好友
-                for bot_id in friend_bots:
-                    friend_list.append({
-                        "instance_id": inst.instance_id,
-                        "bot_id": bot_id,
-                        "instance_name": inst.name,
-                        "online": inst.is_online()
-                    })
-            elif inst.is_friend:
-                # 向后兼容：实例级别好友
-                friend_list.append({
-                    "instance_id": inst.instance_id,
-                    "bot_id": "__all__",
-                    "instance_name": inst.name,
-                    "online": inst.is_online()
-                })
+            # 从 discovered_instances 获取实例信息
+            instance = self.discovered_instances.get(instance_id)
+            instance_name = instance.name if instance else instance_id
+            online = instance.is_online() if instance else False
 
-        # 去重：相同 instance_id + bot_id 只保留一条
-        seen = set()
-        unique_friends = []
-        for f in friend_list:
-            key = (f["instance_id"], f["bot_id"])
-            if key not in seen:
-                seen.add(key)
-                unique_friends.append(f)
+            # 查找 bot 名称
+            bot_name = bot_id
+            if instance and bot_id and bot_id != "__all__":
+                for bot in instance.published_bots_info:
+                    if bot.get("bot_id") == bot_id:
+                        bot_name = bot.get("display_name") or bot_id
+                        break
+            elif bot_id == "__all__":
+                bot_name = "__all__（实例级别）"
 
-        print(f"[RemoteBot] get_friends returning {len(unique_friends)} unique friend entries")
-        return unique_friends
+            friend_list.append({
+                "instance_id": instance_id,
+                "bot_id": bot_id,
+                "bot_name": bot_name,
+                "instance_name": instance_name,
+                "online": online
+            })
+
+        print(f"[RemoteBot] get_friends returning {len(friend_list)} friend entries")
+        return friend_list
 
     async def get_bot_friends(self, instance_id: str, bot_id: str) -> List[dict]:
-        """获取添加了这个 bot 为好友的实例列表
+        """获取添加了这个 bot 为好友的实例列表（从本地读取）
 
         Args:
             instance_id: bot 所属实例 ID
@@ -1017,46 +1269,46 @@ class RemoteBotManager:
         Returns:
             好友实例列表
         """
-        if not self.registry_client:
-            print(f"[RemoteBot] registry_client is None, cannot get bot friends")
+        # 只查询本实例的 bot 订阅者
+        if instance_id != self.instance_id:
+            print(f"[RemoteBot] 只能查询本实例的 bot 好友列表")
             return []
 
-        try:
-            friends = await self.registry_client.get_bot_friends(instance_id, bot_id)
-            print(f"[RemoteBot] get_bot_friends({instance_id}:{bot_id}) returned {len(friends)} friends")
-            return friends
-        except Exception as e:
-            print(f"[RemoteBot] 获取 bot 好友列表失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return []
+        friends = self.get_bot_subscribers(bot_id)
+        print(f"[RemoteBot] get_bot_friends({instance_id}:{bot_id}) returned {len(friends)} friends from local")
+        return friends
 
     async def remove_friend(self, instance_id: str, bot_id: str = "") -> bool:
         """移除好友（支持 Bot 级别）
-
-        Args:
-            instance_id: 实例 ID
-            bot_id: Bot ID（为空则移除整个实例关系）
-
-        Returns:
-            是否移除成功
+        先删除本地密钥和关系，然后通过 WS 通知对方
         """
         if not self.friend_manager:
             return False
 
+        # 1. 删除本地密钥和好友关系
         self.friend_manager.remove_friend(instance_id, bot_id)
         print(f"[RemoteBot] 已移除本地好友: {instance_id}:{bot_id or 'all'}")
 
-        # 同步通知注册服务器移除好友关系
-        if self.registry_client:
+        # 2. 清理 bot_subscribers.json（对方订阅了我）
+        self.remove_bot_subscriber(instance_id, bot_id or "")
+
+        # 3. 清理 added_bots.json（我添加了对方的 bot）
+        self._remove_added_bot(instance_id, bot_id or "")
+
+        # 4. 通过 WS 通知对方（去中心化）
+        if self._registry_ws_client and self._registry_ws_client.is_connected:
             try:
-                result = await self.registry_client.remove_friend(instance_id, bot_id)
-                if result.get("success"):
-                    print(f"[RemoteBot] 已同步移除注册服务器好友关系: {instance_id}:{bot_id or 'all'}")
-                else:
-                    print(f"[RemoteBot] 同步移除注册服务器好友关系失败: {result}")
+                await self._registry_ws_client.send_to_instance(
+                    instance_id,
+                    {
+                        "type": "friend_remove",
+                        "from_instance": self.instance_id,
+                        "bot_id": bot_id
+                    }
+                )
+                print(f"[RemoteBot] 已通过 WS 通知 {instance_id} 解除好友")
             except Exception as e:
-                print(f"[RemoteBot] 同步移除注册服务器好友关系异常: {e}")
+                print(f"[RemoteBot] WS 通知解除好友失败（非阻塞）: {e}")
 
         return True
 
@@ -1073,7 +1325,10 @@ class RemoteBotManager:
                 "description": bot.description,
                 "enabled": bot.enabled,
                 "is_sandboxed": bot.is_sandboxed,
-                "requires_fs_access": bot.requires_fs_access
+                "requires_fs_access": bot.requires_fs_access,
+                "avatar_color": bot.avatar_color,
+                "avatar_icon": bot.avatar_icon,
+                "avatar_image": bot.avatar_image
             }
             for bot in published
         ]
@@ -1117,6 +1372,24 @@ class RemoteBotManager:
             import json
             with open(remote_bots_file, 'w', encoding='utf-8') as f:
                 json.dump(added_bots, f, indent=2, ensure_ascii=False)
+
+            # 向目标实例发送订阅通知（去中心化）
+            try:
+                notified = await self._notify_target_instance(
+                    instance_id,
+                    {
+                        "action": "add",
+                        "subscriber_instance_id": self.instance_id,
+                        "subscriber_instance_name": self.instance_info.get("name", self.instance_id),
+                        "bot_id": bot_id
+                    }
+                )
+                if notified:
+                    print(f"[RemoteBot] 已通知目标实例: {full_bot_id}")
+                else:
+                    print(f"[RemoteBot] 通知目标实例失败（非阻塞）: {full_bot_id}")
+            except Exception as e:
+                print(f"[RemoteBot] 通知目标实例异常（非阻塞）: {e}")
 
             print(f"[RemoteBot] 成功添加远程Bot: {full_bot_id}")
             return True
@@ -1235,6 +1508,65 @@ class RemoteBotManager:
             traceback.print_exc()
             return []
 
+    def _check_added_bot(self, instance_id: str, bot_id: str) -> bool:
+        """检查本地 added_bots.json 中是否包含指定的远程Bot"""
+        try:
+            remote_bots_file = Path(self.base_workplace) / ".remote" / "added_bots.json"
+            if not remote_bots_file.exists():
+                return False
+
+            import json
+            with open(remote_bots_file, 'r', encoding='utf-8') as f:
+                added_bots = json.load(f)
+
+            full_bot_id = f"{instance_id}:{bot_id}"
+            return full_bot_id in added_bots
+
+        except Exception as e:
+            print(f"[RemoteBot] 检查 added_bots 失败: {e}")
+            return False
+
+    def _remove_added_bot(self, instance_id: str, bot_id: str):
+        """从本地 added_bots.json 中删除已添加的远程Bot。如果 bot_id 为空，则删除该实例的所有 bot"""
+        try:
+            remote_bots_file = Path(self.base_workplace) / ".remote" / "added_bots.json"
+            if not remote_bots_file.exists():
+                return
+
+            with open(remote_bots_file, 'r', encoding='utf-8') as f:
+                added_bots = json.load(f)
+
+            removed_any = False
+            if bot_id:
+                full_bot_id = f"{instance_id}:{bot_id}"
+                if full_bot_id in added_bots:
+                    del added_bots[full_bot_id]
+                    removed_any = True
+                    print(f"[RemoteBot] 已删除 added_bots.json 中的: {full_bot_id}")
+            else:
+                # bot_id 为空，删除该实例下的所有 bot
+                keys_to_remove = [k for k in added_bots.keys() if k.startswith(f"{instance_id}:")]
+                for k in keys_to_remove:
+                    del added_bots[k]
+                    removed_any = True
+                if keys_to_remove:
+                    print(f"[RemoteBot] 已删除 added_bots.json 中的: {keys_to_remove}")
+
+            if removed_any:
+                with open(remote_bots_file, 'w', encoding='utf-8') as f:
+                    json.dump(added_bots, f, indent=2, ensure_ascii=False)
+
+            # 同时从 discovered_instances 的 is_friend 标记中清除
+            instance = self.discovered_instances.get(instance_id)
+            if instance:
+                instance.is_friend = False
+                print(f"[RemoteBot] 已清除实例 {instance_id} 的好友标记")
+
+        except Exception as e:
+            print(f"[RemoteBot] 删除 added_bots 失败: {e}")
+            import traceback
+            traceback.print_exc()
+
     async def handle_remote_ws(self, websocket):
         """
         Handle incoming WebSocket connection from a remote instance
@@ -1261,8 +1593,41 @@ class RemoteBotManager:
                     method = data.get("method")
                     params = data.get("params", {})
                     message_id = data.get("message_id")
+                    from_instance = data.get("from_instance", "")
 
-                    print(f"[RemoteBot] 调用本地Bot: bot_id={bot_id}, method={method}")
+                    print(f"[RemoteBot] 调用本地Bot: bot_id={bot_id}, method={method}, from={from_instance}")
+
+                    # 检查好友关系（Bot 级别）
+                    if self.friend_manager and not self.friend_manager.is_friend(from_instance, bot_id or ""):
+                        print(f"[RemoteBot] 拒绝调用: {from_instance} 不是 {bot_id} 的好友")
+                        error_response = {
+                            "type": "bot_response",
+                            "message_id": message_id,
+                            "result": {
+                                "success": False,
+                                "error": "NOT_FRIEND",
+                                "error_message": "对方已解除好友关系，无法发送消息"
+                            }
+                        }
+                        await websocket.send_json(error_response)
+                        continue
+
+                    # 检查调用方是否还在订阅者列表中（兼容旧逻辑）
+                    if from_instance and bot_id:
+                        subscribers = self.bot_subscribers.get(bot_id, {})
+                        if from_instance not in subscribers:
+                            print(f"[RemoteBot] 拒绝调用: {from_instance} 不在 {bot_id} 的订阅者列表中")
+                            error_response = {
+                                "type": "bot_response",
+                                "message_id": message_id,
+                                "result": {
+                                    "success": False,
+                                    "error": "NOT_SUBSCRIBED",
+                                    "error_message": "对方已解除好友关系，无法发送消息"
+                                }
+                            }
+                            await websocket.send_json(error_response)
+                            continue
 
                     try:
                         # Check dependencies

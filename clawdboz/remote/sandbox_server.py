@@ -103,7 +103,31 @@ def _execute_bot(bot_id: str, method: str, message: str, chat_id: str) -> dict:
 
         # 修复：从 bot 配置中读取 system_prompt
         system_prompt = config.get("system_prompt", "") or config.get("bio", "")
-        print(f"[SandboxServer] Bot '{bot_id}' system_prompt: {system_prompt[:50]}...")
+
+        # 如果 bot 未注册（沙箱重启后），尝试从 workplace 的 .bot.md 动态加载
+        if not system_prompt:
+            bot_md_path = f"/workplace/workplace_{bot_id}/.bot.md"
+            if os.path.exists(bot_md_path):
+                try:
+                    with open(bot_md_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    name = ""
+                    bio = ""
+                    for line in content.split("\n"):
+                        if line.startswith("Name:"):
+                            name = line[5:].strip()
+                        elif line.startswith("Bio:"):
+                            bio = line[4:].strip()
+                    if name:
+                        if bio and len(bio) >= 20 and "skill" not in bio.lower():
+                            system_prompt = f"你是{name}。{bio}。请始终以{name}的身份回答用户的问题。"
+                        else:
+                            system_prompt = f"你是{name}。请始终以{name}的身份回答用户的问题。"
+                        print(f"[SandboxServer] 从 .bot.md 动态加载 {bot_id} system_prompt")
+                except Exception as e:
+                    print(f"[SandboxServer] 读取 .bot.md 失败: {e}")
+
+        print(f"[SandboxServer] Bot '{bot_id}' system_prompt: {system_prompt[:50] if system_prompt else '(empty)'}...")
 
         # 如果有 ACP 配置，注入到环境变量或全局 CONFIG
         if acp_config:

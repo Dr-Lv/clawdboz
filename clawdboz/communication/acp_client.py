@@ -2,6 +2,7 @@
 """ACP 客户端模块 - Kimi Code CLI ACP 协议通信"""
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -49,6 +50,23 @@ class ACPClient:
             Logger.log(log_msg, self._bot_ref.log_file)
         else:
             Logger.log(log_msg)
+
+    def _filter_thinking_from_text(self, text: str) -> str:
+        """从文本中过滤掉模型输出的 thinking 标签
+
+        当 include_thinking_in_result=False 时调用，防止模型在消息正文中
+        输出 thinking 内容（如 <thinking>...</thinking>）。
+        """
+        if not text:
+            return text
+        original_len = len(text)
+        # 过滤 <thinking>...</thinking> 标签（包括带属性的）
+        text = re.sub(r'<thinking\b[^>]*>.*?</thinking>', '', text, flags=re.DOTALL)
+        # 过滤 ```thinking ... ``` 代码块
+        text = re.sub(r'```\s*thinking\s*\n.*?```', '', text, flags=re.DOTALL)
+        if len(text) != original_len:
+            self._log(f"[过滤] 移除了消息中的 thinking 标签，原长度: {original_len}, 新长度: {len(text)}")
+        return text.strip()
 
     def _initialize(self):
         """初始化 ACP 连接，自动加载项目目录下的 MCP 配置和 skills"""
@@ -1070,7 +1088,11 @@ class ACPClient:
         """
         # OpenClaw 模式
         if self._use_openclaw and self._openclaw_client:
-            response = self._openclaw_client.chat(message, on_thinking=on_thinking, timeout=timeout)
+            # 当 thinking 不应包含在结果中时，不传 on_thinking 回调
+            oc_on_thinking = on_thinking if include_thinking_in_result else None
+            response = self._openclaw_client.chat(message, on_thinking=oc_on_thinking, timeout=timeout)
+            if not include_thinking_in_result and response:
+                response = self._filter_thinking_from_text(response)
             if on_chunk:
                 on_chunk(response)
             return response
@@ -1078,6 +1100,8 @@ class ACPClient:
         # WebSocket 模式 - simplified version
         if self._use_websocket and self._websocket_client:
             response = self._websocket_client.chat(message, timeout=timeout)
+            if not include_thinking_in_result and response:
+                response = self._filter_thinking_from_text(response)
             if on_chunk:
                 on_chunk(response)
             return response
@@ -1311,8 +1335,11 @@ class ACPClient:
                     combined_parts = []
                     if tools_text:
                         combined_parts.append(tools_text)
-                    if message_text:
-                        combined_parts.append(message_text)
+                    display_message = message_text
+                    if not include_thinking_in_result and display_message:
+                        display_message = self._filter_thinking_from_text(display_message)
+                    if display_message:
+                        combined_parts.append(display_message)
 
                     callback_data = '\n\n'.join(combined_parts) if combined_parts else ''
                     
@@ -1464,8 +1491,11 @@ class ACPClient:
             combined_parts.append(f"💭 **思考过程**\n```\n{thinking_text}\n```")
         if tools_text:
             combined_parts.append(tools_text)
-        if message_text:
-            combined_parts.append(message_text)
+        final_message = message_text
+        if not include_thinking_in_result and final_message:
+            final_message = self._filter_thinking_from_text(final_message)
+        if final_message:
+            combined_parts.append(final_message)
 
         reply = '\n\n'.join(combined_parts)
         

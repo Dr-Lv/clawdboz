@@ -33,7 +33,7 @@ class RegistryClient:
         self.session: Optional[aiohttp.ClientSession] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._running = False
-        self._ssl = False
+        self._ssl = self.registry_url.startswith("https://")
 
     async def __aenter__(self):
         """异步上下文管理器入口"""
@@ -167,7 +167,8 @@ class RegistryClient:
         message: str = "",
         request_id: str = None,
         to_bot_id: str = "",
-        from_bot_id: str = ""
+        from_bot_id: str = "",
+        from_public_key: str = ""
     ) -> dict:
         """
         发送好友请求（同步版本，避免 aiohttp 上下文问题）
@@ -194,6 +195,7 @@ class RegistryClient:
             "from_bot_id": from_bot_id,
             "to_bot_id": to_bot_id,
             "from_token": self.instance_info["token"],
+            "from_public_key": from_public_key,
             "message": message
         }
 
@@ -238,8 +240,8 @@ class RegistryClient:
 
         try:
             # 创建新的 session 避免超时上下文管理器问题
-            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-                async with session.post(url, json=payload, ssl=False) as resp:
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl)) as session:
+                async with session.post(url, json=payload, ssl=self._ssl) as resp:
                     if resp.status != 200:
                         print(f"[Registry] 好友确认失败: {resp.status}")
                         return {"success": False}
@@ -272,8 +274,8 @@ class RegistryClient:
         }
 
         try:
-            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-                async with session.post(url, json=payload, ssl=False) as resp:
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl)) as session:
+                async with session.post(url, json=payload, ssl=self._ssl) as resp:
                     if resp.status != 200:
                         print(f"[Registry] 移除好友失败: {resp.status}")
                         return {"success": False}
@@ -300,8 +302,8 @@ class RegistryClient:
                 return []
 
             # 创建新的 session 避免超时上下文管理器问题
-            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-                async with session.get(url, params={"instance_id": instance_id}, ssl=False) as resp:
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl)) as session:
+                async with session.get(url, params={"instance_id": instance_id}, ssl=self._ssl) as resp:
                     if resp.status != 200:
                         print(f"[Registry] 获取好友请求失败: HTTP {resp.status}")
                         return []
@@ -335,8 +337,8 @@ class RegistryClient:
                 print(f"[Registry] Session is None, cannot get bot friends")
                 return []
 
-            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-                async with session.get(url, params={"instance_id": instance_id, "bot_id": bot_id}, ssl=False) as resp:
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl)) as session:
+                async with session.get(url, params={"instance_id": instance_id, "bot_id": bot_id}, ssl=self._ssl) as resp:
                     if resp.status != 200:
                         print(f"[Registry] 获取 bot 好友列表失败: HTTP {resp.status}")
                         return []
@@ -351,6 +353,49 @@ class RegistryClient:
             import traceback
             traceback.print_exc()
             return []
+
+    async def subscribe_bot(self, subscriber_instance: str, target_instance: str, target_bot_id: str, subscriber_bot_id: str = "") -> dict:
+        """
+        向注册服务器上报订阅了某个 bot
+
+        Args:
+            subscriber_instance: 订阅者实例 ID
+            target_instance: 目标 bot 所属实例 ID
+            target_bot_id: 目标 bot ID
+            subscriber_bot_id: 订阅者使用的本地 bot ID
+
+        Returns:
+            订阅结果
+        """
+        url = f"{self.registry_url}/api/registry/subscribe-bot"
+
+        try:
+            if self.session is None:
+                print(f"[Registry] Session is None, cannot subscribe bot")
+                return {"success": False, "error": "Session is None"}
+
+            payload = {
+                "subscriber_instance": subscriber_instance,
+                "target_instance": target_instance,
+                "target_bot_id": target_bot_id,
+                "subscriber_bot_id": subscriber_bot_id
+            }
+
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl)) as session:
+                async with session.post(url, json=payload, ssl=self._ssl) as resp:
+                    if resp.status != 200:
+                        print(f"[Registry] 订阅 bot 失败: HTTP {resp.status}")
+                        return {"success": False, "error": f"HTTP {resp.status}"}
+
+                    data = await resp.json()
+                    print(f"[Registry] 订阅 bot 成功: {target_instance}:{target_bot_id}")
+                    return data
+
+        except Exception as e:
+            print(f"[Registry] 订阅 bot 异常: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "error": str(e)}
 
     async def start_heartbeat(self, interval: int = 30):
         """

@@ -8,7 +8,7 @@
 
 **Clawdboz**（中文：嗑唠的宝子）是一个基于 Kimi Code CLI 的智能多 Bot 协作平台。
 
-- **版本**: 2.7.5
+- **版本**: 5.0.0
 - **语言**: Python 3.9+（后端）+ 纯 HTML/JS 单页应用（前端）
 - **许可证**: MIT
 - **核心能力**: 本地 Bot 管理、远程 Bot 发现/调用、群聊协作、飞书集成、Docker 沙箱隔离
@@ -73,7 +73,8 @@ clawdboz/                       # Python 包
 └── utils/                      # 工具
     └── logger.py
 
-registry_server.py              # 注册中心（独立部署）
+registry_server.py              # ❌ 本地已删除，源码在中心服务器 /root/code/clawdboz-server/registry_server.py
+                                # 修改 Registry 代码时，SSH 到 8.136.150.62 直接编辑中心服务器版本
 web_server.py                   # Web Chat 入口（加载本地 bots）
 bot0.py                         # 飞书 Bot 入口
 tests/                          # 测试
@@ -144,7 +145,7 @@ python tests/test_web_server.py    # Web 服务测试
 ```bash
 rm -rf build/ dist/ *.egg-info
 python3 -m build
-# 产出: dist/clawdboz-2.7.5-py3-none-any.whl
+# 产出: dist/clawdboz-5.0.0-py3-none-any.whl
 ```
 
 ### 部署
@@ -180,12 +181,12 @@ python3 -m build
 ### 2. 头像同步机制
 
 ```
-Host1 .bot.md → _read_bot_avatar() → heartbeat → Registry (avatar_url)
+Host1 .bot.md → _read_bot_avatar() → heartbeat → Registry (avatar_color/avatar_icon/avatar_image)
   → 本地 discovery → remote_bot_cache → get_added_remote_bots() → /api/bots
   → 前端 bots 数组
 ```
 
-- Registry 存储字段名为 `avatar_url`，本地代码统一转换为 `avatar_image`。
+- Registry 存储字段名为 `avatar_color` / `avatar_icon` / `avatar_image`。
 - 无自定义头像的 Bot 默认清空 color/icon，前端走哈希预设生成不同颜色。
 
 ### 3. 两个 API 的区别
@@ -209,15 +210,17 @@ Host1 .bot.md → _read_bot_avatar() → heartbeat → Registry (avatar_url)
 
 1. **三份代码库风险**: git repo (`/root/code/clawdboz/`) ≠ 运行时 (`/opt/clawdboz-instance/`) ≠ pip 安装路径 (`/usr/lib/python3.11/site-packages/clawdboz/`)。修改后务必确认运行时加载的是正确路径的代码。重启是最安全的验证方式。
 
-2. **Python 模块缓存**: 修改 `.py` 文件后，已运行的进程不会自动加载新代码。必须重启 `web_server.py`。
+2. **Registry 源码位置**: 注册中心主源码在中心服务器 (`8.136.150.62`) 的 `/root/code/clawdboz-server/registry_server.py`。**本地已删除该文件**，不再保留副本。任何 Registry 修改必须 SSH 到中心服务器直接执行，切勿在本地创建同名文件后误部署。
 
-3. **`added_bots.json` 过期**: 远程实例下架 bot 后，本地 `added_bots.json` 不会自动清理，导致 `/api/bots` 返回幽灵记录。
+3. **Python 模块缓存**: 修改 `.py` 文件后，已运行的进程不会自动加载新代码。必须重启 `web_server.py`。
 
-4. **前端缓存**: `index.html` 可能被浏览器缓存。强制刷新（Ctrl+Shift+R）或检查文件修改时间。
+4. **`added_bots.json` 过期**: 远程实例下架 bot 后，本地 `added_bots.json` 不会自动清理，导致 `/api/bots` 返回幽灵记录。
 
-5. **Docker 沙箱端口**: 沙箱容器映射 `18443:18443`。如果容器启动慢，健康检查会失败重试（最多 3 次创建容器）。
+5. **前端缓存**: `index.html` 可能被浏览器缓存。强制刷新（Ctrl+Shift+R）或检查文件修改时间。
 
-6. **Registry WS 单连接**: 同一 `instance_id` 重复连接会导致旧连接被踢（close code 4009）。不要同时运行 systemd 服务和手动进程。
+6. **Docker 沙箱端口**: 沙箱容器映射 `18443:18443`。如果容器启动慢，健康检查会失败重试（最多 3 次创建容器）。
+
+7. **Registry WS 单连接**: 同一 `instance_id` 重复连接会导致旧连接被踢（close code 4009）。不要同时运行 systemd 服务和手动进程。
 
 ---
 

@@ -813,6 +813,11 @@ class LarkBot(BotBase):
                         if isinstance(msg, dict):
                             sender = msg.get('sender', 'unknown')
                             content = msg.get('content', '')
+                            # 过滤历史记录中的 thinking 内容
+                            if content:
+                                content = re.sub(r'💭\s*\*\*思考过程\*\*\s*```[\s\S]*?```\s*\n*', '', content)
+                                content = re.sub(r'<thinking\b[^>]*>[\s\S]*?</thinking>\s*\n*', '', content)
+                                content = content.strip()
                             context_parts.append(f"{sender}: {content}")
                     context_prompt = "\n".join(context_parts) + "\n\n"
                 
@@ -1034,6 +1039,11 @@ class LarkBot(BotBase):
                     if isinstance(msg, dict):
                         sender = msg.get('sender', 'unknown')
                         content = msg.get('content', '')
+                        # 过滤历史记录中的 thinking 内容
+                        if content:
+                            content = re.sub(r'💭\s*\*\*思考过程\*\*\s*```[\s\S]*?```\s*\n*', '', content)
+                            content = re.sub(r'<thinking\b[^>]*>[\s\S]*?</thinking>\s*\n*', '', content)
+                            content = content.strip()
                         context_parts.append(f"{sender}: {content}")
                     else:
                         context_parts.append(str(msg))
@@ -1436,6 +1446,11 @@ class LarkBot(BotBase):
                     for msg in history[-10:]:  # 最近10条
                         sender = msg.get('sender', 'unknown')
                         content = msg.get('content', '')
+                        # 过滤历史记录中的 thinking 内容
+                        if content:
+                            content = re.sub(r'💭\s*\*\*思考过程\*\*\s*```[\s\S]*?```\s*\n*', '', content)
+                            content = re.sub(r'<thinking\b[^>]*>[\s\S]*?</thinking>\s*\n*', '', content)
+                            content = content.strip()
                         context_prompt += f"{sender}: {content}\n"
                     context_prompt += "\n"
 

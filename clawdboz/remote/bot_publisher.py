@@ -21,6 +21,9 @@ class PublishedBot:
     capabilities: List[str]  # 能力列表
     is_sandboxed: bool  # 是否沙箱运行
     requires_fs_access: bool = False  # 是否需要文件访问
+    avatar_color: str = ""  # 头像颜色
+    avatar_icon: str = ""  # 头像图标
+    avatar_image: str = ""  # 头像图片 URL
     created_at: float = field(default_factory=time.time)
     enabled: bool = True  # 是否启用
 
@@ -144,6 +147,9 @@ class BotPublisher:
         if not display_name:
             raise ValueError("display_name 不能为空")
 
+        # 从 .bot.md 读取头像信息
+        avatar = self._read_bot_avatar(bot_id)
+
         # 创建 PublishedBot
         published_bot = PublishedBot(
             bot_id=bot_id,
@@ -152,7 +158,10 @@ class BotPublisher:
             description=description,
             capabilities=capabilities or [],
             is_sandboxed=is_sandboxed,
-            requires_fs_access=requires_fs_access
+            requires_fs_access=requires_fs_access,
+            avatar_color=avatar["avatar_color"],
+            avatar_icon=avatar["avatar_icon"],
+            avatar_image=avatar["avatar_image"]
         )
 
         # 添加到发布列表
@@ -223,10 +232,11 @@ class BotPublisher:
                 "system_prompt": system_prompt,
                 "bio": system_prompt
             }
+            from clawdboz.config import CONFIG
             await self._sandbox_mgr.register_bot(
                 bot_id=published_bot.bot_id,
                 config=bot_config,
-                acp_config={}  # TODO: 从 acp_mgr 获取实际配置
+                acp_config=CONFIG.get("acp", {})
             )
         except Exception as e:
             print(f"[BotPublisher] 沙箱注册异常: {e}")
@@ -341,6 +351,12 @@ class BotPublisher:
             # 构建完整的 bot 信息列表（包含最新头像信息）
             published_bots_info = []
             for bot in enabled_bots:
+                # 从 .bot.md 读取最新头像信息并更新 PublishedBot 对象
+                avatar = self._read_bot_avatar(bot.bot_id)
+                bot.avatar_color = avatar["avatar_color"]
+                bot.avatar_icon = avatar["avatar_icon"]
+                bot.avatar_image = avatar["avatar_image"]
+
                 bot_info = {
                     "bot_id": bot.bot_id,
                     "display_name": bot.display_name,
@@ -349,10 +365,11 @@ class BotPublisher:
                     "is_sandboxed": bot.is_sandboxed,
                     "requires_fs_access": bot.requires_fs_access
                 }
-                # 从 .bot.md 读取最新头像信息
-                avatar = self._read_bot_avatar(bot.bot_id)
                 bot_info.update(avatar)
                 published_bots_info.append(bot_info)
+
+            # 保存更新后的头像信息
+            self._save_published_bots()
 
             # 更新实例信息中的 published_bots 字段
             if hasattr(self.registry_client, 'instance_info'):

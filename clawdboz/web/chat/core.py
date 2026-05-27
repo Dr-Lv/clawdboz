@@ -9,6 +9,7 @@ Chat Core - 核心聊天功能模块
 import asyncio
 import json
 import os
+import re
 import time
 import uuid
 from typing import Dict, List, Optional, Callable
@@ -265,7 +266,8 @@ class ChatCore:
                 return response_content
             else:
                 if result:
-                    error_msg = result.get("error", "远程 Bot 调用失败")
+                    # 优先使用友好的错误消息，回退到错误码
+                    error_msg = result.get("error_message") or result.get("error", "远程 Bot 调用失败")
                 else:
                     error_msg = "远程 Bot 无响应（可能离线或网络不通），消息已加入注册服务器队列，远程实例上线后将自动处理"
                 await send_chunk(f"Error: {error_msg}")
@@ -660,6 +662,12 @@ class ChatCore:
         for msg in history[-self._max_history:]:
             sender = msg.get('sender', 'unknown')
             content = msg.get('content', '')
+
+            # 过滤历史记录中的 thinking 内容，避免模型被引导输出 thinking
+            if content:
+                content = re.sub(r'💭\s*\*\*思考过程\*\*\s*```[\s\S]*?```\s*\n*', '', content)
+                content = re.sub(r'<thinking\b[^>]*>[\s\S]*?</thinking>\s*\n*', '', content)
+                content = content.strip()
 
             if sender == "user":
                 context_parts.append(f"用户: {content}")

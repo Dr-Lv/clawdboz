@@ -451,31 +451,34 @@ def setup_session_meta_routes(server: "WebChatServer"):
             # 群聊目录: groupspace/g_[chat_id]/
             deleted_dirs = []
 
-            for bot_id in bots.keys():
+            for entry in os.listdir(base_workplace):
+                if not entry.startswith('workplace_') or entry == 'workplace_system':
+                    continue
+                bot_work_dir = os.path.join(base_workplace, entry)
+                if not os.path.isdir(bot_work_dir):
+                    continue
+                bot_id = entry[len('workplace_'):]
+
                 # 尝试删除单聊 session 目录
-                session_dir = os.path.join(
-                    base_workplace,
-                    f"workplace_{bot_id}",
-                    f"w_{chat_id}"
-                )
+                session_dir = os.path.join(bot_work_dir, f"w_{chat_id}")
                 if os.path.exists(session_dir):
                     shutil.rmtree(session_dir)
                     deleted_dirs.append(session_dir)
 
                 # 尝试删除群聊 session 目录 (g_ 前缀) - 可能是软链接
-                group_session_dir = os.path.join(
-                    base_workplace,
-                    f"workplace_{bot_id}",
-                    f"g_{chat_id}"
-                )
+                group_session_dir = os.path.join(bot_work_dir, f"g_{chat_id}")
                 if os.path.islink(group_session_dir):
-                    # 软链接直接删除链接本身
                     os.remove(group_session_dir)
                     deleted_dirs.append(group_session_dir)
                 elif os.path.exists(group_session_dir):
-                    # 普通目录才使用 rmtree
                     shutil.rmtree(group_session_dir)
                     deleted_dirs.append(group_session_dir)
+
+                # 尝试删除飞书 session 目录 (f_ 前缀)
+                feishu_session_dir = os.path.join(bot_work_dir, f"f_{chat_id}")
+                if os.path.exists(feishu_session_dir):
+                    shutil.rmtree(feishu_session_dir)
+                    deleted_dirs.append(feishu_session_dir)
 
             # 删除 workplace_system 中可能存在的错误数据
             system_session_dir = os.path.join(

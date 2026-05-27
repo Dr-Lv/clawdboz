@@ -88,24 +88,109 @@ def setup_remote_routes(server: "WebChatServer"):
         return {"success": True, "bots": list(all_bots.values())}
 
     @router.get("/bot-friends")
-    async def get_bot_friends(instance_id: str = Query(...), bot_id: str = Query(...)):
+    async def get_bot_friends(bot_id: str = Query(...), instance_id: str = Query("")):
         """
-        获取添加了这个 bot 为好友的实例列表
+        获取添加了这个 bot 为好友的实例列表（从本地读取）
 
         Args:
-            instance_id: bot 所属实例 ID
-            bot_id: bot ID
+            bot_id: bot ID（必需）
+            instance_id: bot 所属实例 ID（不传则默认本实例）
 
         Returns:
             好友实例列表
         """
         remote_mgr = get_remote_manager()
         try:
-            friends = await remote_mgr.get_bot_friends(instance_id, bot_id)
+            actual_instance_id = instance_id or remote_mgr.instance_id
+            friends = await remote_mgr.get_bot_friends(actual_instance_id, bot_id)
             return {"success": True, "friends": friends}
         except Exception as e:
             print(f"[API] 获取 bot 好友列表失败: {e}")
             return {"success": False, "error": str(e), "friends": []}
+
+    @router.post("/subscribe-notification")
+    async def subscribe_notification(request: dict):
+        """
+        接收其他实例的订阅/解除通知（去中心化）
+
+        Args:
+            request: {"action": "add"|"remove", "subscriber_instance_id": ..., "subscriber_instance_name": ..., "bot_id": ...}
+
+        Returns:
+            处理结果
+        """
+        remote_mgr = get_remote_manager()
+        try:
+            action = request.get("action")
+            subscriber_id = request.get("subscriber_instance_id")
+            subscriber_name = request.get("subscriber_instance_name", subscriber_id)
+            bot_id = request.get("bot_id")
+
+            if not all([action, subscriber_id, bot_id]):
+                raise HTTPException(status_code=400, detail="Missing required fields")
+
+            if action == "add":
+                remote_mgr.add_bot_subscriber(subscriber_id, subscriber_name, bot_id)
+                # 双向添加：对方订阅了我，我也自动添加对方的 bot
+                remote_mgr._add_to_added_bots(subscriber_id, bot_id)
+                # FIX: 同时建立好友关系（HTTP fallback 路径，确保 WS 通知丢失时也能建立关系）
+                if remote_mgr.friend_manager:
+                    remote_mgr.friend_manager.add_friend(subscriber_id, bot_id)
+                    print(f"[RemoteRoutes] subscribe-notification add: 已建立好友关系 {subscriber_id}:{bot_id}")
+                return {"success": True, "message": f"{subscriber_id} 已订阅 {bot_id}"}
+            elif action == "remove":
+                remote_mgr.remove_bot_subscriber(subscriber_id, bot_id)
+                # FIX: 同时清理 added_bots.json，确保通讯录同步
+                remote_mgr._remove_added_bot(subscriber_id, bot_id)
+                return {"success": True, "message": f"{subscriber_id} 已取消订阅 {bot_id}"}
+            else:
+                raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"[API] 处理订阅通知失败: {e}")
+            return {"success": False, "error": str(e)}
+
+    @router.post("/remove-bot-subscriber")
+    async def remove_bot_subscriber(request: dict):
+        """
+        解除某个实例对本 bot 的订阅（被订阅方主动解除）
+
+        Args:
+            request: {"instance_id": ..., "bot_id": ...}
+
+        Returns:
+            解除结果
+        """
+        remote_mgr = get_remote_manager()
+        try:
+            instance_id = request.get("instance_id")
+            bot_id = request.get("bot_id")
+            if not instance_id or not bot_id:
+                raise HTTPException(status_code=400, detail="Missing instance_id or bot_id")
+
+            # FIX: 彻底解除好友关系（清理 friends + subscribers + added_bots + 发送 friend_remove 通知）
+            await remote_mgr.remove_friend(instance_id, bot_id)
+
+            # 兼容旧协议：同时通知对方实例（从对方的 added_bots.json 中移除）
+            try:
+                await remote_mgr._notify_target_instance(
+                    instance_id,
+                    {
+                        "action": "remove",
+                        "subscriber_instance_id": remote_mgr.instance_id,
+                        "bot_id": bot_id
+                    }
+                )
+            except Exception as e:
+                print(f"[RemoteRoutes] _notify_target_instance 失败（非阻塞）: {e}")
+
+            return {"success": True}
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"[API] 解除 bot 订阅者失败: {e}")
+            return {"success": False, "error": str(e)}
 
     @router.post("/publish")
     async def publish_bot(request: PublishBotRequest):
@@ -334,7 +419,7 @@ def setup_remote_routes(server: "WebChatServer"):
             好友请求列表
         """
         remote_mgr = get_remote_manager()
-        requests = await remote_mgr.friend_manager.get_pending_requests()
+        requests = remote_mgr.friend_manager.get_pending_requests()
 
         return {
             "success": True,

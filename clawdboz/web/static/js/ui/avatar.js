@@ -182,7 +182,7 @@
                     </div>
                     <div class="contacts-detail-name">${bot.name || bot.id}</div>
                     <div class="contacts-detail-id">ID: ${bot.id}</div>
-                    ${bot.bio ? `<div style="text-align: center; color: var(--text-secondary); font-size: 14px; margin: 12px 20px; line-height: 1.5;">${bot.bio}</div>` : ''}
+                    ${bot.bio ? `<div style="text-align: left; color: var(--text-secondary); font-size: 14px; margin: 12px 20px; line-height: 1.5; word-break: break-word; overflow-wrap: break-word;">${bot.bio}</div>` : ''}
                     
                     ${skills.length > 0 ? `
                     <div class="contacts-detail-section" style="margin-top: 20px;">

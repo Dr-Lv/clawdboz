@@ -1,6 +1,6 @@
 # 嗑唠的宝子 (Clawdboz) - 多 Bot 智能协作平台
 
-[![Version](https://img.shields.io/badge/version-2.7.5-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-5.0.0-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](#)
 
