@@ -17,7 +17,7 @@ from ..utils.logger import Logger
 class ACPClient:
     """通用 ACP 客户端 - 自动检测并支持 stdin/stdout 和 WebSocket 两种协议"""
     
-    def __init__(self, bot_ref=None, session_work_dir=None, bot_work_dir=None, system_prompt=None, acp_client_id=None):
+    def __init__(self, bot_ref=None, session_work_dir=None, bot_work_dir=None, system_prompt=None, acp_client_id=None, thinking_mode=True):
         self.process = None
         self.response_map = {}
         self.notifications = []
@@ -25,6 +25,7 @@ class ACPClient:
         self._reader_thread = None
         self._bot_ref = bot_ref  # 保存 bot 引用，用于日志
         self._cancelled = False  # 取消标志
+        self._thinking_mode = thinking_mode  # thinking 模式开关
 
         # Web 界面支持的可选参数
         self._session_work_dir = session_work_dir  # 会话级工作目录
@@ -166,7 +167,15 @@ class ACPClient:
             else:
                 cmd_args = ['acp']  # 默认使用 'acp' 子命令
 
-        cmd = [executable] + cmd_args
+        # 根据 thinking_mode 添加 --thinking 或 --no-thinking 参数
+        thinking_args = []
+        if hasattr(self, '_thinking_mode') and self._thinking_mode is not None:
+            if self._thinking_mode:
+                thinking_args.append('--thinking')
+            else:
+                thinking_args.append('--no-thinking')
+
+        cmd = [executable] + thinking_args + cmd_args
         self._log(f"[ACP] 执行命令: {' '.join(cmd)}")
 
         self.process = subprocess.Popen(
@@ -1075,6 +1084,18 @@ class ACPClient:
         self._log(f"请求超时: {method}")
         return None, "请求超时"
 
+    def set_thinking_mode(self, thinking_mode):
+        """设置 thinking 模式，如果发生变化则重新初始化 ACP 连接
+
+        Args:
+            thinking_mode: True 表示开启 thinking，False 表示关闭
+        """
+        if not hasattr(self, '_thinking_mode') or self._thinking_mode != thinking_mode:
+            self._thinking_mode = thinking_mode
+            self._log(f"[思考模式] 切换到: {'开启' if thinking_mode else '关闭'}，重新初始化 ACP 连接")
+            self.close()
+            self._initialize()
+
     def chat(self, message, on_chunk=None, on_thinking=None, on_tool_call=None, timeout=120, include_thinking_in_result=True):
         """发送聊天消息，支持流式接收
 
@@ -1085,7 +1106,14 @@ class ACPClient:
             on_tool_call: 回调函数，接收工具调用状态变化
                 参数: {'type': 'start'|'update', 'id': str, 'title': str, 'status': str, 'kind': str}
             timeout: 超时时间（秒）
+            include_thinking_in_result: 是否将思考过程包含在最终结果中
         """
+        # 如果 thinking 模式与当前设置不一致，重新初始化 ACP 连接
+        # 仅在 stdio 模式下有效（WebSocket/OpenClaw 模式由服务端控制 thinking）
+        if not self._use_websocket and not self._use_openclaw:
+            if hasattr(self, '_thinking_mode') and self._thinking_mode != include_thinking_in_result:
+                self.set_thinking_mode(include_thinking_in_result)
+
         # OpenClaw 模式
         if self._use_openclaw and self._openclaw_client:
             # 当 thinking 不应包含在结果中时，不传 on_thinking 回调
