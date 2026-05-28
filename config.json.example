@@ -7,6 +7,33 @@
   "qveris": {
     "api_key": "${QVERIS_API_KEY}"
   },
+  "acp": {
+    "clients": [
+      {
+        "id": "client_kimi",
+        "name": "km",
+        "type": "kimi",
+        "executable": "/root/.local/bin/kimi",
+        "enabled": true
+      },
+      {
+        "id": "client_openclaw",
+        "name": "openclaw",
+        "type": "openclaw",
+        "executable": "/usr/local/bin/openclaw",
+        "session": "agent:main:main",
+        "enabled": true
+      },
+      {
+        "id": "client_hermes",
+        "name": "hermes",
+        "type": "hermes",
+        "executable": "/usr/local/bin/hermes",
+        "args": ["acp"],
+        "enabled": true
+      }
+    ]
+  },
   "logs": {
     "main_log": "logs/main.log",
     "debug_log": "logs/bot_debug.log",
@@ -17,8 +44,8 @@
     "workplace": "WORKPLACE",
     "user_images": "WORKPLACE/user_images",
     "user_files": "WORKPLACE/user_files",
-    "mcp_config": ".kimi/mcp.json",
-    "skills_dir": ".kimi/skills"
+    "mcp_config": ".agents/mcp.json",
+    "skills_dir": ".agents/skills"
   },
   "start_script": "test_cancel.py"
 }
