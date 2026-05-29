@@ -140,17 +140,13 @@ class ACPClient:
                     executable = provider  # 允许自定义命令
 
         # Claude Code CLI 本身不支持 ACP stdio 协议
-        # 无论配置中的 executable 是什么，强制使用 claude-code-acp 适配器
-        if provider == 'claude':
-            if shutil.which('claude-code-acp'):
-                executable = 'claude-code-acp'
-            else:
-                # 回退到 python -m claude_code_acp（适用于 shebang 路径不同的环境）
-                executable = sys.executable
-                # 提前设置 args，避免后续被覆盖为 ['acp']
-                if not client_config.get('args'):
-                    client_config = dict(client_config)
-                    client_config['args'] = ['-m', 'claude_code_acp']
+        # 使用项目内置的轻量级 ACP 适配器（不依赖 claude-agent-sdk）
+        if provider == 'claude' or provider == 'claudecode':
+            executable = sys.executable
+            # 提前设置 args，避免后续被覆盖为 ['acp']
+            if not client_config.get('args'):
+                client_config = dict(client_config)
+                client_config['args'] = ['-m', 'clawdboz.communication.claude_acp_stdio']
 
         # 如果 executable 是目录，自动拼接 provider 名称
         if executable and os.path.isdir(executable):
@@ -168,14 +164,19 @@ class ACPClient:
                 cmd_args = ['acp']  # 默认使用 'acp' 子命令
 
         # 根据 thinking_mode 添加 --thinking 或 --no-thinking 参数
+        # 注意：只有 kimi 和 claude/claudecode 支持 --thinking 参数
         thinking_args = []
-        if hasattr(self, '_thinking_mode') and self._thinking_mode is not None:
+        if provider in ('kimi', 'claude', 'claudecode') and hasattr(self, '_thinking_mode') and self._thinking_mode is not None:
             if self._thinking_mode:
                 thinking_args.append('--thinking')
             else:
                 thinking_args.append('--no-thinking')
 
-        cmd = [executable] + thinking_args + cmd_args
+        # 对于内置的 claude 适配器（使用 python -m 启动），thinking 参数需放在模块名之后
+        if provider in ('claude', 'claudecode') and cmd_args and '-m' in cmd_args:
+            cmd = [executable] + cmd_args + thinking_args
+        else:
+            cmd = [executable] + thinking_args + cmd_args
         self._log(f"[ACP] 执行命令: {' '.join(cmd)}")
 
         self.process = subprocess.Popen(
@@ -1039,7 +1040,7 @@ class ACPClient:
                 # 检查进程是否存活
                 if self.process.poll() is not None:
                     self._log(f"[CALL] ACP 进程已终止，尝试重新初始化")
-                    self._initialize()
+                    raise BrokenPipeError("ACP 进程已终止")
                 
                 self.process.stdin.write(json.dumps(request) + '\n')
                 self.process.stdin.flush()

@@ -222,7 +222,7 @@ class OpenClawToACPAdapter:
                 try:
                     async def _set_thinking_mode():
                         # 尝试设置会话模式为扩展思考
-                        await self._conn.call(
+                        await self._conn.ext_method(
                             method="session/set_mode",
                             params={
                                 "sessionId": self.session_id,
@@ -273,24 +273,29 @@ class OpenClawToACPAdapter:
                 )
 
                 # 等待响应完成，同时实时传递 thinking
+                # OpenClaw 不发送 end_turn 通知，依赖 prompt 返回的 stop_reason 判断结束
                 wait_time = 0
                 last_thinking_length = 0
+                last_msg_length = 0
 
                 while wait_time < timeout:
-                    await asyncio.sleep(0.3)  # 更频繁的检查，以便实时传递 thinking
-                    wait_time += 0.3
+                    await asyncio.sleep(0.2)
+                    wait_time += 0.2
 
-                    # 实时传递 thinking（如果启用）
+                    # 实时传递消息 chunk（如果启用）
                     if on_thinking and self._acp_handler and self._acp_handler.thought_chunks:
                         current_thinking = self._acp_handler.get_thinking()
-                        # 只在 thinking 有新内容时调用回调
                         if len(current_thinking) > last_thinking_length:
                             new_content = current_thinking[last_thinking_length:]
                             on_thinking(new_content)
                             last_thinking_length = len(current_thinking)
 
-                    if self._acp_handler and self._acp_handler.complete:
-                        break
+                    # 如果 prompt 已返回且没有新 chunk 到达一段时间，认为结束
+                    if self._acp_handler:
+                        current_msg = self._acp_handler.get_message()
+                        if len(current_msg) == last_msg_length and wait_time > 3.0:
+                            break
+                        last_msg_length = len(current_msg)
 
                 # 获取响应
                 if self._acp_handler:

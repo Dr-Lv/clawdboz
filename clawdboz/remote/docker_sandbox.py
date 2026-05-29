@@ -295,28 +295,9 @@ class DockerSandboxManager:
                     add_path(os.path.dirname(node_path))
                     break
 
-            # claude-code-acp 适配器：挂载可执行文件（仅 provider 为 claude 时）
-            if provider_lower == "claude":
-                cca_found = False
-                for cca_path in ["/usr/local/bin/claude-code-acp", "/usr/bin/claude-code-acp"]:
-                    if os.path.isfile(cca_path):
-                        add_mount(cca_path, cca_path, "ro")
-                        add_path(os.path.dirname(cca_path))
-                        cca_found = True
-                        break
-                if not cca_found:
-                    # 在 PATH 中查找
-                    for d in os.environ.get("PATH", "").split(":"):
-                        cca_candidate = os.path.join(d, "claude-code-acp")
-                        if os.path.isfile(cca_candidate):
-                            add_mount(cca_candidate, cca_candidate, "ro")
-                            add_path(d)
-                            cca_found = True
-                            break
-                if not cca_found:
-                    # 如果找不到命令，至少确保 python -m claude_code_acp 可用
-                    # clawdboz 和 claude-code-acp 已经在 site-packages 中
-                    print(f"[DockerSandbox] 警告: 未找到 claude-code-acp 命令，将依赖 python -m claude_code_acp")
+            # claude-code-acp 适配器已集成到 clawdboz 包内
+            # 容器内通过 python -m clawdboz.communication.claude_code_acp 启动
+            # 无需额外挂载外部可执行文件
 
         # ---------- 4. 凭证挂载 ----------
         home = os.path.expanduser("~")

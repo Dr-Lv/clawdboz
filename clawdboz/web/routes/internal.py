@@ -43,51 +43,97 @@ def setup_internal_routes(server: "WebChatServer"):
                 )
 
             import subprocess
+            import shutil
+            import signal
             pid = os.getpid()
             port = server.port
             base_dir = getattr(server, '_base_dir', os.getcwd())
 
-            # 使用当前 Python 解释器和绝对路径
+            # 查找 clawdboz 命令路径（优先当前虚拟环境）
             python_exe = sys.executable
+            clawdboz_exe = None
+            current_clawdboz = os.path.join(os.path.dirname(python_exe), "clawdboz")
+            if os.path.exists(current_clawdboz):
+                clawdboz_exe = current_clawdboz
+            else:
+                clawdboz_exe = shutil.which("clawdboz")
+
+            # 推断配置文件路径
+            config_path = None
+            for cfg in [
+                os.path.join(base_dir, "config.json"),
+                os.path.join(os.getcwd(), "config.json"),
+            ]:
+                if os.path.exists(cfg):
+                    config_path = cfg
+                    break
+
+            # 判断当前进程是否为守护进程（检查 PID 文件）
+            is_daemon = False
+            pid_file = None
+            for pid_dir in [
+                os.path.join(base_dir, ".clawdboz"),
+                os.path.join(os.getcwd(), ".clawdboz"),
+                os.path.expanduser("~/.clawdboz"),
+            ]:
+                candidate = os.path.join(pid_dir, "web_daemon.pid")
+                if os.path.exists(candidate):
+                    try:
+                        with open(candidate, "r", encoding="utf-8") as f:
+                            file_pid = int(f.read().strip())
+                        if file_pid == pid:
+                            is_daemon = True
+                            pid_file = candidate
+                            break
+                    except (ValueError, OSError):
+                        continue
+
+            if is_daemon and clawdboz_exe:
+                # 守护进程模式：统一使用 clawdboz web restart
+                restart_cmd = [clawdboz_exe, "web", "restart"]
+                if config_path:
+                    restart_cmd += ["--config", config_path]
+                if port:
+                    restart_cmd += ["--port", str(port)]
+
+                print(f"[Restart] 守护进程模式重启: {' '.join(restart_cmd)}")
+                subprocess.Popen(
+                    restart_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                return {"success": True, "message": "服务器正在重启，请稍后刷新页面"}
+
+            # 非守护进程模式：回退到 kill + 重新启动（统一用 clawdboz web start）
             web_server_path = os.path.join(base_dir, "web_server.py")
             log_path = os.path.join(base_dir, "web_server.log")
 
-            # 判断启动方式：优先 web_server.py，否则回退到 clawdboz CLI
             if os.path.exists(web_server_path):
-                # 开发模式：通过 web_server.py 启动
+                # 开发模式：web_server.py 存在时仍用旧方式
                 restart_cmd = (
                     f"sleep 1 && kill -9 {pid} && "
                     f"cd {base_dir} && nohup {python_exe} {web_server_path} --port {port} > {log_path} 2>&1 &"
                 )
-            else:
-                # 生产模式：通过 clawdboz CLI 启动
-                # 查找 clawdboz 命令路径（优先当前虚拟环境）
-                clawdboz_exe = None
-                # 尝试与当前进程相同的目录
-                current_clawdboz = os.path.join(os.path.dirname(python_exe), "clawdboz")
-                if os.path.exists(current_clawdboz):
-                    clawdboz_exe = current_clawdboz
-                else:
-                    # 尝试 PATH 中的 clawdboz
-                    import shutil
-                    clawdboz_exe = shutil.which("clawdboz")
-
-                if not clawdboz_exe:
-                    return JSONResponse(
-                        status_code=500,
-                        content={"success": False, "error": "找不到 web_server.py 或 clawdboz 命令，无法重启"}
-                    )
-
+            elif clawdboz_exe:
+                # 生产模式：统一用 clawdboz web start 启动守护进程
+                start_cmd = f"{clawdboz_exe} web start"
+                if config_path:
+                    start_cmd += f" --config {config_path}"
+                if port:
+                    start_cmd += f" --port {port}"
                 restart_cmd = (
                     f"sleep 1 && kill -9 {pid} && "
-                    f"cd {base_dir} && nohup {clawdboz_exe} web --port {port} > {log_path} 2>&1 &"
+                    f"cd {base_dir} && {start_cmd}"
+                )
+            else:
+                return JSONResponse(
+                    status_code=500,
+                    content={"success": False, "error": "找不到 web_server.py 或 clawdboz 命令，无法重启"}
                 )
 
-            # 记录命令用于调试
             print(f"[Restart] 执行重启命令: {restart_cmd}")
-
-            # 执行重启命令
-            process = subprocess.Popen(
+            subprocess.Popen(
                 restart_cmd,
                 shell=True,
                 stdout=subprocess.PIPE,

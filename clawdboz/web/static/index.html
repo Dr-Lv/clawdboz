@@ -7,6 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Clawdboz Web Chat v5.0.0</title>
+    <link rel="icon" type="image/png" href="https://www.clawdboz.chat/static/images/clawdboz_logo.png">
     <script src="vendor/tailwindcss.js"></script>
     <script src="vendor/marked.min.js"></script>
     <link rel="stylesheet" href="vendor/highlight.js/styles/github-dark.min.css">
@@ -1028,6 +1029,7 @@
                     <div class="config-tab" data-group="acp" onclick="switchConfigTab('acp')">ACP 客户端</div>
                     <div style="flex:1;"></div>
                     <div class="config-tab" data-group="advanced" onclick="switchConfigTab('advanced')">高级模式</div>
+                    <div class="config-tab" data-group="about" onclick="switchConfigTab('about')">关于</div>
                 </div>
                 <!-- 右侧内容区 -->
                 <div class="config-body">
@@ -3050,16 +3052,17 @@
                         bots[botIndex].avatar_image = avatarImage;
                         bots[botIndex].feishu_app_id = feishuAppId;
                         bots[botIndex].feishu_app_secret = feishuAppSecret;
+                        bots[botIndex].acp_client_id = acpClientId;
                         bots[botIndex].skills = selectedSkills;
                     }
                     // 刷新通讯录列表和详情
                     renderContactsList();
-                    selectContact(botId);
+                    await selectContact(botId);
                     // 刷新侧边栏通讯录覆盖层
-                    renderSidebarContactsList();
+                    await renderSidebarContactsList();
                     // 如果当前在通讯录标签且显示了 Bot 详情面板，刷新详情
                     if (currentTab === 'contacts' && selectedContactId === botId) {
-                        selectSidebarContact(botId);
+                        await selectSidebarContact(botId);
                     }
                     // 刷新会话列表（可能显示了 bot 名称）
                     renderSessionList();
@@ -10202,6 +10205,38 @@
         
         function renderConfigTab() {
             const container = document.getElementById('configTabContent');
+            if (currentConfigTab === 'about') {
+                container.innerHTML = `
+                    <div style="padding: 12px 4px; line-height: 1.8; color: var(--text); font-size: 14px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <img src="https://www.clawdboz.chat/static/images/clawdboz_logo.png" alt="Clawdboz Logo" style="width: 80px; height: 80px; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: block; margin: 0 auto;">
+                        </div>
+                        <p style="margin-bottom: 16px;">
+                            <strong style="font-size: 16px;">Clawdboz</strong>（嗑唠的宝子）是一个基于 <strong>ACP 协议</strong>的多智能体 IM 协作平台。
+                        </p>
+                        <p style="margin-bottom: 12px;">支持主流 Agent，包括：</p>
+                        <ul style="margin-bottom: 16px; padding-left: 20px; color: var(--text-secondary);">
+                            <li>OpenClaw</li>
+                            <li>Hermes Agent</li>
+                            <li>Claude Code</li>
+                            <li>Opencode</li>
+                            <li>Kimi Code</li>
+                        </ul>
+                        <p style="margin-bottom: 16px;">
+                            高度还原类似微信 WeChat 的交互体验，支持快速创建本地 Bot、发布到远程、添加异地 Bot 聊天，同时适配飞书。
+                        </p>
+                        <p style="margin-bottom: 8px;">
+                            <i class="fas fa-globe" style="margin-right: 6px; color: var(--primary);"></i>
+                            官网地址：
+                            <a href="https://clawdboz.chat" target="_blank" style="color: var(--primary); text-decoration: none;">https://clawdboz.chat</a>
+                        </p>
+                        <p style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-tertiary);">
+                            Version 5.0.0 · MIT License
+                        </p>
+                    </div>
+                `;
+                return;
+            }
             if (currentConfigTab === 'advanced') {
                 container.innerHTML = `
                     <div class="config-group-title">高级模式（原始 JSON）</div>

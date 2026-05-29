@@ -36,12 +36,10 @@ dependencies = [
     "aiohttp>=3.8.0",
     "PyJWT>=2.0.0",
     "python-multipart>=0.0.6",
+    "agent-client-protocol>=0.7.0",
 ]
 
 [project.optional-dependencies]
-claude = [
-    "claude-code-acp>=0.5.0",
-]
 dev = [
     "pytest>=7.0.0",
     "black>=23.0.0",

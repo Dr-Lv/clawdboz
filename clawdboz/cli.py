@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -899,6 +900,200 @@ def run_feishu_bot(app_id: Optional[str], app_secret: Optional[str], config: Opt
 
 
 # =============================================================================
+# Web 守护进程管理
+# =============================================================================
+
+def _get_daemon_paths(config_path: Optional[str] = None):
+    """获取守护进程 PID 和日志文件路径"""
+    if config_path and os.path.exists(config_path):
+        root = os.path.dirname(os.path.abspath(config_path))
+    elif os.path.exists(os.path.join(os.getcwd(), "config.json")):
+        root = os.getcwd()
+    else:
+        root = os.path.expanduser("~/.clawdboz")
+
+    daemon_dir = os.path.join(root, ".clawdboz")
+    os.makedirs(daemon_dir, exist_ok=True)
+
+    pid_file = os.path.join(daemon_dir, "web_daemon.pid")
+    log_file = os.path.join(daemon_dir, "web_daemon.log")
+    return pid_file, log_file
+
+
+def _pid_alive(pid: int) -> bool:
+    """检查进程是否存活"""
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def daemon_start(port: Optional[int] = None,
+                 token: Optional[str] = None,
+                 config: Optional[str] = None):
+    """以守护进程模式启动 Web Chat 服务器"""
+    pid_file, log_file = _get_daemon_paths(config)
+
+    # 检查是否已在运行
+    if os.path.exists(pid_file):
+        with open(pid_file, "r", encoding="utf-8") as f:
+            try:
+                old_pid = int(f.read().strip())
+            except ValueError:
+                old_pid = None
+        if old_pid and _pid_alive(old_pid):
+            print(f"[INFO] Web 守护进程已在运行 (PID: {old_pid})")
+            print(f"[INFO] 日志: {log_file}")
+            return
+        else:
+            os.remove(pid_file)
+
+    # 构建启动命令（子进程以普通前台模式运行，但通过 start_new_session 脱离终端）
+    cmd = [sys.executable, "-m", "clawdboz.cli", "web"]
+    if port:
+        cmd += ["--port", str(port)]
+    if token:
+        cmd += ["--token", token]
+    if config:
+        cmd += ["--config", config]
+
+    # 启动后台进程，脱离终端会话
+    with open(log_file, "a", encoding="utf-8") as log_f:
+        # 先写入启动标记
+        log_f.write(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 启动守护进程\n")
+        log_f.flush()
+        proc = subprocess.Popen(
+            cmd,
+            stdout=log_f,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+            cwd=os.getcwd(),
+        )
+
+    with open(pid_file, "w", encoding="utf-8") as f:
+        f.write(str(proc.pid))
+
+    # 启动后短暂等待，确认进程存活（避免端口冲突等立即退出的情况）
+    time.sleep(1.5)
+    if not _pid_alive(proc.pid):
+        os.remove(pid_file)
+        print(f"[ERROR] Web 守护进程启动失败，请检查日志: {log_file}")
+        return
+
+    # 解析实际使用的端口和 Token，用于展示访问 URL
+    display_port = port
+    display_token = token or ""
+    cfg_path = config or os.path.join(os.getcwd(), "config.json")
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            webchat = cfg.get("webchat", {})
+            if display_port is None:
+                display_port = webchat.get("port", 8443)
+            if not display_token:
+                display_token = webchat.get("token", "")
+        except Exception:
+            pass
+    if display_port is None:
+        display_port = 8443
+
+    url = f"http://localhost:{display_port}/static/index.html"
+    if display_token:
+        url += f"?token={display_token}"
+
+    print(f"[OK] Web 守护进程已启动 (PID: {proc.pid})")
+    print(f"[INFO] 访问地址: {url}")
+    print(f"[INFO] 日志: {log_file}")
+    print(f"[INFO] 停止命令: clawdboz web stop")
+
+
+def daemon_stop(config: Optional[str] = None):
+    """停止 Web Chat 守护进程"""
+    pid_file, _ = _get_daemon_paths(config)
+
+    if not os.path.exists(pid_file):
+        print("[INFO] Web 守护进程未运行")
+        return
+
+    with open(pid_file, "r", encoding="utf-8") as f:
+        try:
+            pid = int(f.read().strip())
+        except ValueError:
+            print("[WARN] PID 文件损坏，已清理")
+            os.remove(pid_file)
+            return
+
+    if not _pid_alive(pid):
+        print("[INFO] Web 守护进程未运行")
+        os.remove(pid_file)
+        return
+
+    # 先尝试 SIGTERM
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError as e:
+        print(f"[WARN] 发送终止信号失败: {e}")
+        os.remove(pid_file)
+        return
+
+    # 等待退出（最多 15 秒）
+    for _ in range(30):
+        if not _pid_alive(pid):
+            break
+        time.sleep(0.5)
+    else:
+        try:
+            os.kill(pid, signal.SIGKILL)
+            time.sleep(0.3)
+        except OSError:
+            pass
+
+    if os.path.exists(pid_file):
+        os.remove(pid_file)
+
+    if _pid_alive(pid):
+        print(f"[WARN] 守护进程未能完全停止 (PID: {pid})，请手动检查")
+    else:
+        print(f"[OK] Web 守护进程已停止 (PID: {pid})")
+
+
+def daemon_status(config: Optional[str] = None):
+    """查看 Web 守护进程状态"""
+    pid_file, log_file = _get_daemon_paths(config)
+
+    if not os.path.exists(pid_file):
+        print("[INFO] Web 守护进程未运行")
+        return
+
+    with open(pid_file, "r", encoding="utf-8") as f:
+        try:
+            pid = int(f.read().strip())
+        except ValueError:
+            print("[WARN] PID 文件损坏")
+            return
+
+    if _pid_alive(pid):
+        print(f"[OK] Web 守护进程运行中 (PID: {pid})")
+        print(f"[INFO] 日志: {log_file}")
+    else:
+        print(f"[WARN] PID 文件存在但进程已不存在 (PID: {pid})")
+        print("      建议运行: clawdboz web stop 清理状态")
+
+
+def daemon_restart(port: Optional[int] = None,
+                   token: Optional[str] = None,
+                   config: Optional[str] = None):
+    """重启 Web Chat 守护进程"""
+    print("[INFO] 重启 Web 守护进程...")
+    daemon_stop(config)
+    time.sleep(0.5)
+    daemon_start(port, token, config)
+
+
+# =============================================================================
 # Status 命令
 # =============================================================================
 
@@ -1002,6 +1197,26 @@ def main():
     web_parser.add_argument('--port', type=int, help='Web 服务器端口（覆盖配置）')
     web_parser.add_argument('--token', help='认证 Token（覆盖配置）')
     web_parser.add_argument('--config', '-c', help='配置文件路径')
+
+    # web 子命令：start / stop / restart / status
+    web_sub = web_parser.add_subparsers(dest='web_cmd', help='守护进程操作')
+    web_sub.required = False
+
+    web_start = web_sub.add_parser('start', help='以守护进程模式启动 Web Chat 服务器')
+    web_start.add_argument('--port', type=int, help='Web 服务器端口（覆盖配置）')
+    web_start.add_argument('--token', help='认证 Token（覆盖配置）')
+    web_start.add_argument('--config', '-c', help='配置文件路径')
+
+    web_stop = web_sub.add_parser('stop', help='停止 Web Chat 守护进程')
+    web_stop.add_argument('--config', '-c', help='配置文件路径')
+
+    web_restart = web_sub.add_parser('restart', help='重启 Web Chat 守护进程')
+    web_restart.add_argument('--port', type=int, help='Web 服务器端口（覆盖配置）')
+    web_restart.add_argument('--token', help='认证 Token（覆盖配置）')
+    web_restart.add_argument('--config', '-c', help='配置文件路径')
+
+    web_status = web_sub.add_parser('status', help='查看 Web Chat 守护进程状态')
+    web_status.add_argument('--config', '-c', help='配置文件路径')
 
     # ========== status 命令 ==========
     subparsers.add_parser('status', help='查看项目状态')
@@ -1174,7 +1389,17 @@ def main():
             run_web_server(args.port, args.token, args.config)
 
     elif args.command == 'web':
-        run_web_server(args.port, args.token, args.config)
+        if getattr(args, 'web_cmd', None) == 'start':
+            daemon_start(args.port, args.token, args.config)
+        elif getattr(args, 'web_cmd', None) == 'stop':
+            daemon_stop(args.config)
+        elif getattr(args, 'web_cmd', None) == 'restart':
+            daemon_restart(args.port, args.token, args.config)
+        elif getattr(args, 'web_cmd', None) == 'status':
+            daemon_status(args.config)
+        else:
+            # 无子命令时保持向后兼容：前台启动
+            run_web_server(args.port, args.token, args.config)
 
     elif args.command == 'status':
         show_status()

@@ -170,11 +170,23 @@ clawdboz init
 ### 4. 启动 Web Chat 服务器
 
 ```bash
-# 方式一：使用 CLI
+# 方式一：守护进程模式（推荐生产环境）
+clawdboz web start --config config.json
+
+# 方式二：前台阻塞模式（开发调试）
 clawdboz web --config config.json
 
-# 方式二：直接运行
+# 方式三：直接运行
 python web_server.py --port 8443 --host 0.0.0.0
+```
+
+守护进程管理命令：
+
+```bash
+clawdboz web start   # 启动守护进程
+clawdboz web stop    # 停止守护进程
+clawdboz web restart # 重启守护进程
+clawdboz web status  # 查看守护进程状态
 ```
 
 访问 `http://localhost:8443/static/index.html?token=your-token`
@@ -216,9 +228,9 @@ bot.run()
 │   ├── user_images/           # 用户图片下载目录
 │   └── user_files/            # 用户文件下载目录
 │
-├── web/static/index.html       # Web Chat 前端（单页应用）
-├── web_server.py               # Web 服务器入口
-├── registry_server.py          # 注册中心服务器（可选独立部署）
+├── clawdboz/web/static/index.html  # Web Chat 前端（单页应用）
+├── web_server.py                   # Web 服务器入口
+│                                   # 注：registry_server.py 源码在中心服务器，本地不再维护
 │
 ├── logs/                       # 日志目录
 │   ├── main.log
@@ -234,26 +246,46 @@ bot.run()
 **源码结构**：
 
 ```
-clawdboz/                       # 主包
+clawdboz/                       # Python 包
 ├── __init__.py
-├── simple_bot.py               # 简化版 Bot API
-├── bot.py                      # Bot 核心类
-├── cli.py                      # 命令行工具
+├── cli.py                      # 命令行入口 `clawdboz`
+├── core/                       # Bot 核心
+│   ├── bot.py                  # Bot 基类
+│   ├── bot_manager.py          # BotManager（注册、管理）
+│   └── simple_bot.py           # 简化版 Bot API
 ├── web/                        # Web 服务
-│   ├── server.py               # Web 服务器
-│   ├── chat/core.py            # 聊天核心
+│   ├── server.py               # WebChatServer (FastAPI)
+│   ├── chat/                   # 聊天核心
+│   │   ├── core.py             # ChatCore（消息处理、远程调用）
+│   │   ├── history.py          # 聊天记录管理
+│   │   ├── mentions.py         # @提及解析
+│   │   ├── group.py            # 群聊逻辑
+│   │   └── acp.py              # ACP 客户端管理
 │   ├── routes/                 # API 路由
-│   └── static/index.html       # 前端界面
+│   │   ├── bots.py             # /api/bots
+│   │   ├── websocket.py        # WebSocket 连接管理
+│   │   ├── remote.py           # /api/remote/*
+│   │   ├── sessions/           # 会话相关路由
+│   │   └── internal.py         # 内部 API（如服务器重启）
+│   ├── static/                 # 前端资源
+│   │   ├── index.html          # 主界面（单文件 ~10K 行 JS）
+│   │   └── ...
+│   └── workspace.py            # 工作区管理
 ├── remote/                     # 远程功能
-│   ├── manager.py              # 远程 Bot 管理器
-│   ├── registry_client.py      # 注册中心客户端
-│   ├── registry_ws_client.py   # 注册中心 WebSocket
-│   ├── remote_client.py        # 远程 Bot 客户端
-│   ├── bot_publisher.py        # Bot 发布器
-│   ├── friend_manager.py       # 好友管理
-│   └── docker_sandbox.py       # Docker 沙箱
-└── .agents/                    # 内置 Skills 模板
-    └── skills/
+│   ├── manager.py              # RemoteBotManager（核心）
+│   ├── registry_client.py      # Registry HTTP API 客户端
+│   ├── registry_ws_client.py   # Registry WebSocket 客户端
+│   ├── bot_publisher.py        # Bot 发布到 Registry
+│   ├── remote_client.py        # 远程 Bot 调用客户端
+│   ├── docker_sandbox.py       # Docker 沙箱管理
+│   ├── friend_manager.py       # 好友关系管理
+│   └── ...
+├── communication/              # ACP 通信层
+│   ├── acp_client.py
+│   ├── websocket_acp_client.py
+│   └── session_manager.py
+└── utils/                      # 工具
+    └── logger.py
 ```
 
 ## 🖥️ Web Chat 使用指南
@@ -439,8 +471,8 @@ rm -rf build/ dist/ *.egg-info
 python3 -m build
 
 # 生成的文件
-# dist/clawdboz-2.7.5-py3-none-any.whl
-# dist/clawdboz-2.7.5.tar.gz
+# dist/clawdboz-5.0.0-py3-none-any.whl
+# dist/clawdboz-5.0.0.tar.gz
 ```
 
 ## 📄 相关文档
