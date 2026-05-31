@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "clawdboz"
 version = "5.0.0"
-description = "嗑唠的宝子 - 基于 Kimi Code CLI 的智能飞书机器人"
+description = "clawdboz - 基于 ACP 协议的多智能体 IM 协作平台"
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Clawdboz Team", email = "clawdboz@example.com"}
