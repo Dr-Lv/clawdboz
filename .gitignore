@@ -157,3 +157,21 @@ cli_*.py
 bot0.py
 bot_cli.py
 cmd
+
+# === 敏感信息文件 ===
+# SSL 证书
+ssl/server.crt
+
+# 包含硬编码飞书凭证的脚本
+web_server.py
+test_install.sh
+start_bot_with_web.py
+
+# 包含服务器 IP/SSH 密钥路径的部署脚本
+deploy_remote_instance.sh
+deploy_registry.sh
+
+# 包含运维敏感信息的文档
+claude.md
+MEMORY.md
+REMOTE_TEST_GUIDE.md
