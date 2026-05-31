@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-5.0.0-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](#)
+[![License](https://img.shields.io/badge/license-Source%20Open%20License-yellow.svg)](#-许可证)
 
 基于 Kimi Code CLI 的智能多 Bot 协作平台，支持本地 Bot 管理、远程 Bot 发现调用、群聊协作、飞书集成。OpenClaw 的平替，更适合代码任务，飞书丝滑适配，交互体验优化得很好。
 
@@ -489,4 +489,14 @@ python3 -m build
 
 ## 📝 许可证
 
-MIT License
+本项目采用 [**源码公开协议（Source Open License）**](LICENSE_SOURCE_OPEN.md)。
+
+该协议以 Apache License, Version 2.0 为参考蓝本进行定制修改，**并非**标准的 Apache 2.0 许可证。协议在保留源代码开放、自由使用、再分发等核心权利的同时，针对远程好友功能设置了商业场景限制：
+
+> **未经作者（Dr-Lv）书面授权，任何个人或法律实体不得在商业场景下，利用本项目或其衍生作品部署、运营、维护或提供非官方第三方服务器，以支持或替代远程 Bot 发现、好友关系、注册中心连接、消息转发等远程好友相关功能。**
+
+非商业用途（个人学习、研究、非营利组织内部使用等）不受此限制。
+
+如需获得商业授权，请通过本仓库 Issues 或项目官方渠道联系作者。
+
+完整协议文本请参见 [`LICENSE_SOURCE_OPEN.md`](LICENSE_SOURCE_OPEN.md)。
