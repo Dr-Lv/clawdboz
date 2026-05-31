@@ -223,3 +223,10 @@ feishu_permissions.json
 
 # === 本地管理脚本（模板在 templates/ 中保留） ===
 /bot_manager.sh
+
+# === macOS 资源分支文件（全目录） ===
+clawdboz/web/static/vendor/**/._*
+
+# === 启动/备份脚本 ===
+start_registry.sh
+backup.sh
