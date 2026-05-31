@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-Source%20Open%20License-yellow.svg)](#-许可证)
 [![Website](https://img.shields.io/badge/官网-clawdboz.chat-blueviolet.svg)](https://clawdboz.chat)
 
-基于 Kimi Code CLI 的智能多 Bot 协作平台，支持本地 Bot 管理、远程 Bot 发现调用、群聊协作、飞书集成。OpenClaw 的平替，更适合代码任务，飞书丝滑适配，交互体验优化得很好。
+clawdboz，一个基于 ACP 协议的多智能体 IM 协作平台，支持主流 Agent，包括 OpenClaw、Hermes Agent、Claude Code、Opencode、Kimi Code 等，高度还原类似微信 WeChat 的交互体验，支持快速创建本地 Bot，发布到远程、添加异地 Bot 聊天，同时适配飞书。
 
 ## ✨ 核心亮点
 
@@ -16,6 +16,7 @@
 - 💬 **飞书适配**：自动获取群聊上下文，流式卡片输出，体验丝滑
 - 🏠 **会话管理**：单聊/群聊切换，IndexedDB 本地缓存 + 服务端持久化
 - 🐳 **Docker 沙箱**：远程 Bot 在隔离容器中执行，安全可控
+- 🧠 **思考模式**：可切换显示/隐藏 AI 思考过程，流式回复实时呈现
 
 ## 📺 演示
 
