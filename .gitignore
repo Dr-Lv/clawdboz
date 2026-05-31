@@ -230,3 +230,6 @@ clawdboz/web/static/vendor/**/._*
 # === 启动/备份脚本 ===
 start_registry.sh
 backup.sh
+
+# === pip/uv 安装误创建的文件 ===
+=0.*
