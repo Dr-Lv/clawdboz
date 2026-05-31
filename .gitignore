@@ -175,3 +175,51 @@ deploy_registry.sh
 claude.md
 MEMORY.md
 REMOTE_TEST_GUIDE.md
+
+# === 运行时数据 ===
+# 用户上传文件
+clawdboz/web/uploads/
+
+# PID 文件
+web.pid
+
+# 配置备份
+config.json.backup
+
+# === 误创建文件 ===
+
+# === 运行时数据 ===
+clawdboz/web/uploads/
+web.pid
+config.json.backup
+
+# === 误创建文件 ===
+EOF
+
+# === 硬编码 token 的启动脚本 ===
+start_web.py
+start_web_3bots.py
+start_web_https.sh
+start_all.sh
+
+# === 临时/测试脚本 ===
+get_bot_open_id.py
+regression_test.py
+check_mention_issue.py
+
+# === 测试报告/计划 ===
+regression_report_*.md
+test_plan.md
+
+# === 代码备份文件 ===
+*.backup
+
+# === macOS 资源分支文件 ===
+**/*._*
+
+# === 本地配置文件 ===
+/.bots.md
+feishu_permissions.json
+
+# === 本地管理脚本（模板在 templates/ 中保留） ===
+/bot_manager.sh
