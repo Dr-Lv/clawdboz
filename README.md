@@ -25,6 +25,8 @@ clawdboz，一个基于 ACP 协议的多智能体 IM 协作平台，支持主流
   <img src="https://raw.githubusercontent.com/Dr-Lv/clawdboz/main/clawdboz_demo2.gif" width="48%" alt="代码执行演示" />
 </p>
 
+> 🌐 **在线体验**：[https://clawdboz.chat](https://clawdboz.chat)
+
 ## 功能特性
 
 ### Web Chat 功能
@@ -365,36 +367,6 @@ clawdboz contacts list                      # 列出联系人
 clawdboz moments list                       # 查看朋友圈
 clawdboz moments post "内容"                # 发布动态
 ```
-
-## 📡 注册中心部署
-
-### 快速部署
-
-```bash
-# 使用部署脚本
-./deploy_registry.sh
-```
-
-或手动部署：
-
-```bash
-# 启动注册服务器
-./start_registry.sh
-
-# 或使用 uvicorn
-python -m uvicorn registry_server:app --host 0.0.0.0 --port 6902
-```
-
-### 注册中心 API
-
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/api/registry/register` | POST | 注册实例 |
-| `/api/registry/heartbeat` | POST | 实例心跳 |
-| `/api/registry/bots` | GET | 发现所有 Bot |
-| `/api/registry/discover` | GET | 发现实例 |
-| `/api/registry/friend-request` | POST | 发送好友请求 |
-| `/api/registry/friend-accept` | POST | 接受好友请求 |
 
 ## 💬 飞书应用配置
 
