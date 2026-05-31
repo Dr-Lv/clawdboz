@@ -3,6 +3,7 @@
 [![Version](https://img.shields.io/badge/version-5.0.0-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Source%20Open%20License-yellow.svg)](#-许可证)
+[![Website](https://img.shields.io/badge/官网-clawdboz.chat-blueviolet.svg)](https://clawdboz.chat)
 
 基于 Kimi Code CLI 的智能多 Bot 协作平台，支持本地 Bot 管理、远程 Bot 发现调用、群聊协作、飞书集成。OpenClaw 的平替，更适合代码任务，飞书丝滑适配，交互体验优化得很好。
 
