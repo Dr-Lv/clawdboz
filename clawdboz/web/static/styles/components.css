@@ -447,59 +447,103 @@
         }
         .modal-overlay.show { display: flex; }
 
-        /* Workspace 模态框 - Terminal & 文件浏览器 */
-        .workspace-modal {
+        /* macOS 风格窗口 - Terminal & Finder */
+        .modal-content.mac-window {
             width: calc(100% - 80px);
             max-width: 900px;
             height: 70vh;
-        }
-        .workspace-modal-body {
-            flex: 1;
+            background: #1c1c1e;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
             display: flex;
             flex-direction: column;
-            padding: 0;
-            overflow: hidden;
         }
-        .workspace-path {
-            padding: 10px 16px;
-            background: var(--bg);
-            border-bottom: 1px solid var(--border);
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+
+        /* macOS 标题栏 */
+        .mac-titlebar {
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            height: 38px;
+            background: linear-gradient(180deg, #3c3c3e 0%, #2d2d2f 100%);
+            border-bottom: 1px solid #1a1a1c;
+            flex-shrink: 0;
+        }
+        .mac-traffic-lights {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .mac-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+        }
+        .mac-light-red { background: #ff5f57; border: 1px solid #e0443e; }
+        .mac-light-yellow { background: #febc2e; border: 1px solid #dba123; }
+        .mac-light-green { background: #28c840; border: 1px solid #1aab2e; }
+        .mac-light:hover { filter: brightness(1.2); }
+        .mac-title {
+            flex: 1;
+            text-align: center;
             font-size: 13px;
-            color: var(--text-secondary);
+            font-weight: 600;
+            color: #b0b0b0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            user-select: none;
+            pointer-events: none;
+        }
+        .mac-titlebar-spacer { width: 52px; }
+
+        /* macOS 工具栏 */
+        .mac-toolbar {
+            padding: 6px 16px;
+            background: #2d2d2f;
+            border-bottom: 1px solid #1a1a1c;
+            flex-shrink: 0;
+        }
+        .mac-path {
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            color: #a0a0a0;
             word-break: break-all;
         }
-        .terminal-container {
+
+        /* Terminal 区域 */
+        .mac-terminal-body {
             flex: 1;
             background: #1e1e1e;
             color: #d4d4d4;
-            padding: 12px;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 14px;
+            padding: 12px 16px;
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
-        .terminal-output {
+        .mac-terminal-output {
             flex: 1;
             white-space: pre-wrap;
             word-break: break-word;
             overflow-y: auto;
-            line-height: 1.5;
+            line-height: 1.6;
         }
-        .terminal-input-line {
+        .mac-terminal-input-line {
             display: flex;
             align-items: center;
-            margin-top: 8px;
+            margin-top: 6px;
             flex-shrink: 0;
         }
-        .terminal-prompt {
-            color: #00b96b;
-            margin-right: 6px;
+        .mac-terminal-prompt {
+            color: #28c840;
+            margin-right: 8px;
             user-select: none;
             font-weight: bold;
         }
-        .terminal-input {
+        .mac-terminal-input {
             flex: 1;
             background: transparent;
             border: none;
@@ -507,31 +551,129 @@
             color: #d4d4d4;
             font-family: inherit;
             font-size: inherit;
+            caret-color: #28c840;
         }
-        .file-browser-container {
+
+        /* Finder 工具栏 */
+        .mac-finder-toolbar {
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            background: #f6f6f6;
+            border-bottom: 1px solid #d1d1d6;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        .mac-finder-nav {
+            display: flex;
+            gap: 4px;
+        }
+        .mac-finder-btn {
+            width: 26px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: #fff;
+            border: 1px solid #d1d1d6;
+            color: #555;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .mac-finder-btn:hover { background: #e8e8ed; }
+        .mac-finder-btn:active { background: #d1d1d6; }
+        .mac-finder-path {
+            flex: 1;
+            text-align: center;
+            font-size: 13px;
+            color: #333;
+            font-weight: 500;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .mac-finder-search {
+            width: 26px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: #fff;
+            border: 1px solid #d1d1d6;
+            color: #888;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        /* Finder 主体 */
+        .mac-finder-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            background: #fff;
+        }
+        .mac-finder-sidebar {
+            width: 160px;
+            background: #f5f5f7;
+            border-right: 1px solid #d1d1d6;
+            padding: 12px 0;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .mac-sidebar-section { margin-bottom: 16px; }
+        .mac-sidebar-title {
+            padding: 0 16px 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .mac-sidebar-item {
+            padding: 5px 16px;
+            font-size: 13px;
+            color: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .mac-sidebar-item:hover { background: #e3e3e8; }
+        .mac-finder-content {
             flex: 1;
             overflow-y: auto;
             padding: 8px;
         }
-        .file-browser-item {
+        .mac-finder-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+            font-size: 14px;
+        }
+
+        /* Finder 文件项 */
+        .mac-finder-item {
             display: flex;
             align-items: center;
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 6px 12px;
+            border-radius: 5px;
             cursor: pointer;
             gap: 10px;
-            font-size: 14px;
-            color: var(--text);
+            font-size: 13px;
+            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         }
-        .file-browser-item:hover { background: var(--bg); }
-        .file-browser-item i { width: 20px; text-align: center; color: var(--text-secondary); }
-        .file-browser-item .fa-folder { color: #f5a623; }
-        .file-browser-item .fa-file { color: #7d7d7d; }
-        .file-browser-empty {
+        .mac-finder-item:hover { background: #e3e3e8; }
+        .mac-finder-item i {
+            width: 20px;
             text-align: center;
-            padding: 40px;
-            color: var(--text-secondary);
+            font-size: 16px;
         }
+        .mac-finder-item .fa-folder { color: #f5a623; }
+        .mac-finder-item .fa-file { color: #7d7d7d; }
+        .mac-finder-item .fa-image { color: #34c759; }
+        .mac-finder-item .fa-file-code { color: #007aff; }
+        .mac-finder-item .fa-file-alt { color: #5856d6; }
 
         /* 头像选择器弹窗 - 需要在其他弹窗之上 */
         #avatarSelectorModal {

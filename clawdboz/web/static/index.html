@@ -441,6 +441,7 @@
         <div style="flex: 1;"></div>
         <div class="tab-item" data-tab="settings" onclick="showConfigModal()" title="系统设置">
             <i class="fas fa-bars"></i>
+            <span class="update-badge hidden" id="settingsUpdateBadge"></span>
         </div>
     </nav>
 
@@ -624,6 +625,8 @@
                     <div class="toolbar-btn" id="mentionBtn" onclick="showMentionDropdown()" title="@ Bot" style="display: none;"><i class="fas fa-at"></i></div>
                     <div class="toolbar-btn" onclick="clearChat()" title="清空对话 (/clear)"><i class="fas fa-trash-alt"></i></div>
                     <div class="toolbar-btn" id="stopBtn" onclick="stopGeneration()" title="停止回复 (/stop)" style="display:none; color:#f54a45;"><i class="fas fa-stop-circle"></i></div>
+                    <div class="toolbar-btn" onclick="openTerminalModal()" title="终端"><i class="fas fa-terminal"></i></div>
+                    <div class="toolbar-btn" onclick="openFileBrowserModal()" title="文件浏览器"><i class="fas fa-folder-open"></i></div>
                     <div class="toolbar-divider"></div>
                     <!-- iOS 风格思考模式切换 -->
                     <div class="toolbar-item" title="思考模式">
@@ -632,10 +635,6 @@
                             <input type="checkbox" id="thinkingModeCheckbox" checked onchange="toggleThinkingMode()">
                             <span class="ios-toggle-slider"></span>
                         </label>
-                    </div>
-                    <div style="margin-left: auto; display: flex; gap: 6px;">
-                        <div class="toolbar-btn" onclick="openTerminalModal()" title="终端"><i class="fas fa-terminal"></i></div>
-                        <div class="toolbar-btn" onclick="openFileBrowserModal()" title="文件浏览器"><i class="fas fa-folder-open"></i></div>
                     </div>
                 </div>
                 <div class="input-wrapper">
@@ -1033,7 +1032,7 @@
                     <div class="config-tab" data-group="acp" onclick="switchConfigTab('acp')">ACP 客户端</div>
                     <div style="flex:1;"></div>
                     <div class="config-tab" data-group="advanced" onclick="switchConfigTab('advanced')">高级模式</div>
-                    <div class="config-tab" data-group="about" onclick="switchConfigTab('about')">关于</div>
+                    <div class="config-tab" data-group="about" onclick="switchConfigTab('about')">关于<span class="update-badge hidden" id="aboutUpdateBadge" style="position:relative;top:-6px;left:2px;display:inline-block;vertical-align:middle;"></span></div>
                 </div>
                 <!-- 右侧内容区 -->
                 <div class="config-body">
@@ -1309,21 +1308,24 @@
 
     <!-- Terminal 模态框 -->
     <div id="terminalModal" class="modal-overlay" onclick="closeTerminalModalOnOverlay(event)">
-        <div class="modal-content workspace-modal">
-            <div class="modal-header">
-                <span class="modal-title"><i class="fas fa-terminal" style="margin-right: 8px;"></i>终端</span>
-                <div class="modal-close" onclick="closeTerminalModal()">
-                    <i class="fas fa-times"></i>
+        <div class="modal-content mac-window">
+            <div class="mac-titlebar">
+                <div class="mac-traffic-lights">
+                    <div class="mac-light mac-light-red" onclick="closeTerminalModal()"></div>
+                    <div class="mac-light mac-light-yellow"></div>
+                    <div class="mac-light mac-light-green"></div>
                 </div>
+                <div class="mac-title">Terminal</div>
+                <div class="mac-titlebar-spacer"></div>
             </div>
-            <div class="modal-body workspace-modal-body">
-                <div class="workspace-path" id="terminalPath">/WORKPLACE</div>
-                <div class="terminal-container" id="terminalContainer">
-                    <div class="terminal-output" id="terminalOutput">Welcome to Clawdboz Terminal&#10;Type 'help' for available commands.&#10;</div>
-                    <div class="terminal-input-line">
-                        <span class="terminal-prompt">$ </span>
-                        <input type="text" class="terminal-input" id="terminalInput" placeholder="输入命令..." onkeydown="handleTerminalKey(event)">
-                    </div>
+            <div class="mac-toolbar">
+                <div class="mac-path" id="terminalPath">/WORKPLACE</div>
+            </div>
+            <div class="mac-terminal-body">
+                <div class="mac-terminal-output" id="terminalOutput">Welcome to Clawdboz Terminal&#10;Type 'help' for available commands.&#10;</div>
+                <div class="mac-terminal-input-line">
+                    <span class="mac-terminal-prompt">$ </span>
+                    <input type="text" class="mac-terminal-input" id="terminalInput" placeholder="输入命令..." onkeydown="handleTerminalKey(event)">
                 </div>
             </div>
         </div>
@@ -1331,18 +1333,58 @@
 
     <!-- 文件浏览器模态框 -->
     <div id="fileBrowserModal" class="modal-overlay" onclick="closeFileBrowserModalOnOverlay(event)">
-        <div class="modal-content workspace-modal">
-            <div class="modal-header">
-                <span class="modal-title"><i class="fas fa-folder-open" style="margin-right: 8px;"></i>文件浏览器</span>
-                <div class="modal-close" onclick="closeFileBrowserModal()">
-                    <i class="fas fa-times"></i>
+        <div class="modal-content mac-window">
+            <div class="mac-titlebar">
+                <div class="mac-traffic-lights">
+                    <div class="mac-light mac-light-red" onclick="closeFileBrowserModal()"></div>
+                    <div class="mac-light mac-light-yellow"></div>
+                    <div class="mac-light mac-light-green"></div>
+                </div>
+                <div class="mac-title">Finder</div>
+                <div class="mac-titlebar-spacer"></div>
+            </div>
+            <div class="mac-finder-toolbar">
+                <div class="mac-finder-nav">
+                    <div class="mac-finder-btn" onclick="fileBrowserGoBack()"><i class="fas fa-chevron-left"></i></div>
+                    <div class="mac-finder-btn" onclick="fileBrowserGoForward()"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="mac-finder-path" id="fileBrowserPath">/WORKPLACE</div>
+                <div class="mac-finder-search"><i class="fas fa-search"></i></div>
+            </div>
+            <div class="mac-finder-body">
+                <div class="mac-finder-sidebar">
+                    <div class="mac-sidebar-section">
+                        <div class="mac-sidebar-title">收藏</div>
+                        <div class="mac-sidebar-item" onclick="loadFileBrowser('')"><i class="fas fa-home" style="color:#f5a623"></i> 工作区</div>
+                        <div class="mac-sidebar-item" onclick="loadFileBrowser('WORKPLACE/user_images')"><i class="fas fa-image" style="color:#34c759"></i> 图片</div>
+                        <div class="mac-sidebar-item" onclick="loadFileBrowser('WORKPLACE/user_files')"><i class="fas fa-file" style="color:#007aff"></i> 文件</div>
+                    </div>
+                </div>
+                <div class="mac-finder-content" id="fileBrowserContainer">
+                    <div class="mac-finder-empty">加载中...</div>
                 </div>
             </div>
-            <div class="modal-body workspace-modal-body">
-                <div class="workspace-path" id="fileBrowserPath">/WORKPLACE</div>
-                <div class="file-browser-container" id="fileBrowserContainer">
-                    <div class="file-browser-empty">加载中...</div>
+        </div>
+    </div>
+
+    <!-- 文件预览模态框 -->
+    <div id="filePreviewModal" class="modal-overlay" onclick="closeFilePreviewOnOverlay(event)">
+        <div class="modal-content mac-window" style="max-width: 800px; height: 60vh;">
+            <div class="mac-titlebar">
+                <div class="mac-traffic-lights">
+                    <div class="mac-light mac-light-red" onclick="closeFilePreview()"></div>
+                    <div class="mac-light mac-light-yellow"></div>
+                    <div class="mac-light mac-light-green"></div>
                 </div>
+                <div class="mac-title" id="filePreviewTitle">Preview</div>
+                <div class="mac-titlebar-spacer"></div>
+            </div>
+            <div class="mac-finder-toolbar">
+                <div class="mac-finder-path" id="filePreviewPath"></div>
+                <div class="mac-finder-btn" onclick="downloadPreviewFile()" title="下载"><i class="fas fa-download"></i></div>
+            </div>
+            <div class="mac-preview-body" id="filePreviewBody">
+                <div class="mac-preview-loading">加载中...</div>
             </div>
         </div>
     </div>
@@ -6708,6 +6750,9 @@
             // 显示好友请求通知
             await showFriendRequestNotification();
 
+            // 检查 PyPI 更新
+            checkForUpdate();
+
             // 启动好友请求轮询（每 10 秒），确保被添加方能实时看到请求
             setInterval(async () => {
                 const prevCount = friendRequests.length;
@@ -10182,9 +10227,21 @@
 
         // ========== Terminal & 文件浏览器 ==========
 
+        let currentSessionDir = '';
+
         async function getCurrentWorkplace() {
             if (!currentSessionId) return 'WORKPLACE';
             try {
+                // 优先获取会话级工作目录（w_session_xxx）
+                const swRes = await fetch(`/api/fs/session-workdir?session_id=${encodeURIComponent(currentSessionId)}&token=${encodeURIComponent(token)}`);
+                if (swRes.ok) {
+                    const swData = await swRes.json();
+                    if (swData.success && swData.path) {
+                        currentSessionDir = swData.path;
+                        return swData.path;
+                    }
+                }
+                // fallback: 获取 bot 级工作目录
                 const sessionRes = await fetch(`/api/sessions/${encodeURIComponent(currentSessionId)}?token=${encodeURIComponent(token)}`);
                 if (!sessionRes.ok) return 'WORKPLACE';
                 const sessionData = await sessionRes.json();
@@ -10194,7 +10251,7 @@
                 if (!botsRes.ok) return 'WORKPLACE';
                 const botsData = await botsRes.json();
                 const bot = botsData.bots?.find(b => b.id === botIds[0] && b.type === 'local');
-                return bot?.work_dir || 'WORKPLACE';
+                return bot?.work_dir || '';
             } catch (e) {
                 console.error('[Workspace] 获取工作目录失败:', e);
                 return 'WORKPLACE';
@@ -10215,16 +10272,37 @@
             if (event.target.id === 'terminalModal') closeTerminalModal();
         }
 
+        function scrollTerminalToBottom() {
+            const output = document.getElementById('terminalOutput');
+            if (output) {
+                output.scrollTop = output.scrollHeight;
+            }
+            const body = document.querySelector('#terminalModal .mac-terminal-body');
+            if (body) {
+                body.scrollTop = body.scrollHeight;
+            }
+        }
+
         async function handleTerminalKey(event) {
-            if (event.key !== 'Enter') return;
             const input = document.getElementById('terminalInput');
+            if (event.key === 'Tab') {
+                event.preventDefault();
+                await doTabCompletion(input);
+                return;
+            }
+            if (event.key !== 'Enter') return;
             const cmd = input.value.trim();
             if (!cmd) return;
             input.value = '';
             const output = document.getElementById('terminalOutput');
             output.textContent += `$ ${cmd}\n`;
             if (cmd === 'help') {
-                output.textContent += 'Available commands: help, clear, ls, pwd\n';
+                output.textContent += 'Clawdboz Terminal - Available commands:\n';
+                output.textContent += '  cd <dir>     Change directory\n';
+                output.textContent += '  pwd          Print working directory\n';
+                output.textContent += '  ls, cat, grep, find, etc.  Standard Linux commands\n';
+                output.textContent += '  clear        Clear terminal\n';
+                output.textContent += '  help         Show this message\n';
             } else if (cmd === 'clear') {
                 output.textContent = '';
             } else if (cmd === 'pwd') {
@@ -10236,16 +10314,74 @@
                     const res = await fetch(`/api/fs/execute?token=${encodeURIComponent(token)}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cmd, cwd: path })
+                        body: JSON.stringify({ cmd, cwd: path, session_dir: currentSessionDir })
                     });
                     const data = await res.json();
-                    output.textContent += (data.output || data.error || 'No output') + '\n';
+                    if (data.success && data.cwd) {
+                        document.getElementById('terminalPath').textContent = data.cwd;
+                    }
+                    const outText = data.output !== undefined ? data.output : (data.error || 'No output');
+                    output.textContent += outText + '\n';
                 } catch (e) {
                     output.textContent += `Error: ${e.message}\n`;
                 }
             }
-            const container = document.getElementById('terminalContainer');
-            container.scrollTop = container.scrollHeight;
+            scrollTerminalToBottom();
+        }
+
+        async function doTabCompletion(input) {
+            const value = input.value;
+            const cursorPos = input.selectionStart || value.length;
+            // 找到光标前的最后一个词
+            const beforeCursor = value.substring(0, cursorPos);
+            const afterCursor = value.substring(cursorPos);
+            const match = beforeCursor.match(/([^\s]*)$/);
+            if (!match) return;
+            const prefix = match[1];
+            if (!prefix) return;
+
+            const cwd = document.getElementById('terminalPath').textContent;
+            try {
+                const res = await fetch(`/api/fs/complete?token=${encodeURIComponent(token)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prefix, cwd, session_dir: currentSessionDir })
+                });
+                const data = await res.json();
+                if (!data.success || !data.matches || data.matches.length === 0) return;
+
+                if (data.matches.length === 1) {
+                    // 唯一匹配，直接填充
+                    const replacement = data.matches[0];
+                    const newBefore = beforeCursor.substring(0, beforeCursor.length - prefix.length) + replacement;
+                    input.value = newBefore + afterCursor;
+                    const newCursor = newBefore.length;
+                    input.setSelectionRange(newCursor, newCursor);
+                } else {
+                    // 多个匹配，显示在终端中
+                    const output = document.getElementById('terminalOutput');
+                    output.textContent += `${prefix}  [Tab补全]: ${data.matches.join('  ')}\n`;
+                    scrollTerminalToBottom();
+                }
+            } catch (e) {
+                console.error('Tab completion error:', e);
+            }
+        }
+
+        let fileBrowserHistory = [];
+        let fileBrowserHistoryIndex = -1;
+
+        function fileBrowserGoBack() {
+            if (fileBrowserHistoryIndex > 0) {
+                fileBrowserHistoryIndex--;
+                loadFileBrowser(fileBrowserHistory[fileBrowserHistoryIndex], false);
+            }
+        }
+        function fileBrowserGoForward() {
+            if (fileBrowserHistoryIndex < fileBrowserHistory.length - 1) {
+                fileBrowserHistoryIndex++;
+                loadFileBrowser(fileBrowserHistory[fileBrowserHistoryIndex], false);
+            }
         }
 
         function openFileBrowserModal() {
@@ -10262,39 +10398,96 @@
             if (event.target.id === 'fileBrowserModal') closeFileBrowserModal();
         }
 
-        async function loadFileBrowser(path) {
+        async function loadFileBrowser(path, pushHistory = true) {
             const container = document.getElementById('fileBrowserContainer');
-            container.innerHTML = '<div class="file-browser-empty">加载中...</div>';
+            container.innerHTML = '<div class="mac-finder-empty">加载中...</div>';
             try {
-                const res = await fetch(`/api/fs/list?token=${encodeURIComponent(token)}&path=${encodeURIComponent(path)}`);
+                const sessionParam = currentSessionDir ? `&session_dir=${encodeURIComponent(currentSessionDir)}` : '';
+                const res = await fetch(`/api/fs/list?token=${encodeURIComponent(token)}&path=${encodeURIComponent(path)}${sessionParam}`);
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
                 document.getElementById('fileBrowserPath').textContent = data.path || path;
+                if (pushHistory) {
+                    fileBrowserHistory = fileBrowserHistory.slice(0, fileBrowserHistoryIndex + 1);
+                    fileBrowserHistory.push(path);
+                    fileBrowserHistoryIndex = fileBrowserHistory.length - 1;
+                }
                 if (!data.items || data.items.length === 0) {
-                    container.innerHTML = '<div class="file-browser-empty">空文件夹</div>';
+                    container.innerHTML = '<div class="mac-finder-empty">空文件夹</div>';
                     return;
                 }
                 container.innerHTML = '';
-                // 上级目录
-                if (data.parent) {
-                    const up = document.createElement('div');
-                    up.className = 'file-browser-item';
-                    up.innerHTML = '<i class="fas fa-level-up-alt"></i><span>..</span>';
-                    up.onclick = () => loadFileBrowser(data.parent);
-                    container.appendChild(up);
-                }
                 data.items.forEach(item => {
                     const div = document.createElement('div');
-                    div.className = 'file-browser-item';
-                    const icon = item.type === 'dir' ? 'fa-folder' : 'fa-file';
+                    div.className = 'mac-finder-item';
+                    let icon = 'fa-file';
+                    const isImage = /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i.test(item.name);
+                    const isText = /\.(py|js|ts|java|go|rs|c|cpp|h|sh|json|yaml|yml|xml|html|css|md|txt|log|csv|ini|cfg|conf|properties)$/i.test(item.name);
+                    if (item.type === 'dir') {
+                        icon = 'fa-folder';
+                    } else if (isImage) {
+                        icon = 'fa-image';
+                    } else if (isText) {
+                        icon = 'fa-file-code';
+                    } else if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i.test(item.name)) {
+                        icon = 'fa-file-alt';
+                    }
                     div.innerHTML = `<i class="fas ${icon}"></i><span>${item.name}</span>`;
                     div.onclick = () => {
-                        if (item.type === 'dir') loadFileBrowser(item.path);
+                        if (item.type === 'dir') {
+                            loadFileBrowser(item.path);
+                        } else {
+                            openFilePreview(item.name, item.path, isImage, isText);
+                        }
                     };
                     container.appendChild(div);
                 });
             } catch (e) {
-                container.innerHTML = `<div class="file-browser-empty">加载失败: ${e.message}</div>`;
+                container.innerHTML = `<div class="mac-finder-empty">加载失败: ${e.message}</div>`;
+            }
+        }
+
+        let currentPreviewPath = '';
+        let currentPreviewName = '';
+
+        function openFilePreview(name, path, isImage, isText) {
+            currentPreviewPath = path;
+            currentPreviewName = name;
+            document.getElementById('filePreviewTitle').textContent = name;
+            document.getElementById('filePreviewPath').textContent = path;
+            const body = document.getElementById('filePreviewBody');
+            body.innerHTML = '<div class="mac-preview-loading">加载中...</div>';
+            document.getElementById('filePreviewModal').classList.add('show');
+
+            if (isImage) {
+                body.innerHTML = `<img src="/api/fs/read?token=${encodeURIComponent(token)}&path=${encodeURIComponent(path)}" style="max-width:100%;max-height:100%;object-fit:contain;" alt="${name}">`;
+            } else if (isText) {
+                fetch(`/api/fs/read?token=${encodeURIComponent(token)}&path=${encodeURIComponent(path)}`)
+                    .then(res => res.text())
+                    .then(text => {
+                        body.innerHTML = `<pre style="margin:0;padding:16px;font-family:'SF Mono',monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:#333;background:#fff;overflow-y:auto;height:100%;">${escapeHtml(text)}</pre>`;
+                    })
+                    .catch(e => {
+                        body.innerHTML = `<div class="mac-preview-loading">加载失败: ${e.message}</div>`;
+                    });
+            } else {
+                body.innerHTML = `<div class="mac-preview-loading">该文件类型暂不支持预览<br><a href="/api/fs/download?token=${encodeURIComponent(token)}&path=${encodeURIComponent(path)}" style="color:#007aff;text-decoration:none;">点击下载</a></div>`;
+            }
+        }
+
+        function closeFilePreview() {
+            document.getElementById('filePreviewModal').classList.remove('show');
+            currentPreviewPath = '';
+            currentPreviewName = '';
+        }
+
+        function closeFilePreviewOnOverlay(event) {
+            if (event.target.id === 'filePreviewModal') closeFilePreview();
+        }
+
+        function downloadPreviewFile() {
+            if (currentPreviewPath) {
+                window.open(`/api/fs/download?token=${encodeURIComponent(token)}&path=${encodeURIComponent(currentPreviewPath)}`, '_blank');
             }
         }
 
@@ -10365,9 +10558,55 @@
             return div.innerHTML;
         }
         
+        let localVersion = '5.0.0';
+        let pypiVersion = '';
+        let hasUpdate = false;
+
+        function compareVersion(v1, v2) {
+            const parts1 = v1.split('.').map(Number);
+            const parts2 = v2.split('.').map(Number);
+            for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+                const a = parts1[i] || 0;
+                const b = parts2[i] || 0;
+                if (a > b) return 1;
+                if (a < b) return -1;
+            }
+            return 0;
+        }
+
+        async function checkForUpdate() {
+            try {
+                const localRes = await fetch(`/api/version?token=${encodeURIComponent(token)}`);
+                if (localRes.ok) {
+                    const localData = await localRes.json();
+                    localVersion = localData.version || '5.0.0';
+                }
+                const pypiRes = await fetch('https://pypi.org/pypi/clawdboz/json');
+                if (pypiRes.ok) {
+                    const pypiData = await pypiRes.json();
+                    pypiVersion = pypiData.info?.version || '';
+                    if (pypiVersion && compareVersion(pypiVersion, localVersion) > 0) {
+                        hasUpdate = true;
+                        const settingsBadge = document.getElementById('settingsUpdateBadge');
+                        const aboutBadge = document.getElementById('aboutUpdateBadge');
+                        if (settingsBadge) settingsBadge.classList.remove('hidden');
+                        if (aboutBadge) aboutBadge.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {
+                console.error('[UpdateCheck] 版本检查失败:', e);
+            }
+        }
+
         function renderConfigTab() {
             const container = document.getElementById('configTabContent');
             if (currentConfigTab === 'about') {
+                const updateHtml = hasUpdate ? `
+                    <div class="update-hint">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>发现新版本 <strong>${escapeHtml(pypiVersion)}</strong>（当前 ${escapeHtml(localVersion)}），请运行 <code>pip install --upgrade clawdboz</code> 更新。</span>
+                    </div>
+                ` : '';
                 container.innerHTML = `
                     <div style="padding: 12px 4px; line-height: 1.8; color: var(--text); font-size: 14px;">
                         <div style="text-align: center; margin-bottom: 20px;">
@@ -10393,8 +10632,9 @@
                             <a href="https://clawdboz.chat" target="_blank" style="color: var(--primary); text-decoration: none;">https://clawdboz.chat</a>
                         </p>
                         <p style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-tertiary);">
-                            Version 5.0.0 · MIT License
+                            Version ${escapeHtml(localVersion)} · MIT License
                         </p>
+                        ${updateHtml}
                     </div>
                 `;
                 return;
