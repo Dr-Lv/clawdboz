@@ -10601,12 +10601,8 @@
         function renderConfigTab() {
             const container = document.getElementById('configTabContent');
             if (currentConfigTab === 'about') {
-                const updateHtml = hasUpdate ? `
-                    <div class="update-hint">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <span>发现新版本 <strong>${escapeHtml(pypiVersion)}</strong>（当前 ${escapeHtml(localVersion)}），请运行 <code>pip install --upgrade clawdboz</code> 更新。</span>
-                    </div>
-                ` : '';
+                const pypiDisplay = escapeHtml(pypiVersion || '检测中...');
+                const updateNotice = hasUpdate ? `<p style="color:#d46b08;margin-top:6px;"><i class="fas fa-arrow-up" style="margin-right:4px;"></i>发现新版本 <strong>${escapeHtml(pypiVersion)}</strong>，请运行 <code>pip install --upgrade clawdboz</code> 更新。</p>` : '';
                 container.innerHTML = `
                     <div style="padding: 12px 4px; line-height: 1.8; color: var(--text); font-size: 14px;">
                         <div style="text-align: center; margin-bottom: 20px;">
@@ -10631,10 +10627,13 @@
                             官网地址：
                             <a href="https://clawdboz.chat" target="_blank" style="color: var(--primary); text-decoration: none;">https://clawdboz.chat</a>
                         </p>
-                        <p style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-tertiary);">
-                            Version ${escapeHtml(localVersion)} · MIT License
-                        </p>
-                        ${updateHtml}
+                        <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-tertiary);">
+                            <p>当前版本：${escapeHtml(localVersion)} · PyPI 最新：${pypiDisplay}</p>
+                            ${updateNotice}
+                            <p style="margin-top: 6px;">
+                                <a href="https://github.com/Dr-Lv/clawdboz/blob/master/LICENSE_SOURCE_OPEN.md" target="_blank" style="color: var(--text-tertiary); text-decoration: underline;">Source Open License</a>
+                            </p>
+                        </div>
                     </div>
                 `;
                 return;

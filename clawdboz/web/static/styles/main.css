@@ -94,7 +94,7 @@
             border-radius: 50%;
             z-index: 10;
         }
-        .update-badge.hidden { display: none; }
+        .update-badge.hidden { display: none !important; }
         .update-hint {
             margin-top: 12px;
             padding: 10px 12px;
