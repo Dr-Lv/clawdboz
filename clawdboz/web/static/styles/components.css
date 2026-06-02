@@ -446,7 +446,93 @@
             z-index: 200;
         }
         .modal-overlay.show { display: flex; }
-        
+
+        /* Workspace 模态框 - Terminal & 文件浏览器 */
+        .workspace-modal {
+            width: calc(100% - 80px);
+            max-width: 900px;
+            height: 70vh;
+        }
+        .workspace-modal-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            overflow: hidden;
+        }
+        .workspace-path {
+            padding: 10px 16px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            color: var(--text-secondary);
+            word-break: break-all;
+        }
+        .terminal-container {
+            flex: 1;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .terminal-output {
+            flex: 1;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+        .terminal-input-line {
+            display: flex;
+            align-items: center;
+            margin-top: 8px;
+            flex-shrink: 0;
+        }
+        .terminal-prompt {
+            color: #00b96b;
+            margin-right: 6px;
+            user-select: none;
+            font-weight: bold;
+        }
+        .terminal-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #d4d4d4;
+            font-family: inherit;
+            font-size: inherit;
+        }
+        .file-browser-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .file-browser-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            gap: 10px;
+            font-size: 14px;
+            color: var(--text);
+        }
+        .file-browser-item:hover { background: var(--bg); }
+        .file-browser-item i { width: 20px; text-align: center; color: var(--text-secondary); }
+        .file-browser-item .fa-folder { color: #f5a623; }
+        .file-browser-item .fa-file { color: #7d7d7d; }
+        .file-browser-empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
         /* 头像选择器弹窗 - 需要在其他弹窗之上 */
         #avatarSelectorModal {
             z-index: 300;

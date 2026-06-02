@@ -2,15 +2,16 @@
 """
 File API Routes - 文件上传下载路由
 
-提供文件上传和下载功能。
+提供文件上传、下载、目录浏览和终端命令执行功能。
 """
 
 import os
 import shutil
+import subprocess
 import uuid
 from typing import TYPE_CHECKING
 
-from fastapi import File, Form, UploadFile, Query
+from fastapi import File, Form, UploadFile, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 if TYPE_CHECKING:
@@ -115,3 +116,102 @@ def setup_file_routes(server: "WebChatServer"):
             )
 
         return FileResponse(file_path)
+
+    @app.get("/api/fs/list")
+    async def list_directory(path: str = Query(""), token: str = Query(...)):
+        """
+        列出指定目录的内容
+
+        Args:
+            path: 相对或绝对目录路径
+            token: 访问令牌
+        """
+        if token != auth_token:
+            return JSONResponse(status_code=403, content={"success": False, "error": "Invalid token"})
+
+        target_path = path if os.path.isabs(path) else os.path.join(base_workplace, path)
+        target_path = os.path.abspath(target_path)
+        # 安全检查：限制在 base_workplace 范围内
+        if not target_path.startswith(os.path.abspath(base_workplace)):
+            return JSONResponse(status_code=403, content={"success": False, "error": "Access denied"})
+
+        if not os.path.exists(target_path):
+            return JSONResponse(status_code=404, content={"success": False, "error": "Path not found"})
+        if not os.path.isdir(target_path):
+            return JSONResponse(status_code=400, content={"success": False, "error": "Not a directory"})
+
+        try:
+            items = []
+            for name in sorted(os.listdir(target_path)):
+                if name.startswith("."):
+                    continue
+                item_path = os.path.join(target_path, name)
+                items.append({
+                    "name": name,
+                    "path": item_path,
+                    "type": "dir" if os.path.isdir(item_path) else "file"
+                })
+            parent = os.path.dirname(target_path)
+            parent = parent if parent.startswith(os.path.abspath(base_workplace)) else ""
+            return {
+                "success": True,
+                "path": target_path,
+                "parent": parent if parent != target_path else "",
+                "items": items
+            }
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
+    @app.post("/api/fs/execute")
+    async def execute_command(request: Request, token: str = Query(...)):
+        """
+        在指定目录执行终端命令（白名单限制）
+
+        Args:
+            request: JSON body {cmd, cwd}
+            token: 访问令牌
+        """
+        if token != auth_token:
+            return JSONResponse(status_code=403, content={"success": False, "error": "Invalid token"})
+
+        try:
+            body = await request.json()
+            cmd = body.get("cmd", "").strip()
+            cwd = body.get("cwd", base_workplace)
+        except Exception:
+            return JSONResponse(status_code=400, content={"success": False, "error": "Invalid JSON"})
+
+        if not cmd:
+            return JSONResponse(status_code=400, content={"success": False, "error": "Empty command"})
+
+        # 安全检查：限制工作目录
+        target_cwd = cwd if os.path.isabs(cwd) else os.path.join(base_workplace, cwd)
+        target_cwd = os.path.abspath(target_cwd)
+        if not target_cwd.startswith(os.path.abspath(base_workplace)):
+            return JSONResponse(status_code=403, content={"success": False, "error": "Access denied"})
+
+        # 命令白名单（只读 + 安全操作）
+        allowed_prefixes = ("ls", "cat", "pwd", "echo", "head", "tail", "find", "grep", "wc", "file", "tree", "du", "df")
+        if not any(cmd.split()[0] == p for p in allowed_prefixes):
+            return JSONResponse(status_code=403, content={"success": False, "error": f"Command '{cmd.split()[0]}' not allowed"})
+
+        # 禁止危险字符
+        dangerous = (";", "&&", "||", "|", "`", "$", "<", ">")
+        if any(d in cmd for d in dangerous):
+            return JSONResponse(status_code=403, content={"success": False, "error": "Dangerous characters detected"})
+
+        try:
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                cwd=target_cwd,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            output = result.stdout + (result.stderr if result.stderr else "")
+            return {"success": True, "output": output, "returncode": result.returncode}
+        except subprocess.TimeoutExpired:
+            return JSONResponse(status_code=500, content={"success": False, "error": "Command timeout"})
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"success": False, "error": str(e)})

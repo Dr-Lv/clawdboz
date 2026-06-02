@@ -633,6 +633,10 @@
                             <span class="ios-toggle-slider"></span>
                         </label>
                     </div>
+                    <div style="margin-left: auto; display: flex; gap: 6px;">
+                        <div class="toolbar-btn" onclick="openTerminalModal()" title="终端"><i class="fas fa-terminal"></i></div>
+                        <div class="toolbar-btn" onclick="openFileBrowserModal()" title="文件浏览器"><i class="fas fa-folder-open"></i></div>
+                    </div>
                 </div>
                 <div class="input-wrapper">
                     <textarea id="messageInput" class="input-field" rows="1" placeholder="发送消息..."></textarea>
@@ -1299,6 +1303,46 @@
             <div class="modal-footer">
                 <button class="modal-btn modal-btn-secondary" onclick="closeCreateBotModal()">取消</button>
                 <button class="modal-btn modal-btn-primary" onclick="confirmCreateBot()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terminal 模态框 -->
+    <div id="terminalModal" class="modal-overlay" onclick="closeTerminalModalOnOverlay(event)">
+        <div class="modal-content workspace-modal">
+            <div class="modal-header">
+                <span class="modal-title"><i class="fas fa-terminal" style="margin-right: 8px;"></i>终端</span>
+                <div class="modal-close" onclick="closeTerminalModal()">
+                    <i class="fas fa-times"></i>
+                </div>
+            </div>
+            <div class="modal-body workspace-modal-body">
+                <div class="workspace-path" id="terminalPath">/WORKPLACE</div>
+                <div class="terminal-container" id="terminalContainer">
+                    <div class="terminal-output" id="terminalOutput">Welcome to Clawdboz Terminal&#10;Type 'help' for available commands.&#10;</div>
+                    <div class="terminal-input-line">
+                        <span class="terminal-prompt">$ </span>
+                        <input type="text" class="terminal-input" id="terminalInput" placeholder="输入命令..." onkeydown="handleTerminalKey(event)">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文件浏览器模态框 -->
+    <div id="fileBrowserModal" class="modal-overlay" onclick="closeFileBrowserModalOnOverlay(event)">
+        <div class="modal-content workspace-modal">
+            <div class="modal-header">
+                <span class="modal-title"><i class="fas fa-folder-open" style="margin-right: 8px;"></i>文件浏览器</span>
+                <div class="modal-close" onclick="closeFileBrowserModal()">
+                    <i class="fas fa-times"></i>
+                </div>
+            </div>
+            <div class="modal-body workspace-modal-body">
+                <div class="workspace-path" id="fileBrowserPath">/WORKPLACE</div>
+                <div class="file-browser-container" id="fileBrowserContainer">
+                    <div class="file-browser-empty">加载中...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -10135,7 +10179,125 @@
         function hideStopBtn() {
             document.getElementById('stopBtn').style.display = 'none';
         }
-        
+
+        // ========== Terminal & 文件浏览器 ==========
+
+        async function getCurrentWorkplace() {
+            if (!currentSessionId) return 'WORKPLACE';
+            try {
+                const sessionRes = await fetch(`/api/sessions/${encodeURIComponent(currentSessionId)}?token=${encodeURIComponent(token)}`);
+                if (!sessionRes.ok) return 'WORKPLACE';
+                const sessionData = await sessionRes.json();
+                const botIds = sessionData.bot_ids || sessionData.botIds || [];
+                if (botIds.length === 0) return 'WORKPLACE';
+                const botsRes = await fetch(`/api/bots?token=${encodeURIComponent(token)}`);
+                if (!botsRes.ok) return 'WORKPLACE';
+                const botsData = await botsRes.json();
+                const bot = botsData.bots?.find(b => b.id === botIds[0] && b.type === 'local');
+                return bot?.work_dir || 'WORKPLACE';
+            } catch (e) {
+                console.error('[Workspace] 获取工作目录失败:', e);
+                return 'WORKPLACE';
+            }
+        }
+
+        function openTerminalModal() {
+            document.getElementById('terminalModal').classList.add('show');
+            getCurrentWorkplace().then(path => {
+                document.getElementById('terminalPath').textContent = path;
+            });
+            setTimeout(() => document.getElementById('terminalInput').focus(), 100);
+        }
+        function closeTerminalModal() {
+            document.getElementById('terminalModal').classList.remove('show');
+        }
+        function closeTerminalModalOnOverlay(event) {
+            if (event.target.id === 'terminalModal') closeTerminalModal();
+        }
+
+        async function handleTerminalKey(event) {
+            if (event.key !== 'Enter') return;
+            const input = document.getElementById('terminalInput');
+            const cmd = input.value.trim();
+            if (!cmd) return;
+            input.value = '';
+            const output = document.getElementById('terminalOutput');
+            output.textContent += `$ ${cmd}\n`;
+            if (cmd === 'help') {
+                output.textContent += 'Available commands: help, clear, ls, pwd\n';
+            } else if (cmd === 'clear') {
+                output.textContent = '';
+            } else if (cmd === 'pwd') {
+                const path = document.getElementById('terminalPath').textContent;
+                output.textContent += `${path}\n`;
+            } else {
+                try {
+                    const path = document.getElementById('terminalPath').textContent;
+                    const res = await fetch(`/api/fs/execute?token=${encodeURIComponent(token)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cmd, cwd: path })
+                    });
+                    const data = await res.json();
+                    output.textContent += (data.output || data.error || 'No output') + '\n';
+                } catch (e) {
+                    output.textContent += `Error: ${e.message}\n`;
+                }
+            }
+            const container = document.getElementById('terminalContainer');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function openFileBrowserModal() {
+            document.getElementById('fileBrowserModal').classList.add('show');
+            getCurrentWorkplace().then(path => {
+                document.getElementById('fileBrowserPath').textContent = path;
+                loadFileBrowser(path);
+            });
+        }
+        function closeFileBrowserModal() {
+            document.getElementById('fileBrowserModal').classList.remove('show');
+        }
+        function closeFileBrowserModalOnOverlay(event) {
+            if (event.target.id === 'fileBrowserModal') closeFileBrowserModal();
+        }
+
+        async function loadFileBrowser(path) {
+            const container = document.getElementById('fileBrowserContainer');
+            container.innerHTML = '<div class="file-browser-empty">加载中...</div>';
+            try {
+                const res = await fetch(`/api/fs/list?token=${encodeURIComponent(token)}&path=${encodeURIComponent(path)}`);
+                if (!res.ok) throw new Error('加载失败');
+                const data = await res.json();
+                document.getElementById('fileBrowserPath').textContent = data.path || path;
+                if (!data.items || data.items.length === 0) {
+                    container.innerHTML = '<div class="file-browser-empty">空文件夹</div>';
+                    return;
+                }
+                container.innerHTML = '';
+                // 上级目录
+                if (data.parent) {
+                    const up = document.createElement('div');
+                    up.className = 'file-browser-item';
+                    up.innerHTML = '<i class="fas fa-level-up-alt"></i><span>..</span>';
+                    up.onclick = () => loadFileBrowser(data.parent);
+                    container.appendChild(up);
+                }
+                data.items.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'file-browser-item';
+                    const icon = item.type === 'dir' ? 'fa-folder' : 'fa-file';
+                    div.innerHTML = `<i class="fas ${icon}"></i><span>${item.name}</span>`;
+                    div.onclick = () => {
+                        if (item.type === 'dir') loadFileBrowser(item.path);
+                    };
+                    container.appendChild(div);
+                });
+            } catch (e) {
+                container.innerHTML = `<div class="file-browser-empty">加载失败: ${e.message}</div>`;
+            }
+        }
+
         // ========== 系统配置 ==========
         
         let currentConfig = null;
