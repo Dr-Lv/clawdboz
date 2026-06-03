@@ -1171,9 +1171,12 @@ class RemoteBotManager:
             print(f"[RemoteBot] 读取已添加bot失败: {e}")
 
         # 实时从注册中心获取远程 Bot
+        registry_bots_found = False
         if self.registry_client:
             try:
                 remote_bots = await self.registry_client.get_all_bots()
+                if remote_bots:
+                    registry_bots_found = True
                 for bot in remote_bots:
                     instance_id = bot.get("instance_id")
                     bot_id = bot.get("bot_id")
@@ -1215,6 +1218,50 @@ class RemoteBotManager:
                     }
             except Exception as e:
                 print(f"[RemoteBot] 实时获取远程 Bot 失败: {e}")
+
+        # 如果 Registry /api/registry/bots 返回空，回退到 discovered_instances 数据
+        if not registry_bots_found and self.discovered_instances:
+            print(f"[RemoteBot] Registry /api/registry/bots 为空，使用 discovered_instances 回退 ({len(self.discovered_instances)} 个实例)")
+            for instance_id, instance in self.discovered_instances.items():
+                if instance_id == self.instance_id:
+                    continue
+                published_bots_info = getattr(instance, 'published_bots_info', None) or []
+                for bot_info in published_bots_info:
+                    bot_id = bot_info.get('bot_id')
+                    if not bot_id:
+                        continue
+                    full_bot_id = f"{instance_id}:{bot_id}"
+                    if full_bot_id in all_bots:
+                        continue
+                    avatar_image = bot_info.get("avatar_image") or bot_info.get("avatar_url", "")
+                    avatar_color = bot_info.get("avatar_color", "")
+                    avatar_icon = bot_info.get("avatar_icon", "")
+                    if not avatar_image and avatar_color == "from-purple-400 to-purple-600" and avatar_icon == "fa-robot":
+                        avatar_color = ""
+                        avatar_icon = ""
+                    all_bots[full_bot_id] = {
+                        "id": full_bot_id,
+                        "bot_id": bot_id,
+                        "name": bot_info.get('display_name', bot_id),
+                        "type": "remote",
+                        "instance_id": instance_id,
+                        "instance_name": getattr(instance, 'name', instance_id),
+                        "instance_host": getattr(instance, 'host', ''),
+                        "instance_port": getattr(instance, 'port', 0),
+                        "description": bot_info.get('description', ''),
+                        "capabilities": bot_info.get('capabilities', []),
+                        "is_sandboxed": bot_info.get('is_sandboxed', False),
+                        "requires_fs_access": bot_info.get('requires_fs_access', False),
+                        "avatar_color": avatar_color,
+                        "avatar_icon": avatar_icon,
+                        "avatar_image": avatar_image,
+                        "status": getattr(instance, 'status', 'unknown'),
+                        "last_seen": getattr(instance, 'last_seen', 0),
+                        "registered_at": bot_info.get('registered_at', 0),
+                        "is_published": True,
+                        "is_added": full_bot_id in added_bot_keys,
+                        "is_friend": self.friend_manager.is_friend(instance_id, bot_id) if self.friend_manager else False
+                    }
 
         return all_bots
 

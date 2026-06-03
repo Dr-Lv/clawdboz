@@ -3,10 +3,34 @@
 """
 import aiohttp
 import asyncio
+import os
 import time
 import uuid
 from typing import List, Optional, Dict
 from clawdboz.remote.instance import RemoteInstance, InstanceStatus
+
+
+def _ensure_ssl_cert_file():
+    """确保 Python SSL 能正确找到系统 CA 证书
+
+    某些环境（如 uv 安装的 Python）使用自己的 OpenSSL 发行版，
+    其默认 cafile 为 None，导致 SSL 证书验证失败。
+    此函数自动检测常见系统 CA 证书路径，并设置 SSL_CERT_FILE 环境变量。
+    """
+    if os.environ.get("SSL_CERT_FILE") or os.environ.get("SSL_CERT_DIR"):
+        return
+
+    # 常见系统 CA 证书路径
+    candidates = [
+        "/etc/pki/tls/cert.pem",                # RHEL / CentOS / Alibaba Cloud / Fedora
+        "/etc/ssl/certs/ca-certificates.crt",   # Debian / Ubuntu
+        "/etc/ssl/cert.pem",                    # macOS / Alpine
+    ]
+
+    for path in candidates:
+        if os.path.exists(path):
+            os.environ["SSL_CERT_FILE"] = path
+            return
 
 
 class RegistryClient:
@@ -34,6 +58,8 @@ class RegistryClient:
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._running = False
         self._ssl = self.registry_url.startswith("https://")
+        if self._ssl:
+            _ensure_ssl_cert_file()
 
     async def __aenter__(self):
         """异步上下文管理器入口"""
