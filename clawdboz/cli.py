@@ -25,6 +25,7 @@ import time
 import uuid
 import requests
 import urllib.parse
+import urllib.request
 import asyncio
 from websockets.asyncio.client import connect
 from datetime import datetime
@@ -605,6 +606,191 @@ def check_kimi_installation():
 
 
 # =============================================================================
+# ACP 工具自动发现
+# =============================================================================
+
+ACP_TOOL_CONFIGS = [
+    {
+        "id": "kimi",
+        "name": "Kimi Code",
+        "type": "kimi",
+        "executable_names": ["kimi"],
+        "common_paths": ["~/.local/bin/kimi", "/usr/local/bin/kimi", "/usr/bin/kimi"],
+        "args": ["acp"],
+    },
+    {
+        "id": "claude",
+        "name": "Claude Code",
+        "type": "claudecode",
+        "executable_names": ["claude", "claude-code"],
+        "common_paths": ["/usr/local/bin/claude", "/usr/bin/claude", "/usr/local/bin/claude-code"],
+        "args": ["-m", "clawdboz.communication.claude_acp_stdio"],
+        "use_sys_executable": True,
+    },
+    {
+        "id": "opencode",
+        "name": "Opencode",
+        "type": "opencode",
+        "executable_names": ["opencode"],
+        "common_paths": ["~/.opencode/bin/opencode", "/usr/local/bin/opencode", "/usr/bin/opencode"],
+        "args": ["acp"],
+    },
+    {
+        "id": "openclaw",
+        "name": "OpenClaw",
+        "type": "openclaw",
+        "executable_names": ["openclaw"],
+        "common_paths": ["/usr/local/bin/openclaw", "/usr/bin/openclaw"],
+        "args": ["acp"],
+    },
+    {
+        "id": "hermes",
+        "name": "Hermes Agent",
+        "type": "hermes",
+        "executable_names": ["hermes"],
+        "common_paths": ["/usr/local/bin/hermes", "/usr/bin/hermes"],
+        "args": ["acp"],
+    },
+]
+
+
+def _find_executable(executable_names: List[str], common_paths: List[str]) -> Optional[str]:
+    """查找可执行文件，先检查 PATH，再检查常见路径"""
+    for name in executable_names:
+        path = shutil.which(name)
+        if path:
+            return path
+    for path in common_paths:
+        expanded = os.path.expanduser(path)
+        if os.path.isfile(expanded) and os.access(expanded, os.X_OK):
+            return expanded
+    return None
+
+
+def detect_acp_tools() -> List[Dict[str, Any]]:
+    """检测系统中安装的所有 ACP 工具"""
+    found = []
+    for tool in ACP_TOOL_CONFIGS:
+        executable = _find_executable(tool["executable_names"], tool["common_paths"])
+        if executable:
+            found.append({
+                "id": tool["id"],
+                "name": tool["name"],
+                "type": tool["type"],
+                "executable": executable,
+                "args": tool.get("args", ["acp"]),
+                "use_sys_executable": tool.get("use_sys_executable", False),
+            })
+    return found
+
+
+def test_acp_availability(tool_info: Dict[str, Any], timeout: int = 10) -> bool:
+    """测试 ACP 工具是否能响应 initialize 请求"""
+    import select as select_module
+
+    provider = tool_info["type"]
+    executable = tool_info["executable"]
+
+    if tool_info.get("use_sys_executable"):
+        cmd = [sys.executable] + tool_info.get("args", [])
+    else:
+        cmd = [executable] + tool_info.get("args", ["acp"])
+
+    env = os.environ.copy()
+    env["TERM"] = "dumb"
+    env["NO_COLOR"] = "1"
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            preexec_fn=os.setsid if hasattr(os, "setsid") else None,
+        )
+    except Exception:
+        return False
+
+    try:
+        init_req = {
+            "jsonrpc": "2.0",
+            "id": str(uuid.uuid4()),
+            "method": "initialize",
+            "params": {"protocolVersion": 1, "capabilities": {}},
+        }
+        proc.stdin.write(json.dumps(init_req) + "\n")
+        proc.stdin.flush()
+
+        start = time.time()
+        while time.time() - start < timeout:
+            readable, _, _ = select_module.select([proc.stdout], [], [], 0.5)
+            if readable:
+                line = proc.stdout.readline()
+                if line:
+                    try:
+                        resp = json.loads(line.strip())
+                        if "result" in resp or "error" in resp:
+                            return True
+                    except json.JSONDecodeError:
+                        pass
+            if proc.poll() is not None:
+                break
+
+        return False
+    finally:
+        try:
+            if hasattr(os, "killpg"):
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            else:
+                proc.terminate()
+        except Exception:
+            pass
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
+def fetch_clawdboz_knowledge() -> Optional[str]:
+    """从 clawdboz.chat 获取使用说明文本"""
+    try:
+        req = urllib.request.Request(
+            "https://clawdboz.chat",
+            headers={"User-Agent": "Mozilla/5.0 (Clawdboz-Init)"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return None
+
+    import re
+    # 移除 script/style/nav/footer 标签
+    html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<nav[^>]*>.*?</nav>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<footer[^>]*>.*?</footer>", "", html, flags=re.DOTALL | re.IGNORECASE)
+
+    # 提取 body
+    body_match = re.search(r"<body[^>]*>(.*?)</body>", html, flags=re.DOTALL | re.IGNORECASE)
+    if body_match:
+        html = body_match.group(1)
+
+    # 去掉所有标签
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # 解码 HTML 实体
+    import html
+    text = html.unescape(text)
+
+    if len(text) > 4000:
+        text = text[:4000] + "...（内容已截断）"
+    return text
+
+
+# =============================================================================
 # INIT 命令 - Web-first 模式
 # =============================================================================
 
@@ -625,6 +811,32 @@ def init_project_web(work_dir: Optional[str] = None):
         print(f"       {kimi_bin} auth login")
     else:
         print(f"[OK] Kimi CLI 已安装并已登录: {kimi_bin}")
+
+    # 自动发现所有 ACP 工具
+    print("[INIT] 扫描 ACP 工具...")
+    detected_tools = detect_acp_tools()
+    available_clients = []
+
+    for tool in detected_tools:
+        print(f"[INIT] 检测到 {tool['name']}: {tool['executable']}")
+        print(f"[INIT] 测试 {tool['name']} 可用性...")
+        if test_acp_availability(tool, timeout=10):
+            print(f"[OK] {tool['name']} 可用")
+            client_id = f"{tool['id']}_client_{uuid.uuid4().hex[:6]}"
+            available_clients.append({
+                "id": client_id,
+                "name": tool["name"],
+                "type": tool["type"],
+                "executable": tool["executable"],
+                "enabled": True,
+            })
+        else:
+            print(f"[WARN] {tool['name']} 未响应 ACP 协议，跳过")
+
+    if available_clients:
+        print(f"[OK] 共 {len(available_clients)} 个 ACP 客户端可用")
+    else:
+        print("[WARN] 未检测到可用的 ACP 客户端，Bot 将无法回复消息")
 
     # 创建目录
     dirs = [
@@ -694,6 +906,10 @@ def init_project_web(work_dir: Optional[str] = None):
             }
         }
 
+        if available_clients:
+            config["acp"] = {"clients": available_clients}
+            print(f"[INIT] 自动配置 {len(available_clients)} 个 ACP 客户端到 config.json")
+
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
 
@@ -738,41 +954,87 @@ def init_project_web(work_dir: Optional[str] = None):
                     else:
                         print(f"[INFO] Skill 已存在: .agents/skills/{skill_name}/")
 
-    # 创建默认 Bot（bot0）
-    default_bot_id = "bot0"
-    default_bot_dir = os.path.join(target_dir, 'WORKPLACE', f'workplace_{default_bot_id}')
-    os.makedirs(default_bot_dir, exist_ok=True)
+    # 创建助手 Bot（使用第一个可用的 ACP 客户端）
+    if available_clients:
+        first_client = available_clients[0]
+        assistant_bot_id = "assistant"
+        assistant_dir = os.path.join(target_dir, 'WORKPLACE', f'workplace_{assistant_bot_id}')
+        os.makedirs(assistant_dir, exist_ok=True)
 
-    default_bot_md = os.path.join(default_bot_dir, '.bot.md')
-    if not os.path.exists(default_bot_md):
-        bot_md_content = f"""# {default_bot_id}
+        assistant_md = os.path.join(assistant_dir, '.bot.md')
+        if not os.path.exists(assistant_md):
+            bio_text = (
+                "你是 Clawdboz Web Chat 界面的官方使用助手。你的核心任务是解答用户关于 Web Chat 界面操作的问题。"
+                "每次回答用户问题时，请先参考实时获取到的最新使用说明，然后基于这些知识给出清晰、准确的解答。"
+                "请重点围绕以下 Web Chat 功能来回答：创建会话、单聊/群聊切换、@提及 Bot、文件上传与图片发送、"
+                "远程 Bot 发现与添加、会话管理、思考模式切换、Terminal 终端和 Finder 文件管理等。"
+            )
 
-ID: {default_bot_id}
-Name: 助手
-Bio: 你是一个友好的AI助手，擅长回答问题、编写代码和协助各种任务。
-Avatar Color: from-blue-400 to-blue-600
-Avatar Icon: fa-robot
+            bot_md_content = f"""# {assistant_bot_id}
+
+ID: {assistant_bot_id}
+Name: Clawdboz 助手
+Bio: {bio_text}
+Avatar Color: from-purple-400 to-purple-600
+Avatar Icon: fa-question-circle
+ACP Client ID: {first_client['id']}
 Created: {time.strftime('%Y-%m-%d %H:%M:%S')}
 """
-        with open(default_bot_md, 'w', encoding='utf-8') as f:
-            f.write(bot_md_content)
-        print(f"[INIT] 创建默认 Bot: {default_bot_id}")
-    else:
-        print(f"[INFO] 默认 Bot 已存在: {default_bot_id}")
+            with open(assistant_md, 'w', encoding='utf-8') as f:
+                f.write(bot_md_content)
+            print(f"[INIT] 创建助手 Bot: {assistant_bot_id} (使用 {first_client['name']})")
+        else:
+            print(f"[INFO] 助手 Bot 已存在: {assistant_bot_id}")
 
-    # 复制 bot0.py 启动脚本
-    bot0_script = os.path.join(target_dir, 'bot0.py')
-    if not os.path.exists(bot0_script):
-        template_bot0 = os.path.join(os.path.dirname(__file__), 'templates', 'bot0.py')
-        if os.path.exists(template_bot0):
-            shutil.copy2(template_bot0, bot0_script)
-            print(f"[INIT] 复制启动脚本: bot0.py")
+        # 创建初始欢迎会话（session ID 与前端格式一致）
+        session_id = f"session_{uuid.uuid4().hex[:16]}"
+        session_dir = os.path.join(assistant_dir, f"w_{session_id}")
+        os.makedirs(session_dir, exist_ok=True)
 
-    print(f"[INIT] Web Chat 项目初始化完成！")
+        session_json = {
+            "meta": {
+                "id": session_id,
+                "chat_type": "single",
+                "bot_ids": [assistant_bot_id],
+                "name": "欢迎使用 Clawdboz",
+                "created_at": time.time(),
+                "updated_at": time.time(),
+                "is_group": False,
+                "thinking_mode": False,
+                "source": "web"
+            },
+            "messages": [
+                {
+                    "sender": assistant_bot_id,
+                    "content": "你好！我是 Clawdboz 助手，很高兴为你服务。如果你在使用 Web Chat 界面过程中遇到任何问题，随时可以问我！",
+                    "time": time.time()
+                }
+            ],
+            "stats": {
+                "message_count": 1,
+                "last_active": time.time()
+            }
+        }
+
+        session_path = os.path.join(session_dir, 'session.json')
+        if not os.path.exists(session_path):
+            with open(session_path, 'w', encoding='utf-8') as f:
+                json.dump(session_json, f, indent=2, ensure_ascii=False)
+            print(f"[INIT] 创建初始会话: {session_id}")
+
+    print(f"\n[INIT] Web Chat 项目初始化完成！")
     print(f"\n下一步:")
     print(f"  1. 编辑 config.json 配置端口和 HTTPS")
     print(f"  2. 运行: clawdboz run")
-    print(f"  3. 访问: http://localhost:{json.load(open(config_path))['webchat']['port']}")
+    if available_clients:
+        web_port = json.load(open(config_path))['webchat']['port']
+        print(f"  3. 访问: http://localhost:{web_port}")
+        print(f"\n已配置的 ACP 客户端:")
+        for client in available_clients:
+            print(f"    - {client['name']} ({client['type']})")
+    else:
+        print(f"  3. 访问: http://localhost:{json.load(open(config_path))['webchat']['port']}")
+        print(f"\n[WARN] 未配置 ACP 客户端，请至少安装一种 Agent 工具")
 
 
 def init_project_feishu(work_dir: Optional[str] = None):

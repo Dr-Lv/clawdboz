@@ -1173,7 +1173,7 @@
                         <span>添加远程 Bot</span>
                     </button>
                 </div>
-                <div style="margin-top: 16px; padding: 12px; background: rgba(96, 165, 250, 0.1); border-radius: 6px; font-size: 12px; color: rgba(255,255,255,0.7);">
+                <div style="margin-top: 16px; padding: 12px; background: rgba(96, 165, 250, 0.1); border-radius: 6px; font-size: 12px; color: #333;">
                     <i class="fas fa-info-circle" style="margin-right: 6px;"></i>
                     <span>本地 Bot 直接在本实例运行，远程 Bot 从其他实例添加</span>
                 </div>
@@ -1249,12 +1249,12 @@
                     <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--text);">
                         <i class="fas fa-microchip" style="color: #00b96b;"></i>
                         ACP 客户端
-                        <span style="font-size: 12px; color: var(--text-secondary); font-weight: normal;">（可选）</span>
+                        <span style="font-size: 12px; color: #333; font-weight: normal;">（可选）</span>
                     </label>
                     <select id="newBotAcpClient" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--bg-primary); color: var(--text); outline: none;">
                         <option value="">默认（第一个）</option>
                     </select>
-                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">
+                    <div style="font-size: 12px; color: #333; margin-top: 6px;">
                         选择此 Bot 使用的 ACP 客户端，可在设置页面配置多个客户端
                     </div>
                 </div>
@@ -1266,7 +1266,7 @@
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <i class="fas fa-link" style="color: #3370ff;"></i>
                             <span style="font-size: 14px; font-weight: 500;">飞书连接配置</span>
-                            <span style="font-size: 12px; color: var(--text-secondary);">（可选）</span>
+                            <span style="font-size: 12px; color: #333;">（可选）</span>
                         </div>
                         <i class="fas fa-chevron-down" id="createBotFeishuToggleIcon" style="transition: transform 0.2s;"></i>
                     </div>
@@ -9174,12 +9174,15 @@
         function renderAddBotList() {
             const container = document.getElementById('addBotList');
             
-            if (bots.length === 0) {
+            // 只显示本地 bot 和已添加的远程 bot，过滤掉未添加的远程 bot
+            const availableBots = bots.filter(bot => bot.type !== 'remote' || bot.registered === true);
+            
+            if (availableBots.length === 0) {
                 container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-tertiary);">暂无可用 Bot</div>';
                 return;
             }
             
-            container.innerHTML = bots.map((bot, i) => {
+            container.innerHTML = availableBots.map((bot, i) => {
                 const cfg = getBotAvatarConfig(bot.id);
                 const isSelected = tempSelectedBots.has(bot.id);
                 

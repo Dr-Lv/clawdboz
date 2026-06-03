@@ -7,8 +7,53 @@ ACP Client Manager - ACP 客户端管理模块
 """
 
 import asyncio
+import html as html_module
 import os
+import re
+import time
+import urllib.request
 from typing import Dict, Optional, Tuple
+
+
+# 实时知识缓存（用于 assistant bot）
+_live_knowledge_cache = {"text": None, "timestamp": 0}
+_LIVE_KNOWLEDGE_TTL = 60  # 缓存 60 秒
+
+
+def fetch_live_knowledge() -> Optional[str]:
+    """实时从 clawdboz.chat 获取使用说明文本"""
+    global _live_knowledge_cache
+    now = time.time()
+    if _live_knowledge_cache["text"] and now - _live_knowledge_cache["timestamp"] < _LIVE_KNOWLEDGE_TTL:
+        return _live_knowledge_cache["text"]
+
+    try:
+        req = urllib.request.Request(
+            "https://clawdboz.chat",
+            headers={"User-Agent": "Mozilla/5.0 (Clawdboz-Bot)"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            content = resp.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return _live_knowledge_cache["text"]  # 网络失败时返回旧缓存
+
+    # 提取文本
+    content = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r"<style[^>]*>.*?</style>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r"<nav[^>]*>.*?</nav>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r"<footer[^>]*>.*?</footer>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    body = re.search(r"<body[^>]*>(.*?)</body>", content, flags=re.DOTALL | re.IGNORECASE)
+    if body:
+        content = body.group(1)
+    text = re.sub(r"<[^>]+>", " ", content)
+    text = re.sub(r"\s+", " ", text).strip()
+    text = html_module.unescape(text)
+    if len(text) > 3000:
+        text = text[:3000] + "...（内容已截断）"
+
+    _live_knowledge_cache["text"] = text
+    _live_knowledge_cache["timestamp"] = now
+    return text
 
 
 class ACPClientManager:
@@ -57,6 +102,16 @@ class ACPClientManager:
         bot = self.bots.get(bot_id)
         expected_system_prompt = getattr(bot, '_system_prompt', None) if bot else None
         expected_acp_client_id = getattr(bot, '_acp_client_id', None) if bot else None
+
+        # 对于 assistant bot，实时获取最新知识并注入 system prompt
+        if bot_id == 'assistant' and expected_system_prompt:
+            live_knowledge = fetch_live_knowledge()
+            if live_knowledge:
+                expected_system_prompt = (
+                    f"{expected_system_prompt}\n\n"
+                    f"【实时知识（来自 https://clawdboz.chat，更新时间：{time.strftime('%Y-%m-%d %H:%M:%S')}）】\n"
+                    f"{live_knowledge}"
+                )
 
         async with self._session_acp_lock:
             # 检查是否已存在
