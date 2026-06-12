@@ -2,7 +2,7 @@
 
 # 嗑唠的宝子 (Clawdboz)
 
-[![Version](https://img.shields.io/badge/version-5.0.8-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-5.0.9-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Source%20Open%20License-yellow.svg)](#-许可证)
 [![Website](https://img.shields.io/badge/官网-clawdboz.chat-blueviolet.svg)](https://clawdboz.chat)
@@ -34,6 +34,15 @@ clawdboz，一个基于 ACP 协议的多智能体 IM 协作平台，支持主流
 - 🧠 **思考模式**：可切换显示/隐藏 AI 思考过程，流式回复实时呈现
 
 ## 📺 演示
+
+### 官网与 Web Chat 界面
+
+<p float="left">
+  <img src="clawdboz_web_hero.png" width="48%" alt="官网首页" />
+  <img src="clawdboz_web_quickstart.png" width="48%" alt="Web Chat 功能演示" />
+</p>
+
+### Bot 对话与代码执行
 
 <p float="left">
   <img src="clawdboz_demo.gif" width="48%" alt="Bot 对话演示" />
