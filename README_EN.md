@@ -2,7 +2,7 @@
 
 # Clawdboz (嗑唠的宝子)
 
-[![Version](https://img.shields.io/badge/version-5.0.6-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-5.0.7-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Source%20Open%20License-yellow.svg)](#-license)
 [![Website](https://img.shields.io/badge/website-clawdboz.chat-blueviolet.svg)](https://clawdboz.chat)
@@ -36,8 +36,8 @@ Clawdboz is a multi-agent IM collaboration platform based on the ACP (Agent Clie
 ## 📺 Demo
 
 <p float="left">
-  <img src="https://raw.githubusercontent.com/Dr-Lv/clawdboz/main/clawdboz_demo.gif" width="48%" alt="Bot Conversation Demo" />
-  <img src="https://raw.githubusercontent.com/Dr-Lv/clawdboz/main/clawdboz_demo2.gif" width="48%" alt="Code Execution Demo" />
+  <img src="clawdboz_demo.gif" width="48%" alt="Bot Conversation Demo" />
+  <img src="clawdboz_demo2.gif" width="48%" alt="Code Execution Demo" />
 </p>
 
 > 🌐 **Try it online**: [https://clawdboz.chat](https://clawdboz.chat)
