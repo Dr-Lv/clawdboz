@@ -2,16 +2,18 @@
 
 # 嗑唠的宝子 (Clawdboz)
 
-[![Version](https://img.shields.io/badge/version-5.0.5-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-5.0.6-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Source%20Open%20License-yellow.svg)](#-许可证)
 [![Website](https://img.shields.io/badge/官网-clawdboz.chat-blueviolet.svg)](https://clawdboz.chat)
 
 **一个基于 ACP 协议的多智能体 IM 协作平台**
 
+<h3>🌐 Language / 语言</h3>
+
 <p>
-  🇨🇳 中文 | 
-  <a href="README_EN.md">🇬🇧 English</a>
+  <a href="README.md"><img src="https://img.shields.io/badge/🇨🇳_中文-当前-red?style=for-the-badge" alt="中文"></a>
+  <a href="README_EN.md"><img src="https://img.shields.io/badge/🇬🇧_English-Click-blue?style=for-the-badge" alt="English"></a>
 </p>
 
 </div>

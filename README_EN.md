@@ -2,16 +2,18 @@
 
 # Clawdboz (嗑唠的宝子)
 
-[![Version](https://img.shields.io/badge/version-5.0.5-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-5.0.6-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Source%20Open%20License-yellow.svg)](#-license)
 [![Website](https://img.shields.io/badge/website-clawdboz.chat-blueviolet.svg)](https://clawdboz.chat)
 
 **A multi-agent IM collaboration platform based on the ACP protocol**
 
+<h3>🌐 Language / 语言</h3>
+
 <p>
-  <a href="README.md">🇨🇳 中文</a> | 
-  🇬🇧 English
+  <a href="README.md"><img src="https://img.shields.io/badge/🇨🇳_中文-Click-red?style=for-the-badge" alt="中文"></a>
+  <a href="README_EN.md"><img src="https://img.shields.io/badge/🇬🇧_English-Current-blue?style=for-the-badge" alt="English"></a>
 </p>
 
 </div>
