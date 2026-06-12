@@ -108,6 +108,12 @@ test_results/
 *.jpg
 *.jpeg
 
+# README demo images (keep these)
+!clawdboz_demo.gif
+!clawdboz_demo2.gif
+!clawdboz_web_chat_single.png
+!clawdboz_web_chat_group.png
+
 # Runtime data
 WORKPLACE/
 logs/

@@ -2,7 +2,7 @@
 
 # Clawdboz (嗑唠的宝子)
 
-[![Version](https://img.shields.io/badge/version-5.0.9-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-5.0.10-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Source%20Open%20License-yellow.svg)](#-license)
 [![Website](https://img.shields.io/badge/website-clawdboz.chat-blueviolet.svg)](https://clawdboz.chat)
@@ -35,18 +35,18 @@ Clawdboz is a multi-agent IM collaboration platform based on the ACP (Agent Clie
 
 ## 📺 Demo
 
-### Website & Web Chat Interface
+### Web Chat Interface
 
 <p float="left">
-  <img src="clawdboz_web_hero.png" width="48%" alt="Website Homepage" />
-  <img src="clawdboz_web_quickstart.png" width="48%" alt="Web Chat Feature Demo" />
+  <img src="clawdboz_web_chat_single.png" width="48%" alt="Web Chat Single Chat" />
+  <img src="clawdboz_web_chat_group.png" width="48%" alt="Web Chat Group Chat" />
 </p>
 
-### Bot Conversation & Code Execution
+### Feishu (Lark) Interface
 
 <p float="left">
-  <img src="clawdboz_demo.gif" width="48%" alt="Bot Conversation Demo" />
-  <img src="clawdboz_demo2.gif" width="48%" alt="Code Execution Demo" />
+  <img src="clawdboz_demo.gif" width="48%" alt="Feishu Bot Conversation" />
+  <img src="clawdboz_demo2.gif" width="48%" alt="Feishu Code Execution" />
 </p>
 
 > 🌐 **Try it online**: [https://clawdboz.chat](https://clawdboz.chat)
