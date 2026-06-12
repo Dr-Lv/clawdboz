@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clawdboz"
-version = "5.0.7"
+version = "5.0.8"
 description = "clawdboz - 基于 ACP 协议的多智能体 IM 协作平台"
 readme = "README.md"
 requires-python = ">=3.10"

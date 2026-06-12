@@ -2,7 +2,7 @@
 
 # 嗑唠的宝子 (Clawdboz)
 
-[![Version](https://img.shields.io/badge/version-5.0.7-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-5.0.8-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Source%20Open%20License-yellow.svg)](#-许可证)
 [![Website](https://img.shields.io/badge/官网-clawdboz.chat-blueviolet.svg)](https://clawdboz.chat)

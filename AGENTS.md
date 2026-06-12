@@ -74,7 +74,7 @@ clawdboz/                       # Python 包
     └── logger.py
 
 registry_server.py              # ❌ 本地已删除，源码在中心服务器 /root/code/clawdboz-server/registry_server.py
-                                # 修改 Registry 代码时，SSH 到 8.136.150.62 直接编辑中心服务器版本
+                                # 修改 Registry 代码时，SSH 到中心服务器（IP 见 MEMORY.md）直接编辑中心服务器版本
 web_server.py                   # Web Chat 入口（加载本地 bots）
 bot0.py                         # 飞书 Bot 入口
 tests/                          # 测试
@@ -210,7 +210,7 @@ Host1 .bot.md → _read_bot_avatar() → heartbeat → Registry (avatar_color/av
 
 1. **三份代码库风险**: git repo (`/root/code/clawdboz/`) ≠ 运行时 (`/opt/clawdboz-instance/`) ≠ pip 安装路径 (`/usr/lib/python3.11/site-packages/clawdboz/`)。修改后务必确认运行时加载的是正确路径的代码。重启是最安全的验证方式。
 
-2. **Registry 源码位置**: 注册中心主源码在中心服务器 (`8.136.150.62`) 的 `/root/code/clawdboz-server/registry_server.py`。**本地已删除该文件**，不再保留副本。任何 Registry 修改必须 SSH 到中心服务器直接执行，切勿在本地创建同名文件后误部署。
+2. **Registry 源码位置**: 注册中心主源码在中心服务器（IP 见 `MEMORY.md`）的 `/root/code/clawdboz-server/registry_server.py`。**本地已删除该文件**，不再保留副本。任何 Registry 修改必须 SSH 到中心服务器直接执行，切勿在本地创建同名文件后误部署。
 
 3. **Python 模块缓存**: 修改 `.py` 文件后，已运行的进程不会自动加载新代码。必须重启 `web_server.py`。
 
@@ -245,7 +245,7 @@ Host1 .bot.md → _read_bot_avatar() → heartbeat → Registry (avatar_color/av
 - 执行部署、运维、日志查看、服务重启前
 
 **关键内容**：
-- Registry 服务器 (`api.clawdboz.chat`) 和 Host1 (`47.110.136.0`) 的 SSH 密钥路径
+- Registry 服务器 (`api.clawdboz.chat`) 和 Host1 的 SSH 密钥路径
 - 各实例的安装路径（如 `/opt/clawdboz-registry`、`/tmp/clawdboz`）
 - systemd 服务名和常用运维命令
 
